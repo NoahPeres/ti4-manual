@@ -13,15 +13,18 @@ test:
 
 lint:
 	uv pip install ruff
-	ruff check src tests
+	uv run ruff check src tests
 
 typecheck:
 	uv pip install ty
-	ty check src tests
+	uv run ty check src tests
 
 format:
 	uv pip install ruff
-	ruff format src tests
+	uv run ruff format src tests
+
+.PHONY: precommit
+precommit: format lint typecheck test
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache
