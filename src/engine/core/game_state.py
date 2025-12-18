@@ -7,8 +7,3 @@ Player = str  # Placeholder for the Player type
 class GameState:
     players: tuple[Player, ...]
     active_player: Player
-
-
-def post_validate(candidate_state: GameState) -> bool:
-    # Game state level invariants can be checked here
-    return True

@@ -131,3 +131,14 @@ def test_undo_end_turn():
     previous_state = session.undo()
     assert previous_state.active_player == "Player1"
     assert len(session.history) == 0  # Ensure history has been reverted
+
+
+def test_undo_without_history_returns_initial_state():
+    session: GameSession = _set_up_session(
+        players=("Player1", "Player2"), initial_player="Player1"
+    )
+    current_state: GameState = session.current_state
+    assert current_state == session.initial_state
+
+    state_after_undo = session.undo()
+    assert state_after_undo == session.initial_state
