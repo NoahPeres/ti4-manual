@@ -15,14 +15,14 @@ class TrivialEvent(Event):
 
 
 class ChangePlayer(Event):
-    def __init__(self, players: list[Player]):
+    def __init__(self, players: tuple[Player, ...]):
         self.payload: str = "change_player"
-        self.players = players
+        self.players: tuple[Player, ...] = players
 
     def apply(self, previous_state: GameState) -> GameState:
-        current_player = previous_state.active_player
-        current_index = self.players.index(current_player)
-        new_player = self.players[(current_index + 1) % len(self.players)]
+        current_player: Player = previous_state.active_player
+        current_index: int = self.players.index(current_player)
+        new_player: Player = self.players[(current_index + 1) % len(self.players)]
         new_state = GameState(players=previous_state.players, active_player=new_player)
         return new_state
 
@@ -61,7 +61,7 @@ class EndTurn(Command):
 
 
 def _set_up_session(
-    players: list[Player],
+    players: tuple[Player, ...],
     initial_player: Player = "TestPlayer",
     game_state_invariants: list[GameStateInvariant] = [],
     initial_state: GameState | None = None,
@@ -76,24 +76,25 @@ def _set_up_session(
 def test_when_command_invalid_no_event_applied():
     invalid_command = InvalidCommand()
     session: GameSession = _set_up_session(
-        players=["TestPlayer"], initial_player="TestPlayer"
+        players=("TestPlayer",), initial_player="TestPlayer"
     )
     new_state: GameState = session.apply_command(command=invalid_command)
     assert new_state == session.initial_state
+    assert len(session.history) == 0  # Ensure history has not changed
 
 
 def test_when_command_is_valid_we_apply_events():
     valid_command = ValidCommand()
     session: GameSession = _set_up_session(
-        players=["TestPlayer"], initial_player="TestPlayer"
+        players=("TestPlayer",), initial_player="TestPlayer"
     )
     _: GameState = session.apply_command(command=valid_command)
-    assert len(session.history) > 1  # Ensure history has changed, even if state hasn't
+    assert len(session.history) > 0  # Ensure history has changed, even if state hasn't
 
 
 def test_end_turn_changes_active_player():
     session: GameSession = _set_up_session(
-        players=["Player1", "Player2"], initial_player="Player1"
+        players=("Player1", "Player2"), initial_player="Player1"
     )
     end_turn_command = EndTurn(actor="Player1")
     new_state: GameState = session.apply_command(command=end_turn_command)
@@ -107,7 +108,7 @@ def test_invariant_violation_prevents_state_change():
 
     end_turn_command = EndTurn(actor="Player1")
     session: GameSession = _set_up_session(
-        players=["Player1", "Player2"],
+        players=("Player1", "Player2"),
         initial_player="Player1",
         game_state_invariants=[FailingInvariant()],
     )

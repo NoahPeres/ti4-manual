@@ -5,7 +5,7 @@ Player = str  # Placeholder for the Player type
 
 @dataclass(frozen=True)
 class GameState:
-    players: list[Player]
+    players: tuple[Player, ...]
     active_player: Player
 
 
