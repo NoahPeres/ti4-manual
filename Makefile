@@ -15,6 +15,10 @@ lint:
 	uv pip install ruff
 	ruff check src tests
 
+typecheck:
+	uv pip install ty
+	ty check src tests
+
 format:
 	uv pip install ruff
 	ruff format src tests
@@ -24,6 +28,7 @@ clean:
 
 update:
 	uv pip compile --all-extras -o requirements.txt pyproject.toml
+	make install
 
 setup:
 	python -m pip install uv || pip install uv

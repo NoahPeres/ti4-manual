@@ -18,3 +18,7 @@ pytest==9.0.2
     #   pytest-cov
 pytest-cov==7.0.0
     # via ti4-manual (pyproject.toml)
+ruff==0.14.9
+    # via ti4-manual (pyproject.toml)
+ty==0.0.3
+    # via ti4-manual (pyproject.toml)

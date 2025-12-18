@@ -1,0 +1,8 @@
+README.md
+main.py
+pyproject.toml
+ti4_manual.egg-info/PKG-INFO
+ti4_manual.egg-info/SOURCES.txt
+ti4_manual.egg-info/dependency_links.txt
+ti4_manual.egg-info/requires.txt
+ti4_manual.egg-info/top_level.txt
