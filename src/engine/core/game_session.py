@@ -24,4 +24,7 @@ class GameSession:
         return self.current_state
 
     def undo(self) -> GameState:
-        raise NotImplementedError("Undo functionality is not yet implemented.")
+        if not self.history:
+            return self.current_state
+        _: CommandResult = self.history.pop()
+        return self.current_state
