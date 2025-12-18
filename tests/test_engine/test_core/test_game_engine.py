@@ -63,11 +63,13 @@ class EndTurn(Command):
 def _set_up_session(
     players: tuple[Player, ...],
     initial_player: Player = "TestPlayer",
-    game_state_invariants: list[GameStateInvariant] = [],
+    game_state_invariants: list[GameStateInvariant] | None = None,
     initial_state: GameState | None = None,
 ) -> GameSession:
     if initial_state is None:
         initial_state = GameState(players=players, active_player=initial_player)
+    if game_state_invariants is None:
+        game_state_invariants = []
     engine = GameEngine(invariants=game_state_invariants)
     session = GameSession(initial_state, engine=engine)
     return session

@@ -23,6 +23,7 @@ format:
 	uv pip install ruff
 	uv run ruff format src tests
 
+.PHONY: precommit
 precommit: format lint typecheck test
 
 clean:
