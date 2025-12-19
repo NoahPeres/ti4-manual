@@ -1,8 +1,16 @@
-from src.engine.core.command import Command
+from collections.abc import Sequence
+from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import Event
 from src.engine.core.game_state import GameState, Player
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_engine import GameEngine, GameStateInvariant
+from src.engine.core.game_engine import (
+    GameEngine,
+    GameStateInvariant,
+    InvariantViolationError,
+)
+from src.engine.core.rules_engine import RulesEngine
+
+import pytest
 
 
 class TrivialEvent(Event):
@@ -27,37 +35,34 @@ class ChangePlayer(Event):
         return new_state
 
 
-class InvalidCommand(Command):
-    def __init__(self, actor: Player = "TestPlayer"):
-        self.actor: str = actor
+class TrivialCommandRule(CommandRule):
+    def __repr__(self) -> str:
+        return "TrivialCommandRule"
 
-    def pre_validate(self, state: GameState):
-        return False
+    def validate_legality(self, state: GameState, command: Command):
+        return command.type == CommandType.ALWAYS_VALID
 
-    def derive_events(self, state: GameState):
+    def derive_events(self, state: GameState, command: Command):
         return [TrivialEvent(payload="test")]
 
 
-class ValidCommand(Command):
-    def __init__(self, actor: Player = "TestPlayer"):
-        self.actor: str = actor
+class EndTurn(CommandRule):
+    def __repr__(self) -> str:
+        return "EndTurn"
 
-    def pre_validate(self, state: GameState):
-        return True
+    def validate_legality(self, state: GameState, command: Command):
+        return command.actor == state.active_player
 
-    def derive_events(self, state: GameState):
-        return [TrivialEvent(payload="test")]
+    def derive_events(self, state: GameState, command: Command):
+        if command.type == CommandType.END_TURN:
+            return [ChangePlayer(players=state.players)]
+        return []
 
 
-class EndTurn(Command):
-    def __init__(self, actor: Player = "TestPlayer"):
-        self.actor: str = actor
-
-    def pre_validate(self, state: GameState):
-        return True
-
-    def derive_events(self, state: GameState):
-        return [ChangePlayer(players=state.players)]
+class TrivialRulesEngine(RulesEngine):
+    def __init__(self, command_rules: Sequence[CommandRule]):
+        self.command_rules: Sequence[CommandRule] = command_rules
+        self.event_rules = []
 
 
 def _set_up_session(
@@ -65,20 +70,28 @@ def _set_up_session(
     initial_player: Player = "TestPlayer",
     game_state_invariants: list[GameStateInvariant] | None = None,
     initial_state: GameState | None = None,
+    command_rules: Sequence[CommandRule] | None = None,
 ) -> GameSession:
     if initial_state is None:
         initial_state = GameState(players=players, active_player=initial_player)
     if game_state_invariants is None:
         game_state_invariants = []
-    engine = GameEngine(invariants=game_state_invariants)
+    if command_rules is None:
+        command_rules = []
+    engine = GameEngine(
+        invariants=game_state_invariants,
+        rules_engine=TrivialRulesEngine(command_rules=command_rules),
+    )
     session = GameSession(initial_state, engine=engine)
     return session
 
 
 def test_when_command_invalid_no_event_applied():
-    invalid_command = InvalidCommand()
+    invalid_command = Command(actor="TestPlayer", type=CommandType.ALWAYS_INVALID)
     session: GameSession = _set_up_session(
-        players=("TestPlayer",), initial_player="TestPlayer"
+        players=("TestPlayer",),
+        initial_player="TestPlayer",
+        command_rules=[TrivialCommandRule()],
     )
     new_state: GameState = session.apply_command(command=invalid_command)
     assert new_state == session.initial_state
@@ -86,9 +99,11 @@ def test_when_command_invalid_no_event_applied():
 
 
 def test_when_command_is_valid_we_apply_events():
-    valid_command = ValidCommand()
+    valid_command = Command(actor="TestPlayer", type=CommandType.ALWAYS_VALID)
     session: GameSession = _set_up_session(
-        players=("TestPlayer",), initial_player="TestPlayer"
+        players=("TestPlayer",),
+        initial_player="TestPlayer",
+        command_rules=[TrivialCommandRule()],
     )
     _: GameState = session.apply_command(command=valid_command)
     assert len(session.history) > 0  # Ensure history has changed, even if state hasn't
@@ -96,46 +111,52 @@ def test_when_command_is_valid_we_apply_events():
 
 def test_end_turn_changes_active_player():
     session: GameSession = _set_up_session(
-        players=("Player1", "Player2"), initial_player="Player1"
+        players=("Player1", "Player2"),
+        initial_player="Player1",
+        command_rules=[EndTurn()],
     )
-    end_turn_command = EndTurn(actor="Player1")
+    end_turn_command = Command(actor="Player1", type=CommandType.END_TURN)
     new_state: GameState = session.apply_command(command=end_turn_command)
     assert new_state.active_player == "Player2"
 
 
 def test_invariant_violation_prevents_state_change():
     class FailingInvariant(GameStateInvariant):
+        description: str = "Always fails invariant"
+
         def check(self, state: GameState) -> bool:
             return False  # Always fails
 
-    end_turn_command = EndTurn(actor="Player1")
+    end_turn_command = Command(actor="Player1", type=CommandType.END_TURN)
     session: GameSession = _set_up_session(
         players=("Player1", "Player2"),
         initial_player="Player1",
         game_state_invariants=[FailingInvariant()],
     )
-    new_state: GameState = session.apply_command(command=end_turn_command)
-    assert (
-        new_state == session.initial_state
-    )  # State should not change due to invariant failure
+    with pytest.raises(expected_exception=InvariantViolationError):
+        _: GameState = session.apply_command(command=end_turn_command)
 
 
 def test_undo_end_turn():
     session: GameSession = _set_up_session(
-        players=("Player1", "Player2"), initial_player="Player1"
+        players=("Player1", "Player2"),
+        initial_player="Player1",
+        command_rules=[EndTurn()],
     )
-    end_turn_command = EndTurn(actor="Player1")
+    end_turn_command = Command(actor="Player1", type=CommandType.END_TURN)
     state_after_end_turn: GameState = session.apply_command(command=end_turn_command)
     assert state_after_end_turn.active_player == "Player2"
 
-    previous_state = session.undo()
+    previous_state: GameState = session.undo()
     assert previous_state.active_player == "Player1"
     assert len(session.history) == 0  # Ensure history has been reverted
 
 
 def test_undo_without_history_returns_initial_state():
     session: GameSession = _set_up_session(
-        players=("Player1", "Player2"), initial_player="Player1"
+        players=("Player1", "Player2"),
+        initial_player="Player1",
+        command_rules=[TrivialCommandRule()],
     )
     current_state: GameState = session.current_state
     assert current_state == session.initial_state
