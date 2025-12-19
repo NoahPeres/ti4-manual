@@ -1,7 +1,9 @@
-from collections.abc import Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from src.engine.core.game_state import GameState
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.game_state import GameState
 
 
 class Event(Protocol):

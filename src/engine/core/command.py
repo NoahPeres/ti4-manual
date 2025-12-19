@@ -1,10 +1,12 @@
-from dataclasses import dataclass
 import enum
-from collections.abc import Sequence
-from typing import Protocol
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
 
-from src.engine.core.game_state import GameState, Player
-from src.engine.core.event import Event
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.event import Event
+    from src.engine.core.game_state import GameState, Player
 
 
 class CommandType(enum.StrEnum):

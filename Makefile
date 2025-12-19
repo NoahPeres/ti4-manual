@@ -21,6 +21,7 @@ typecheck:
 
 format:
 	uv pip install ruff
+	uv run ruff check --fix src tests --unsafe-fixes
 	uv run ruff format src tests
 
 .PHONY: precommit

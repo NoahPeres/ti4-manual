@@ -1,20 +1,24 @@
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+import pytest
+
 from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import Event
-from src.engine.core.game_state import GameState, Player
-from src.engine.core.game_session import GameSession
 from src.engine.core.game_engine import (
     GameEngine,
     GameStateInvariant,
     InvariantViolationError,
 )
+from src.engine.core.game_session import GameSession
+from src.engine.core.game_state import GameState, Player
 from src.engine.core.rules_engine import RulesEngine
 
-import pytest
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class TrivialEvent(Event):
-    def __init__(self, payload: str):
+    def __init__(self, payload: str) -> None:
         self.payload: str = payload
 
     def apply(self, previous_state):
@@ -23,7 +27,7 @@ class TrivialEvent(Event):
 
 
 class ChangePlayer(Event):
-    def __init__(self, players: tuple[Player, ...]):
+    def __init__(self, players: tuple[Player, ...]) -> None:
         self.payload: str = "change_player"
         self.players: tuple[Player, ...] = players
 
@@ -31,8 +35,7 @@ class ChangePlayer(Event):
         current_player: Player = previous_state.active_player
         current_index: int = self.players.index(current_player)
         new_player: Player = self.players[(current_index + 1) % len(self.players)]
-        new_state = GameState(players=previous_state.players, active_player=new_player)
-        return new_state
+        return GameState(players=previous_state.players, active_player=new_player)
 
 
 class TrivialCommandRule(CommandRule):
@@ -60,7 +63,7 @@ class EndTurn(CommandRule):
 
 
 class TrivialRulesEngine(RulesEngine):
-    def __init__(self, command_rules: Sequence[CommandRule]):
+    def __init__(self, command_rules: Sequence[CommandRule]) -> None:
         self.command_rules: Sequence[CommandRule] = command_rules
         self.event_rules = []
 
@@ -82,11 +85,10 @@ def _set_up_session(
         invariants=game_state_invariants,
         rules_engine=TrivialRulesEngine(command_rules=command_rules),
     )
-    session = GameSession(initial_state, engine=engine)
-    return session
+    return GameSession(initial_state, engine=engine)
 
 
-def test_when_command_invalid_no_event_applied():
+def test_when_command_invalid_no_event_applied() -> None:
     invalid_command = Command(actor="TestPlayer", type=CommandType.ALWAYS_INVALID)
     session: GameSession = _set_up_session(
         players=("TestPlayer",),
@@ -98,7 +100,7 @@ def test_when_command_invalid_no_event_applied():
     assert len(session.history) == 0  # Ensure history has not changed
 
 
-def test_when_command_is_valid_we_apply_events():
+def test_when_command_is_valid_we_apply_events() -> None:
     valid_command = Command(actor="TestPlayer", type=CommandType.ALWAYS_VALID)
     session: GameSession = _set_up_session(
         players=("TestPlayer",),
@@ -109,7 +111,7 @@ def test_when_command_is_valid_we_apply_events():
     assert len(session.history) > 0  # Ensure history has changed, even if state hasn't
 
 
-def test_end_turn_changes_active_player():
+def test_end_turn_changes_active_player() -> None:
     session: GameSession = _set_up_session(
         players=("Player1", "Player2"),
         initial_player="Player1",
@@ -120,7 +122,7 @@ def test_end_turn_changes_active_player():
     assert new_state.active_player == "Player2"
 
 
-def test_invariant_violation_prevents_state_change():
+def test_invariant_violation_prevents_state_change() -> None:
     class FailingInvariant(GameStateInvariant):
         description: str = "Always fails invariant"
 
@@ -137,7 +139,7 @@ def test_invariant_violation_prevents_state_change():
         _: GameState = session.apply_command(command=end_turn_command)
 
 
-def test_undo_end_turn():
+def test_undo_end_turn() -> None:
     session: GameSession = _set_up_session(
         players=("Player1", "Player2"),
         initial_player="Player1",
@@ -152,7 +154,7 @@ def test_undo_end_turn():
     assert len(session.history) == 0  # Ensure history has been reverted
 
 
-def test_undo_without_history_returns_initial_state():
+def test_undo_without_history_returns_initial_state() -> None:
     session: GameSession = _set_up_session(
         players=("Player1", "Player2"),
         initial_player="Player1",

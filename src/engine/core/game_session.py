@@ -1,10 +1,13 @@
-from src.engine.core.game_engine import GameEngine, CommandResult
-from src.engine.core.game_state import GameState
-from src.engine.core.command import Command
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.engine.core.command import Command
+    from src.engine.core.game_engine import CommandResult, GameEngine
+    from src.engine.core.game_state import GameState
 
 
 class GameSession:
-    def __init__(self, initial_state: GameState, engine: GameEngine):
+    def __init__(self, initial_state: GameState, engine: GameEngine) -> None:
         self.initial_state: GameState = initial_state
         self.engine: GameEngine = engine
         self.history: list[CommandResult] = []
@@ -15,7 +18,8 @@ class GameSession:
 
     def apply_command(self, command: Command) -> GameState:
         command_result: CommandResult = self.engine.apply_command(
-            state=self.current_state, command=command
+            state=self.current_state,
+            command=command,
         )
         if command_result.success:
             new_state: GameState = command_result.new_state
