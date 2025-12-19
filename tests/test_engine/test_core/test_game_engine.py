@@ -43,7 +43,7 @@ class TrivialCommandRule(CommandRule):
         return "TrivialCommandRule"
 
     def validate_legality(self, state: GameState, command: Command):
-        return command.type == CommandType.ALWAYS_VALID
+        return command.command_type == CommandType.ALWAYS_VALID
 
     def derive_events(self, state: GameState, command: Command):
         return [TrivialEvent(payload="test")]
@@ -57,7 +57,7 @@ class EndTurn(CommandRule):
         return command.actor == state.active_player
 
     def derive_events(self, state: GameState, command: Command):
-        if command.type == CommandType.END_TURN:
+        if command.command_type == CommandType.END_TURN:
             return [ChangePlayer(players=state.players)]
         return []
 
@@ -89,7 +89,7 @@ def _set_up_session(
 
 
 def test_when_command_invalid_no_event_applied() -> None:
-    invalid_command = Command(actor="TestPlayer", type=CommandType.ALWAYS_INVALID)
+    invalid_command = Command(actor="TestPlayer", command_type=CommandType.ALWAYS_INVALID)
     session: GameSession = _set_up_session(
         players=("TestPlayer",),
         initial_player="TestPlayer",
@@ -101,7 +101,7 @@ def test_when_command_invalid_no_event_applied() -> None:
 
 
 def test_when_command_is_valid_we_apply_events() -> None:
-    valid_command = Command(actor="TestPlayer", type=CommandType.ALWAYS_VALID)
+    valid_command = Command(actor="TestPlayer", command_type=CommandType.ALWAYS_VALID)
     session: GameSession = _set_up_session(
         players=("TestPlayer",),
         initial_player="TestPlayer",
@@ -117,7 +117,7 @@ def test_end_turn_changes_active_player() -> None:
         initial_player="Player1",
         command_rules=[EndTurn()],
     )
-    end_turn_command = Command(actor="Player1", type=CommandType.END_TURN)
+    end_turn_command = Command(actor="Player1", command_type=CommandType.END_TURN)
     new_state: GameState = session.apply_command(command=end_turn_command)
     assert new_state.active_player == "Player2"
 
@@ -129,11 +129,12 @@ def test_invariant_violation_prevents_state_change() -> None:
         def check(self, state: GameState) -> bool:
             return False  # Always fails
 
-    end_turn_command = Command(actor="Player1", type=CommandType.END_TURN)
+    end_turn_command = Command(actor="Player1", command_type=CommandType.END_TURN)
     session: GameSession = _set_up_session(
         players=("Player1", "Player2"),
         initial_player="Player1",
         game_state_invariants=[FailingInvariant()],
+        command_rules=[EndTurn()],
     )
     with pytest.raises(expected_exception=InvariantViolationError):
         _: GameState = session.apply_command(command=end_turn_command)
@@ -145,7 +146,7 @@ def test_undo_end_turn() -> None:
         initial_player="Player1",
         command_rules=[EndTurn()],
     )
-    end_turn_command = Command(actor="Player1", type=CommandType.END_TURN)
+    end_turn_command = Command(actor="Player1", command_type=CommandType.END_TURN)
     state_after_end_turn: GameState = session.apply_command(command=end_turn_command)
     assert state_after_end_turn.active_player == "Player2"
 

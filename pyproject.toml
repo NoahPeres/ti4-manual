@@ -16,11 +16,8 @@ dependencies = [
     target-version = "py314"
     exclude = ["__pycache__", ".venv", "build", "dist", "ti4_manual.egg-info"]
 
-[tool.isort]
-    select = ["E", "F", "W", "C90", "I"]  # E/W/F = pyflakes/flake8-like, I = isort codes
-    ignore = ["E203"]                      # example: compatible with Black
-    extend-select = ["B"]                   # optional: add bugbear rules
-    profile = "ruff"
-    line_length = 100
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I", "B"]  # E/W/F = pyflakes/flake8-like, I = isort codes, B = bugbear
+ignore = ["E203"]
 
 

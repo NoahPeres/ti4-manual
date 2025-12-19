@@ -18,7 +18,7 @@ class CommandType(enum.StrEnum):
 @dataclass(frozen=True)
 class Command:
     actor: Player
-    type: CommandType
+    command_type: CommandType
 
 
 class CommandRule(Protocol):
