@@ -13,17 +13,10 @@ from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import GameState, Player
 from src.engine.core.rules_engine import RulesEngine
 
+from .common import FailingInvariant, TrivialEvent
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-
-class TrivialEvent(Event):
-    def __init__(self, payload: str) -> None:
-        self.payload: str = payload
-
-    def apply(self, previous_state):
-        # For testing purposes, we just return the previous state unchanged
-        return previous_state
 
 
 class ChangePlayer(Event):
@@ -123,12 +116,6 @@ def test_end_turn_changes_active_player() -> None:
 
 
 def test_invariant_violation_prevents_state_change() -> None:
-    class FailingInvariant(GameStateInvariant):
-        description: str = "Always fails invariant"
-
-        def check(self, state: GameState) -> bool:
-            return False  # Always fails
-
     end_turn_command = Command(actor="Player1", command_type=CommandType.END_TURN)
     session: GameSession = _set_up_session(
         players=("Player1", "Player2"),

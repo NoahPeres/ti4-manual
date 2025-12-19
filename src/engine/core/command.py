@@ -14,6 +14,10 @@ class CommandType(enum.StrEnum):
     ALWAYS_VALID = "always_valid"
     ALWAYS_INVALID = "always_invalid"
 
+    @staticmethod
+    def all_command_types() -> list[CommandType]:
+        return list(CommandType.__members__.values())
+
 
 @dataclass(frozen=True)
 class Command:

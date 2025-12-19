@@ -15,3 +15,8 @@ class RulesEngine(Protocol):
 
     command_rules: Sequence[CommandRule]
     event_rules: Sequence[EventRule]
+
+
+class TI4RulesEngine(RulesEngine):
+    command_rules: Sequence[CommandRule] = []
+    event_rules: Sequence[EventRule] = []
