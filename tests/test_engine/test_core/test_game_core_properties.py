@@ -64,6 +64,7 @@ class CustomRulesEngine(TI4RulesEngine):
     def __init__(
         self, command_rules: Sequence[CommandRule], event_rules: Sequence[EventRule]
     ) -> None:
+        super().__init__()
         self.command_rules: Sequence[CommandRule] = command_rules
         self.event_rules: Sequence[EventRule] = event_rules
 

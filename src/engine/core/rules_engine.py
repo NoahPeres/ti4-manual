@@ -1,10 +1,9 @@
 from typing import TYPE_CHECKING, Protocol
+from src.engine.core.command import CommandRule
+from src.engine.core.event import EventRule
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from src.engine.core.command import CommandRule
-    from src.engine.core.event import EventRule
 
 
 class RulesEngine(Protocol):
@@ -18,5 +17,6 @@ class RulesEngine(Protocol):
 
 
 class TI4RulesEngine(RulesEngine):
-    command_rules: Sequence[CommandRule] = []
-    event_rules: Sequence[EventRule] = []
+    def __init__(self) -> None:
+        self.command_rules: Sequence[CommandRule] = []
+        self.event_rules: Sequence[EventRule] = []
