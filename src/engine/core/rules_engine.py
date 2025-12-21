@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Protocol
+
 from src.engine.core.command import CommandRule
 from src.engine.core.event import EventRule
 
