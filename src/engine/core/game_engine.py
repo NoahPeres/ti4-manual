@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -16,7 +16,11 @@ class GameStateInvariant(Protocol):
     def check(self, state: GameState) -> bool: ...
 
 
-class InvariantViolationError(Exception):
+class InvariantViolationError(RuntimeError):
+    pass
+
+
+class IllegalStateMutationError(RuntimeError):
     pass
 
 
@@ -56,10 +60,21 @@ class GameEngine:
 
         while events:
             event: Event = events.pop(0)
-            new_state: GameState = event.apply(previous_state=new_state)
+            try:
+                new_state: GameState = event.apply(previous_state=new_state)
+            except FrozenInstanceError as e:
+                raise IllegalStateMutationError(
+                    f"Illegal mutation of game state detected when applying event {event}: {e}"
+                ) from e
             resolved_events.append(event)
             for rule in self.rules_engine.event_rules:
-                new_events: Sequence[Event] = rule.on_event(new_state, event)
+                try:
+                    new_events: Sequence[Event] = rule.on_event(state=new_state, event=event)
+                except FrozenInstanceError as e:
+                    raise IllegalStateMutationError(
+                        f"Illegal mutation of game state detected when processing event {event} "
+                        f"with rule {rule}: {e}"
+                    ) from e
                 events: list[Event] = list(new_events) + events
 
         failed_invariants: list[GameStateInvariant] = [

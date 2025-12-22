@@ -9,6 +9,8 @@ dependencies = [
     "pytest-cov",
     "ruff",
     "ty",
+    "hypothesis",
+    "numpy",
 ]
 
 [tool.ruff]

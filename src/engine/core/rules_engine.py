@@ -15,3 +15,9 @@ class RulesEngine(Protocol):
 
     command_rules: Sequence[CommandRule]
     event_rules: Sequence[EventRule]
+
+
+class TI4RulesEngine(RulesEngine):
+    def __init__(self) -> None:
+        self.command_rules: Sequence[CommandRule] = []
+        self.event_rules: Sequence[EventRule] = []
