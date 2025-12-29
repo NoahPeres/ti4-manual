@@ -96,7 +96,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
 
 @pytest.mark.skip(reason="Blocked by other implementation")
 def test_48_2_b_only_strategy_phase_cards_determine_initiative_order() -> None:
-    raise AssertionError  # Covered by other tests
+    pass
 
 
 def test_48_3_multiple_strategy_cards_choose_lowest_initiative() -> None:

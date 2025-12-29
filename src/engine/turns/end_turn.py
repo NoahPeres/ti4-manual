@@ -26,8 +26,6 @@ class EndTurn(CommandRule):
         return state.active_player == command.actor
 
     def derive_events(self, state: GameState, command: Command) -> list[Event]:
-        # Create an event that changes the active player to the next player
-
         return [EndTurnEvent()]
 
 

@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_state import GameState, Player
@@ -8,13 +6,6 @@ from src.engine.core.ti4_rules_engine import TI4RulesEngine
 TEST_PLAYER = Player("TestPlayer")
 ANOTHER_PLAYER = Player("AnotherPlayer")
 ENGINE = GameEngine(rules_engine=TI4RulesEngine())
-
-
-@dataclass(frozen=True)
-class PlayerInitiative:
-    name: str
-    strategy_card: str
-    initiative: int
 
 
 def test_end_turn_command_changes_active_player() -> None:

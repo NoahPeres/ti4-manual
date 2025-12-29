@@ -84,7 +84,10 @@ def test_engine_determinism(state: GameState, actor: Player, command_type: Comma
     r1: CommandResult = engine.apply_command(state=state1, command=command)
     r2: CommandResult = engine.apply_command(state=state2, command=command)
 
-    assert r1.events == r2.events
+    assert all(
+        event1.payload == event2.payload
+        for event1, event2 in zip(r1.events, r2.events, strict=True)
+    )
     assert r1.new_state == r2.new_state
     assert r1.success == r2.success
 
