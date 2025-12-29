@@ -7,8 +7,8 @@ from src.engine.tokens import TokenType
 @dataclass(frozen=True)
 class Player:
     name: str
-    strategy_cards: list[StrategyCard] = field(default_factory=list)
-    play_area: set[str] = field(default_factory=set)
+    strategy_cards: tuple[StrategyCard, ...] = field(default_factory=tuple)
+    play_area: frozenset[TokenType] = field(default_factory=frozenset)
 
     @property
     def initiative(self) -> int:

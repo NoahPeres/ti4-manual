@@ -1,8 +1,7 @@
-from ast import Assert
-import pytest
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -24,7 +23,7 @@ class PlayerInitiative:
 
 
 def _make_player_with_strategy_card(name: str, strategy_card: StrategyCard) -> Player:
-    return Player(name=name, strategy_cards=[strategy_card])
+    return Player(name=name, strategy_cards=(strategy_card,))
 
 
 @given(initiative=st.integers(min_value=1, max_value=8))
@@ -41,7 +40,9 @@ def test_48_1_initiative_defined_by_strategy_card(initiative: int) -> None:
 def test_48_1_a_player_with_naalu_token_has_initiative_0(initiative: int) -> None:
     strategy_card = StrategyCard(name="XXXXX", initiative=initiative)
     player_a = Player(
-        name="PlayerA", strategy_cards=[strategy_card], play_area={tokens.TokenType.NAALU_ZERO}
+        name="PlayerA",
+        strategy_cards=(strategy_card,),
+        play_area=frozenset([tokens.TokenType.NAALU_ZERO]),
     )
     assert player_a.initiative == 0
 
@@ -103,6 +104,6 @@ def test_48_3_multiple_strategy_cards_choose_lowest_initiative() -> None:
     strategy_card_2 = StrategyCard(name="DIPLOMACY", initiative=2)
     player_a = Player(
         name="PlayerA",
-        strategy_cards=[strategy_card_1, strategy_card_2],
+        strategy_cards=(strategy_card_1, strategy_card_2),
     )
     assert player_a.initiative == 1  # Lowest initiative among strategy cards
