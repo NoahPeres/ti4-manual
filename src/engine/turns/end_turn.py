@@ -23,7 +23,6 @@ class EndTurn(CommandRule):
         return "EndTurn"
 
     def validate_legality(self, state: GameState, command: Command) -> bool:
-        # End turn is always legal
         return state.active_player == command.actor
 
     def derive_events(self, state: GameState, command: Command) -> list[Event]:
