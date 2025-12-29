@@ -13,6 +13,7 @@ class CommandType(enum.StrEnum):
     END_TURN = "end_turn"
     ALWAYS_VALID = "always_valid"
     ALWAYS_INVALID = "always_invalid"
+    INITIATE_TACTICAL_ACTION = "initiate_tactical_action"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:

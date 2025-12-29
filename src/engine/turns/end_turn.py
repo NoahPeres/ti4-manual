@@ -1,6 +1,6 @@
-from src.engine.core.command import Command, CommandRule
-from src.engine.core.event import Event
-from src.engine.core.game_state import GameState
+from src.engine.core.command import Command, CommandRule, CommandType
+from src.engine.core.event import Event, EventRule
+from src.engine.core.game_state import GameState, TurnContext
 
 
 class EndTurnEvent(Event):
@@ -15,6 +15,7 @@ class EndTurnEvent(Event):
         return GameState(
             players=previous_state.players,
             active_player=new_active_player,
+            turn_context=TurnContext(has_taken_action=False, has_passed=False),
         )
 
 
@@ -23,11 +24,17 @@ class EndTurn(CommandRule):
         return "EndTurn"
 
     def validate_legality(self, state: GameState, command: Command) -> bool:
-        return state.active_player == command.actor
+        if command.command_type != CommandType.END_TURN:
+            return True  # Not applicable
+        return (state.active_player == command.actor) and state.turn_context.has_taken_turn
 
     def derive_events(self, state: GameState, command: Command) -> list[Event]:
         return [EndTurnEvent()]
 
 
-def get_rules() -> list[CommandRule]:
+def get_command_rules() -> list[CommandRule]:
     return [EndTurn()]
+
+
+def get_event_rules() -> list[EventRule]:
+    return []

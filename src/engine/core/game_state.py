@@ -5,6 +5,16 @@ from src.engine.tokens import TokenType
 
 
 @dataclass(frozen=True)
+class TurnContext:
+    has_taken_action: bool
+    has_passed: bool
+
+    @property
+    def has_taken_turn(self) -> bool:
+        return self.has_taken_action or self.has_passed
+
+
+@dataclass(frozen=True)
 class Player:
     name: str
     strategy_cards: tuple[StrategyCard, ...] = field(default_factory=tuple)
@@ -21,6 +31,7 @@ class Player:
 class GameState:
     players: tuple[Player, ...]
     active_player: Player
+    turn_context: TurnContext = field(default_factory=lambda: TurnContext(False, False))
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:

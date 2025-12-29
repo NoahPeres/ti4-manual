@@ -1,6 +1,6 @@
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
-from src.engine.core.game_state import GameState, Player
+from src.engine.core.game_state import GameState, Player, TurnContext
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 TEST_PLAYER = Player("TestPlayer")
@@ -13,6 +13,7 @@ def test_end_turn_command_changes_active_player() -> None:
         state=GameState(
             players=(TEST_PLAYER, ANOTHER_PLAYER),
             active_player=TEST_PLAYER,
+            turn_context=TurnContext(has_taken_action=True, has_passed=False),
         ),
         command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
     )
