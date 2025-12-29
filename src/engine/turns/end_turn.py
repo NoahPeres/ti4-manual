@@ -1,15 +1,17 @@
 from src.engine.core.command import Command, CommandRule
 from src.engine.core.event import Event
-from src.engine.core.game_state import GameState
+from src.engine.core.game_state import GameState, Player
 
 
 class EndTurnEvent(Event):
     payload: str = "EndTurnEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        current_index = previous_state.initiative_order.index(previous_state.active_player)
-        next_index = (current_index + 1) % len(previous_state.initiative_order)
-        new_active_player = previous_state.initiative_order[next_index]
+        if previous_state.active_player not in previous_state.initiative_order:
+            raise ValueError("Active player not in initiative order")
+        current_index: int = previous_state.initiative_order.index(previous_state.active_player)
+        next_index: int = (current_index + 1) % len(previous_state.initiative_order)
+        new_active_player: Player = previous_state.initiative_order[next_index]
         return GameState(
             players=previous_state.players,
             active_player=new_active_player,
