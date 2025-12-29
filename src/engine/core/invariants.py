@@ -14,6 +14,8 @@ class UniqueTokenInvariant(GameStateInvariant):
         seen_tokens: set[TokenType] = set()
         for player in state.players:
             for token in player.play_area:
+                if token not in self.tokens:
+                    continue
                 if token in seen_tokens:
                     return False
                 seen_tokens.add(token)

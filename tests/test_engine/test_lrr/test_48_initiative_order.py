@@ -50,9 +50,9 @@ def test_48_1_a_player_with_naalu_token_has_initiative_0(initiative: int) -> Non
 @given(
     player_shuffle=st.permutations(
         [
-            PlayerInitiative("Player1", "LEADERSHIP", 1),
-            PlayerInitiative("Player2", "DIPLOMACY", 2),
-            PlayerInitiative("Player3", "POLITICS", 3),
+            PlayerInitiative("PlayerA", "LEADERSHIP", 1),
+            PlayerInitiative("PlayerB", "DIPLOMACY", 2),
+            PlayerInitiative("PlayerC", "POLITICS", 3),
         ]
     )
 )
@@ -76,7 +76,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
     # Player 1 ends turn
     state_after_p1: GameState = ENGINE.apply_command(
         state=initial_state,
-        command=Command(actor=players[0], command_type=CommandType.END_TURN),
+        command=Command(actor=player_1, command_type=CommandType.END_TURN),
     ).new_state
 
     assert state_after_p1.active_player == player_2
