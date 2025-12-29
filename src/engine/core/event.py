@@ -9,6 +9,9 @@ if TYPE_CHECKING:
 class Event(Protocol):
     payload: str
 
+    def __eq__(self, value: object) -> bool:
+        return self.payload == getattr(value, "payload", None)
+
     def apply(self, previous_state: GameState) -> GameState: ...
 
 

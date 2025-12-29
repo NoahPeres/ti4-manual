@@ -9,11 +9,11 @@ from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_engine import CommandResult, GameEngine, IllegalStateMutationError
 from src.engine.core.game_state import GameState, Player
-from src.engine.core.rules_engine import TI4RulesEngine
+from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 from .common import TrivialEvent
 
-PLAYERS = ("Player1", "Player2", "Player3")
+PLAYERS = (Player("Player1"), Player("Player2"), Player("Player3"))
 DETERMINISTIC_COMMANDS: list[CommandType] = [CommandType.END_TURN]
 
 

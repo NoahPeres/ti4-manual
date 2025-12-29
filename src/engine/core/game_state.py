@@ -1,9 +1,32 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-Player = str  # Placeholder for the Player type
+from src.engine.strategy_cards import StrategyCard
+from src.engine.tokens import TokenType
+
+
+@dataclass(frozen=True)
+class Player:
+    name: str
+    strategy_cards: list[StrategyCard] = field(default_factory=list)
+    play_area: set[str] = field(default_factory=set)
+
+    @property
+    def initiative(self) -> int:
+        if TokenType.NAALU_ZERO in self.play_area:
+            return 0
+        return min(sc.initiative for sc in self.strategy_cards) if self.strategy_cards else -1
 
 
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
     active_player: Player
+
+    @property
+    def initiative_order(self) -> tuple[Player, ...]:
+        return tuple(
+            sorted(
+                self.players,
+                key=lambda p: p.initiative,
+            )
+        )
