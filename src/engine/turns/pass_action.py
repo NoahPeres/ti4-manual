@@ -1,3 +1,4 @@
+import dataclasses
 from collections.abc import Sequence
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
@@ -6,15 +7,10 @@ from src.engine.core.game_state import GameState, Player, TurnContext
 
 
 class PassEvent(Event):
-    payload = "Pass"
+    payload = "PassAction"
 
     def apply(self, previous_state: GameState) -> GameState:
-        passed_player = Player(
-            name=previous_state.active_player.name,
-            strategy_cards=previous_state.active_player.strategy_cards,
-            play_area=previous_state.active_player.play_area,
-            has_passed=True,
-        )
+        passed_player: Player = dataclasses.replace(previous_state.active_player, has_passed=True)
         new_players: tuple[Player, ...] = tuple(
             player if player != previous_state.active_player else passed_player
             for player in previous_state.players
@@ -22,7 +18,7 @@ class PassEvent(Event):
         return GameState(
             players=new_players,
             active_player=passed_player,
-            turn_context=TurnContext(has_taken_action=False, has_passed=True),
+            turn_context=TurnContext(has_taken_action=False),
         )
 
 

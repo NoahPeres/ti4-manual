@@ -53,7 +53,7 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
         initial_state=GameState(
             players=(player_a, player_b),
             active_player=player_a,
-            turn_context=TurnContext(has_taken_action=False, has_passed=False),
+            turn_context=TurnContext(has_taken_action=False),
         ),
         engine=engine,
     )
@@ -61,9 +61,8 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     new_state: GameState = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
     )
-    assert new_state.turn_context.has_passed
     assert new_state.active_player.has_passed
     turn_ended = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.END_TURN)
     )
-    assert turn_ended.active_player != player_a
+    assert turn_ended.active_player == player_b

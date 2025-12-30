@@ -7,11 +7,6 @@ from src.engine.tokens import TokenType
 @dataclass(frozen=True)
 class TurnContext:
     has_taken_action: bool
-    has_passed: bool
-
-    @property
-    def has_taken_turn(self) -> bool:
-        return self.has_taken_action or self.has_passed
 
 
 @dataclass(frozen=True)
@@ -27,12 +22,17 @@ class Player:
             return 0
         return min(sc.initiative for sc in self.strategy_cards) if self.strategy_cards else -1
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Player):
+            raise ValueError("Cannot compare Player object to non Player.")
+        return self.name == other.name
+
 
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
     active_player: Player
-    turn_context: TurnContext = field(default_factory=lambda: TurnContext(False, False))
+    turn_context: TurnContext = field(default_factory=lambda: TurnContext(False))
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -42,3 +42,7 @@ class GameState:
                 key=lambda p: p.initiative,
             )
         )
+
+    @property
+    def has_taken_turn(self) -> bool:
+        return self.turn_context.has_taken_action or self.active_player.has_passed
