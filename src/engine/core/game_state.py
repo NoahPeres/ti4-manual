@@ -19,6 +19,7 @@ class Player:
     name: str
     strategy_cards: tuple[StrategyCard, ...] = field(default_factory=tuple)
     play_area: frozenset[TokenType] = field(default_factory=frozenset)
+    has_passed: bool = False
 
     @property
     def initiative(self) -> int:

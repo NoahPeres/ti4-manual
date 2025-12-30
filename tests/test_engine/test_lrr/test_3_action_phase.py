@@ -1,7 +1,7 @@
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Player
+from src.engine.core.game_state import GameState, Player, TurnContext
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 
@@ -43,3 +43,23 @@ def test_3_1_player_may_perform_one_action() -> None:
         ),
     )
     assert not try_to_take_second_action.success
+
+
+def test_3_2_players_can_pass_then_end_turn() -> None:
+    player_a = Player(name="A")
+    player_b = Player(name="B")
+    engine = GameEngine(rules_engine=TI4RulesEngine())
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+            turn_context=TurnContext(has_taken_action=False, has_passed=False),
+        ),
+        engine=engine,
+    )
+
+    new_state: GameState = session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
+    )
+    assert new_state.turn_context.has_passed
+    assert new_state.active_player.has_passed
