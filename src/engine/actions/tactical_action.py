@@ -27,13 +27,9 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
         return command.command_type == CommandType.INITIATE_TACTICAL_ACTION
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        if not self.is_applicable(command):
-            return True
         return (state.active_player == command.actor) and not state.turn_context.has_taken_turn
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
-        if not self.is_applicable(command):
-            return []
         return [TacticalActionCompletedEvent()]
 
 
