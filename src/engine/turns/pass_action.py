@@ -1,10 +1,8 @@
 from collections.abc import Sequence
 
-from engine.core.command import Command
-from engine.core.event import Event
-from engine.core.game_state import GameState, Player, TurnContext
-from src.engine.core.command import CommandRule, CommandRuleWhenApplicable, CommandType
-from src.engine.core.event import EventRule
+from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
+from src.engine.core.event import Event, EventRule
+from src.engine.core.game_state import GameState, Player, TurnContext
 
 
 class PassEvent(Event):

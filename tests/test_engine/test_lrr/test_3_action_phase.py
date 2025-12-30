@@ -63,3 +63,7 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     )
     assert new_state.turn_context.has_passed
     assert new_state.active_player.has_passed
+    turn_ended = session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.END_TURN)
+    )
+    assert turn_ended.active_player != player_a
