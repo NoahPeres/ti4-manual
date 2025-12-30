@@ -82,14 +82,22 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
 
     assert state_after_p1.active_player == player_2
     # Player 2 ends turn
-    state_after_p2: GameState = ENGINE.apply_command(
+    player_2_action = ENGINE.apply_command(
         state=state_after_p1,
+        command=Command(actor=player_2, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+    ).new_state
+    state_after_p2: GameState = ENGINE.apply_command(
+        state=player_2_action,
         command=Command(actor=player_2, command_type=CommandType.END_TURN),
     ).new_state
     assert state_after_p2.active_player == player_3
     # Player 3 ends turn
-    state_after_p3: GameState = ENGINE.apply_command(
+    player_3_action = ENGINE.apply_command(
         state=state_after_p2,
+        command=Command(actor=player_3, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+    ).new_state
+    state_after_p3: GameState = ENGINE.apply_command(
+        state=player_3_action,
         command=Command(actor=player_3, command_type=CommandType.END_TURN),
     ).new_state
     assert state_after_p3.active_player == player_1  # Back to Player 1

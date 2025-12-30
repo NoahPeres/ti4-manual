@@ -20,14 +20,18 @@ class InitiateTacticalActionCommandRule(CommandRule):
     def __repr__(self) -> str:
         return "InitiateTacticalAction"
 
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return command.command_type == CommandType.INITIATE_TACTICAL_ACTION
+
     def validate_legality(self, state: GameState, command: Command) -> bool:
-        if command.command_type != CommandType.INITIATE_TACTICAL_ACTION:
-            return True  # Not applicable
+        if not self.is_applicable(command):
+            return True
         return (state.active_player == command.actor) and not state.turn_context.has_taken_turn
 
     def derive_events(self, state: GameState, command: Command) -> list[Event]:
-        # Placeholder event derivation; in a real implementation, this would create events
-        # related to initiating a tactical action.
+        if not self.is_applicable(command):
+            return []
         return [TacticalActionCompletedEvent()]
 
 

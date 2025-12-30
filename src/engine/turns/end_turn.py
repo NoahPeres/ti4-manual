@@ -23,12 +23,18 @@ class EndTurn(CommandRule):
     def __repr__(self) -> str:
         return "EndTurn"
 
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return command.command_type == CommandType.END_TURN
+
     def validate_legality(self, state: GameState, command: Command) -> bool:
-        if command.command_type != CommandType.END_TURN:
-            return True  # Not applicable
+        if not self.is_applicable(command):
+            return True
         return (state.active_player == command.actor) and state.turn_context.has_taken_turn
 
     def derive_events(self, state: GameState, command: Command) -> list[Event]:
+        if not self.is_applicable(command):
+            return []
         return [EndTurnEvent()]
 
 

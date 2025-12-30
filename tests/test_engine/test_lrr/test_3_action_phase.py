@@ -1,5 +1,5 @@
-from engine.core.game_engine import GameEngine
 from src.engine.core.command import Command, CommandType
+from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import GameState, Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine

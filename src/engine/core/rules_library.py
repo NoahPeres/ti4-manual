@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 from typing import Protocol, cast
 
+from src.engine.actions import tactical_action
 from src.engine.core.command import CommandRule
 from src.engine.core.event import EventRule
 from src.engine.turns import end_turn
-from src.engine.actions import tactical_action
 
 
 class RulesModule(Protocol):
@@ -32,6 +32,5 @@ def get_command_rules() -> list[CommandRule]:
 def get_event_rules() -> list[EventRule]:
     rules: list[EventRule] = []
     for module in MODULES_WITH_RULES:
-        if hasattr(module, "get_event_rules"):
-            rules.extend(module.get_event_rules())
+        rules.extend(module.get_event_rules())
     return rules
