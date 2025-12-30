@@ -1,7 +1,7 @@
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Player, TurnContext
+from src.engine.core.game_state import GameState, Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 
@@ -53,7 +53,6 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
         initial_state=GameState(
             players=(player_a, player_b),
             active_player=player_a,
-            turn_context=TurnContext(has_taken_action=False),
         ),
         engine=engine,
     )

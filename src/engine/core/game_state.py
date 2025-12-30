@@ -24,7 +24,7 @@ class Player:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Player):
-            raise ValueError("Cannot compare Player object to non Player.")
+            raise TypeError(f"Cannot compare Player to {type(other).__name__}")
         return self.name == other.name
 
 
@@ -32,7 +32,7 @@ class Player:
 class GameState:
     players: tuple[Player, ...]
     active_player: Player
-    turn_context: TurnContext = field(default_factory=lambda: TurnContext(False))
+    turn_context: TurnContext = field(default_factory=lambda: TurnContext(has_taken_action=False))
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
