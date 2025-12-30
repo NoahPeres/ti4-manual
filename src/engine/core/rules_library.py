@@ -4,7 +4,7 @@ from typing import Protocol, cast
 from src.engine.actions import tactical_action
 from src.engine.core.command import CommandRule
 from src.engine.core.event import EventRule
-from src.engine.turns import end_turn
+from src.engine.turns import end_turn, pass_action
 
 
 class RulesModule(Protocol):
@@ -18,6 +18,7 @@ MODULES_WITH_RULES: Sequence[RulesModule] = [
     for module in [
         end_turn,
         tactical_action,
+        pass_action,
     ]
 ]
 

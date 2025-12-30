@@ -15,6 +15,7 @@ class CommandType(enum.StrEnum):
     ALWAYS_VALID = "always_valid"
     ALWAYS_INVALID = "always_invalid"
     INITIATE_TACTICAL_ACTION = "initiate_tactical_action"
+    PASS_ACTION = "pass_action"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:

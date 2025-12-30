@@ -17,7 +17,7 @@ class EndTurnEvent(Event):
         return GameState(
             players=previous_state.players,
             active_player=new_active_player,
-            turn_context=TurnContext(has_taken_action=False, has_passed=False),
+            turn_context=TurnContext(has_taken_action=False),
         )
 
 
@@ -30,7 +30,7 @@ class EndTurn(CommandRuleWhenApplicable):
         return command.command_type == CommandType.END_TURN
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        return (state.active_player == command.actor) and state.turn_context.has_taken_turn
+        return (state.active_player == command.actor) and state.has_taken_turn
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
         return [EndTurnEvent()]
