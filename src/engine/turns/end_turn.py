@@ -1,5 +1,6 @@
 from collections.abc import Sequence
-from src.engine.core.command import Command, CommandRule, CommandType, CommandRuleWhenApplicable
+
+from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, TurnContext
 
