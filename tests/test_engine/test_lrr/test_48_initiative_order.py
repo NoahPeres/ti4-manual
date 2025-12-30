@@ -72,11 +72,15 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
     initial_state = GameState(
         players=players,
         active_player=player_1,
-        turn_context=TurnContext(has_taken_action=True, has_passed=False),
+        turn_context=TurnContext(has_taken_action=False, has_passed=False),
     )
     # Player 1 ends turn
-    state_after_p1: GameState = ENGINE.apply_command(
+    player_1_action = ENGINE.apply_command(
         state=initial_state,
+        command=Command(actor=player_1, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+    ).new_state
+    state_after_p1: GameState = ENGINE.apply_command(
+        state=player_1_action,
         command=Command(actor=player_1, command_type=CommandType.END_TURN),
     ).new_state
 

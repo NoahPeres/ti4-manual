@@ -1,4 +1,5 @@
-from src.engine.core.command import Command, CommandRule, CommandType
+from collections.abc import Sequence
+from src.engine.core.command import Command, CommandRule, CommandType, CommandRuleWhenApplicable
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, TurnContext
 
@@ -19,7 +20,7 @@ class EndTurnEvent(Event):
         )
 
 
-class EndTurn(CommandRule):
+class EndTurn(CommandRuleWhenApplicable):
     def __repr__(self) -> str:
         return "EndTurn"
 
@@ -27,12 +28,12 @@ class EndTurn(CommandRule):
     def is_applicable(command: Command) -> bool:
         return command.command_type == CommandType.END_TURN
 
-    def validate_legality(self, state: GameState, command: Command) -> bool:
+    def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
         if not self.is_applicable(command):
             return True
         return (state.active_player == command.actor) and state.turn_context.has_taken_turn
 
-    def derive_events(self, state: GameState, command: Command) -> list[Event]:
+    def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
         if not self.is_applicable(command):
             return []
         return [EndTurnEvent()]
