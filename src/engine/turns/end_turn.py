@@ -12,12 +12,12 @@ class EndTurnEvent(Event):
         current_initiative = previous_state.active_player.initiative
         higher_initiatives = [
             player
-            for player in previous_state.initiative_order
+            for player in previous_state.initiative_order_unpassed
             if player.initiative > current_initiative
         ]
         lower_initiatives = [
             player
-            for player in previous_state.initiative_order
+            for player in previous_state.initiative_order_unpassed
             if player.initiative <= current_initiative
         ]
         next_player: Player

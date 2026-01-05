@@ -38,10 +38,14 @@ class GameState:
     def initiative_order(self) -> tuple[Player, ...]:
         return tuple(
             sorted(
-                (player for player in self.players if not player.has_passed),
+                self.players,
                 key=lambda p: p.initiative,
             )
         )
+
+    @property
+    def initiative_order_unpassed(self) -> tuple[Player, ...]:
+        return tuple(player for player in self.initiative_order if not player.has_passed)
 
     @property
     def has_taken_turn(self) -> bool:

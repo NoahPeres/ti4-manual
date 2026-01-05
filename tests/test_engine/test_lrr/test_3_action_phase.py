@@ -71,8 +71,8 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
 
 
 def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
-    player_a = Player(name="A")
-    player_b = Player(name="B")
+    player_a = Player(name="A", strategy_cards=(StrategyCard("XXX", 1),))
+    player_b = Player(name="B", strategy_cards=(StrategyCard("YYY", 2),))
     engine = GameEngine(rules_engine=TI4RulesEngine())
     session = GameSession(
         initial_state=GameState(
@@ -85,7 +85,13 @@ def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
     new_state: GameState = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
     )
-    assert player_a not in new_state.initiative_order
+    assert player_a not in new_state.initiative_order_unpassed
+
+    try_another_action = engine.apply_command(
+        state=new_state,
+        command=Command(actor=player_a, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+    )
+    assert not try_another_action.success
 
 
 @pytest.mark.skip(reason="Blocked by other implementation")
