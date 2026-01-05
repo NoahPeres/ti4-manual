@@ -1,3 +1,5 @@
+import pytest
+
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_session import GameSession
@@ -84,3 +86,13 @@ def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
     )
     assert player_a not in new_state.initiative_order
+
+
+@pytest.mark.skip(reason="Blocked by other implementation")
+def test_3_3_a_while_passing_can_still_resolve_transactions_and_abilities() -> None:
+    pass
+
+
+@pytest.mark.skip(reason="Blocked by other implementation")
+def test_3_3_b_passed_players_can_do_secondary() -> None:
+    pass
