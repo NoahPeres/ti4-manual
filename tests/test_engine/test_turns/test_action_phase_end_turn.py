@@ -2,9 +2,10 @@ from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_state import GameState, Player, TurnContext
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
+from src.engine.strategy_cards import StrategyCard
 
-TEST_PLAYER = Player("TestPlayer")
-ANOTHER_PLAYER = Player("AnotherPlayer")
+TEST_PLAYER = Player("TestPlayer", strategy_cards=(StrategyCard("XXX", 1),))
+ANOTHER_PLAYER = Player("AnotherPlayer", strategy_cards=(StrategyCard("YYY", 2),))
 ENGINE = GameEngine(rules_engine=TI4RulesEngine())
 
 

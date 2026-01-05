@@ -44,5 +44,9 @@ class GameState:
         )
 
     @property
+    def initiative_order_unpassed(self) -> tuple[Player, ...]:
+        return tuple(player for player in self.initiative_order if not player.has_passed)
+
+    @property
     def has_taken_turn(self) -> bool:
         return self.turn_context.has_taken_action or self.active_player.has_passed
