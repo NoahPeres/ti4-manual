@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Player, TurnContext
+from src.engine.turns.end_turn import EndTurnEvent
 
 
 class PassEvent(Event):
@@ -31,10 +32,12 @@ class PassCommandRule(CommandRuleWhenApplicable):
         return command.command_type == CommandType.PASS_ACTION
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        return state.active_player == command.actor
+        return (state.active_player == command.actor) and all(
+            card.is_exhausted for card in state.active_player.strategy_cards
+        )
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
-        return [PassEvent()]
+        return [PassEvent(), EndTurnEvent()]
 
 
 def get_command_rules() -> list[CommandRule]:
