@@ -71,8 +71,8 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
 
 
 def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
-    player_a = Player(name="A", strategy_cards=(StrategyCard("XXX", 1),))
-    player_b = Player(name="B", strategy_cards=(StrategyCard("YYY", 2),))
+    player_a = Player(name="A", strategy_cards=(StrategyCard(name="XXX", initiative=1),))
+    player_b = Player(name="B", strategy_cards=(StrategyCard(name="YYY", initiative=2),))
     engine = GameEngine(rules_engine=TI4RulesEngine())
     session = GameSession(
         initial_state=GameState(
