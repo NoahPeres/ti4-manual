@@ -2,21 +2,34 @@ from collections.abc import Sequence
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, TurnContext
+from src.engine.core.game_state import GameState, TurnContext, Player
 
 
 class EndTurnEvent(Event):
     payload: str = "EndTurnEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        if previous_state.active_player not in previous_state.initiative_order:
-            raise ValueError("Active player not in initiative order")
-        current_index: int = previous_state.initiative_order.index(previous_state.active_player)
-        next_index: int = (current_index + 1) % len(previous_state.initiative_order)
-        new_active_player = previous_state.initiative_order[next_index]
+        current_initiative = previous_state.active_player.initiative
+        higher_initiatives = [
+            player
+            for player in previous_state.initiative_order
+            if player.initiative > current_initiative
+        ]
+        lower_initiatives = [
+            player
+            for player in previous_state.initiative_order
+            if player.initiative <= current_initiative
+        ]
+        next_player: Player
+        if higher_initiatives:
+            next_player = min(higher_initiatives, key=lambda x: x.initiative)
+        elif lower_initiatives:
+            next_player = min(lower_initiatives, key=lambda x: x.initiative)
+        else:
+            raise NotImplementedError("No unpassed players remaining")
         return GameState(
             players=previous_state.players,
-            active_player=new_active_player,
+            active_player=next_player,
             turn_context=TurnContext(has_taken_action=False),
         )
 

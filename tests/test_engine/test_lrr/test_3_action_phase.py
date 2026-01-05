@@ -3,6 +3,7 @@ from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import GameState, Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
+from src.engine.strategy_cards import StrategyCard
 
 
 def test_3_1_player_may_perform_one_action() -> None:
@@ -46,8 +47,8 @@ def test_3_1_player_may_perform_one_action() -> None:
 
 
 def test_3_2_players_can_pass_then_end_turn() -> None:
-    player_a = Player(name="A")
-    player_b = Player(name="B")
+    player_a = Player(name="A", strategy_cards=(StrategyCard(name="XXX", initiative=1),))
+    player_b = Player(name="B", strategy_cards=(StrategyCard(name="YYY", initiative=2),))
     engine = GameEngine(rules_engine=TI4RulesEngine())
     session = GameSession(
         initial_state=GameState(
@@ -65,3 +66,21 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
         command=Command(actor=player_a, command_type=CommandType.END_TURN)
     )
     assert turn_ended.active_player == player_b
+
+
+def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
+    player_a = Player(name="A")
+    player_b = Player(name="B")
+    engine = GameEngine(rules_engine=TI4RulesEngine())
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+        ),
+        engine=engine,
+    )
+
+    new_state: GameState = session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
+    )
+    assert player_a not in new_state.initiative_order
