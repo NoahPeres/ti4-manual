@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import TokenType
@@ -28,10 +29,18 @@ class Player:
         return self.name == other.name
 
 
+class Phase(StrEnum):
+    STRATEGY = "strategy"
+    ACTION = "action"
+    STATUS = "status"
+    AGENDA = "agenda"
+
+
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
     active_player: Player
+    phase: Phase
     turn_context: TurnContext = field(default_factory=lambda: TurnContext(has_taken_action=False))
 
     @property

@@ -8,7 +8,7 @@ from hypothesis import strategies as st
 from src.engine import tokens
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
-from src.engine.core.game_state import GameState, Player, TurnContext
+from src.engine.core.game_state import GameState, Phase, Player, TurnContext
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
 
@@ -73,6 +73,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
         players=players,
         active_player=player_1,
         turn_context=TurnContext(has_taken_action=False),
+        phase=Phase.ACTION,
     )
     # Player 1 ends turn
     player_1_action = ENGINE.apply_command(

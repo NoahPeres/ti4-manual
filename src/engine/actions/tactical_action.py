@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, TurnContext
+from src.engine.core.game_state import GameState, Phase, TurnContext
 
 
 class TacticalActionCompletedEvent(Event):
@@ -13,6 +13,7 @@ class TacticalActionCompletedEvent(Event):
             players=previous_state.players,
             active_player=previous_state.active_player,
             turn_context=TurnContext(has_taken_action=True),
+            phase=Phase.ACTION,
         )
 
 
