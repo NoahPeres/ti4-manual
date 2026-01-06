@@ -73,14 +73,15 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
             else:
                 return []
 
-    session.engine.rules_engine.event_rules = list(session.engine.rules_engine.event_rules) + [
-        EndTurnTrigger()
+    session.engine.rules_engine.event_rules = [
+        *session.engine.rules_engine.event_rules,
+        EndTurnTrigger(),
     ]
 
     new_state: GameState = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
     )
-    new_player_a = [player for player in new_state.players if player.name == "A"][0]
+    new_player_a: Player = next(player for player in new_state.players if player.name == "A")
     assert new_player_a.has_passed
     assert any(event.payload == "EndTurnTriggeredAbility" for event in session.history[-1].events)
     assert new_state.active_player == player_b
