@@ -1,11 +1,12 @@
 from collections.abc import Sequence
+
 import pytest
 
 from src.engine.core.command import Command, CommandType
+from src.engine.core.event import Event, EventRule
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import GameState, Player
 from src.engine.strategy_cards import StrategyCard
-from src.engine.core.event import EventRule, Event
 
 from .common import get_default_game_engine
 
@@ -22,7 +23,7 @@ def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
 
 
 def test_3_1_player_may_perform_one_action() -> None:
-    player_a = Player(name="PlayerA")
+    player_a = Player(name="A")
     session = make_basic_session_from_players(players=(player_a,))
 
     # try to end turn having taken no action
