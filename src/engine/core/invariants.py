@@ -1,4 +1,5 @@
-from src.engine.core.game_engine import GameState, GameStateInvariant
+from src.engine.core.game_engine import GameStateInvariant
+from src.engine.core.game_state import GameState
 from src.engine.tokens import UNIQUE_TOKENS, TokenType
 
 
@@ -22,5 +23,15 @@ class UniqueTokenInvariant(GameStateInvariant):
         return True
 
 
+class NoPassedPlayersWithReadyStrategyCards(GameStateInvariant):
+    description = """Players can never be passed and also have ready strategy cards."""
+
+    def check(self, state: GameState) -> bool:
+        for player in state.players:
+            if player.has_passed and any(card.is_ready for card in player.strategy_cards):
+                return False
+        return True
+
+
 def make_all_invariants() -> list[GameStateInvariant]:
-    return [UniqueTokenInvariant(tokens=UNIQUE_TOKENS)]
+    return [UniqueTokenInvariant(tokens=UNIQUE_TOKENS), NoPassedPlayersWithReadyStrategyCards()]
