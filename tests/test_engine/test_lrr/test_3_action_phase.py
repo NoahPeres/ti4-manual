@@ -7,8 +7,17 @@ from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase
 from src.engine.core.player import Player
 from src.engine.strategy_cards import StrategyCard
+from src.engine.actions.tactical_action import ActivateCommand, System
 
 from .common import make_basic_session_from_players
+
+
+def _make_activate_command(player: Player) -> ActivateCommand:
+    return ActivateCommand(
+        actor=player,
+        command_type=CommandType.INITIATE_TACTICAL_ACTION,
+        system_id=0,
+    )
 
 
 def test_3_1_player_may_perform_one_action() -> None:
@@ -26,19 +35,11 @@ def test_3_1_player_may_perform_one_action() -> None:
     assert not try_to_end_turn.success
 
     # take a tactical action
-    session.apply_command(
-        Command(
-            actor=player_a,
-            command_type=CommandType.INITIATE_TACTICAL_ACTION,
-        )
-    )
+    session.apply_command(_make_activate_command(player=player_a))
     assert session.history[-1].success
     try_to_take_second_action = session.engine.apply_command(
         state=session.current_state,
-        command=Command(
-            actor=player_a,
-            command_type=CommandType.INITIATE_TACTICAL_ACTION,
-        ),
+        command=_make_activate_command(player=player_a),
     )
     assert not try_to_take_second_action.success
 
@@ -91,7 +92,7 @@ def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
 
     try_another_action = session.engine.apply_command(
         state=new_state,
-        command=Command(actor=player_a, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+        command=_make_activate_command(player=player_a),
     )
     assert not try_another_action.success
 
@@ -114,9 +115,7 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
         has_passed=True,
     )
     session = make_basic_session_from_players(players=(player_a, player_b))
-    take_first_action = session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.INITIATE_TACTICAL_ACTION)
-    )
+    take_first_action = session.apply_command(command=_make_activate_command(player=player_a))
     assert take_first_action.has_taken_turn
     end_turn = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.END_TURN)
@@ -124,7 +123,7 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
     assert end_turn.active_player == player_a
     assert session.engine.apply_command(
         state=end_turn,
-        command=Command(actor=player_a, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+        command=_make_activate_command(player=player_a),
     ).success
 
 

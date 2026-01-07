@@ -34,7 +34,10 @@ class ChangePlayer(Event):
         current_index: int = self.players.index(current_player)
         new_player: Player = self.players[(current_index + 1) % len(self.players)]
         return GameState(
-            players=previous_state.players, active_player=new_player, phase=Phase.ACTION
+            players=previous_state.players,
+            active_player=new_player,
+            phase=Phase.ACTION,
+            galaxy=set(),
         )
 
 
@@ -84,7 +87,9 @@ def _set_up_session(
     command_rules: Sequence[CommandRule] | None = None,
 ) -> GameSession:
     if initial_state is None:
-        initial_state = GameState(players=players, active_player=initial_player, phase=Phase.ACTION)
+        initial_state = GameState(
+            players=players, active_player=initial_player, phase=Phase.ACTION, galaxy=set()
+        )
     if game_state_invariants is None:
         game_state_invariants = []
     if command_rules is None:

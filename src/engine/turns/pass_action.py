@@ -7,6 +7,8 @@ from src.engine.core.game_state import GameState, Phase, TurnContext
 from src.engine.core.player import Player
 from src.engine.turns.end_turn import EndTurnEvent
 
+from dataclasses import replace
+
 
 class PassEvent(Event):
     payload = "PassAction"
@@ -17,11 +19,11 @@ class PassEvent(Event):
             player if player != previous_state.active_player else passed_player
             for player in previous_state.players
         )
-        return GameState(
+        return replace(
+            previous_state,
             players=new_players,
             active_player=passed_player,
             turn_context=TurnContext(has_taken_action=False),
-            phase=Phase.ACTION,
         )
 
 

@@ -19,5 +19,5 @@ class Player:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Player):
-            raise TypeError(f"Cannot compare Player to {type(other).__name__}")
+            return NotImplemented
         return self.name == other.name

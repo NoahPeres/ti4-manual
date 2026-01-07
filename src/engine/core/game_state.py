@@ -19,7 +19,11 @@ class Phase(StrEnum):
 
 @dataclass(frozen=True)
 class System:
+    id: int
     command_tokens: tuple[CommandToken, ...]
+
+
+Galaxy = set[System]
 
 
 @dataclass(frozen=True)
@@ -27,6 +31,7 @@ class GameState:
     players: tuple[Player, ...]
     active_player: Player
     phase: Phase
+    galaxy: Galaxy
     turn_context: TurnContext = field(default_factory=lambda: TurnContext(has_taken_action=False))
 
     @property
@@ -45,3 +50,6 @@ class GameState:
     @property
     def has_taken_turn(self) -> bool:
         return self.turn_context.has_taken_action or self.active_player.has_passed
+
+    def get_system(self, id: int) -> System:
+        return next(system for system in self.galaxy if system.id == id)

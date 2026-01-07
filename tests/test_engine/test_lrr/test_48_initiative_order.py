@@ -12,6 +12,7 @@ from src.engine.core.game_state import GameState, Phase, TurnContext
 from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
+from src.engine.actions.tactical_action import ActivateCommand, System
 
 ENGINE = GameEngine(rules_engine=TI4RulesEngine())
 
@@ -75,11 +76,16 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
         active_player=player_1,
         turn_context=TurnContext(has_taken_action=False),
         phase=Phase.ACTION,
+        galaxy={System(id=0, command_tokens=())},
     )
     # Player 1 ends turn
     player_1_action = ENGINE.apply_command(
         state=initial_state,
-        command=Command(actor=player_1, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+        command=ActivateCommand(
+            actor=player_1,
+            command_type=CommandType.INITIATE_TACTICAL_ACTION,
+            system_id=0,
+        ),
     ).new_state
     state_after_p1: GameState = ENGINE.apply_command(
         state=player_1_action,
@@ -90,7 +96,11 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
     # Player 2 ends turn
     player_2_action = ENGINE.apply_command(
         state=state_after_p1,
-        command=Command(actor=player_2, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+        command=ActivateCommand(
+            actor=player_2,
+            command_type=CommandType.INITIATE_TACTICAL_ACTION,
+            system_id=0,
+        ),
     ).new_state
     state_after_p2: GameState = ENGINE.apply_command(
         state=player_2_action,
@@ -100,7 +110,11 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
     # Player 3 ends turn
     player_3_action = ENGINE.apply_command(
         state=state_after_p2,
-        command=Command(actor=player_3, command_type=CommandType.INITIATE_TACTICAL_ACTION),
+        command=ActivateCommand(
+            actor=player_3,
+            command_type=CommandType.INITIATE_TACTICAL_ACTION,
+            system_id=0,
+        ),
     ).new_state
     state_after_p3: GameState = ENGINE.apply_command(
         state=player_3_action,

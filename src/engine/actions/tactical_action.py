@@ -11,7 +11,7 @@ from src.engine.core.player import Player
 class ActivateCommand(Command):
     actor: Player
     command_type: CommandType
-    system: System
+    system_id: int
 
 
 class TacticalActionCompletedEvent(Event):
@@ -30,14 +30,14 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
         return command.command_type == CommandType.INITIATE_TACTICAL_ACTION
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        assert isinstance(command, ActivateCommand), (
-            "Require system for initiating tactical action."
-        )
+        if not isinstance(command, ActivateCommand):
+            raise TypeError(f"Expected ActivateCommand, got {type(command).__name__}")
         return (
             (state.active_player == command.actor)
             and not state.has_taken_turn
             and not any(
-                token.player_name == command.actor.name for token in command.system.command_tokens
+                token.player_name == command.actor.name
+                for token in state.get_system(id=command.system_id).command_tokens
             )
         )
 

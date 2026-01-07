@@ -51,7 +51,7 @@ class MutatingCommandRule(CommandRule):
 def simple_game_state(draw):
     players: tuple[Player, ...] = PLAYERS
     active_player: Player = draw(st.sampled_from(players))
-    return GameState(players=players, active_player=active_player, phase=Phase.ACTION)
+    return GameState(players=players, active_player=active_player, phase=Phase.ACTION, galaxy=set())
 
 
 class CommandAlwaysFails(CommandRule):
