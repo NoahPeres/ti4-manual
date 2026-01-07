@@ -52,4 +52,7 @@ class GameState:
         return self.turn_context.has_taken_action or self.active_player.has_passed
 
     def get_system(self, id: int) -> System:
-        return next(system for system in self.galaxy if system.id == id)
+        try:
+            return next(system for system in self.galaxy if system.id == id)
+        except StopIteration:
+            raise ValueError(f"System with id {id} not found in galaxy") from None

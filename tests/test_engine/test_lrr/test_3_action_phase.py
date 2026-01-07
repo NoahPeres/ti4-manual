@@ -2,12 +2,12 @@ from collections.abc import Sequence
 
 import pytest
 
+from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase
 from src.engine.core.player import Player
 from src.engine.strategy_cards import StrategyCard
-from src.engine.actions.tactical_action import ActivateCommand, System
 
 from .common import make_basic_session_from_players
 

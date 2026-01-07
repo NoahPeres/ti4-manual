@@ -6,13 +6,13 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from src.engine import tokens
+from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
-from src.engine.core.game_state import GameState, Phase, TurnContext
+from src.engine.core.game_state import GameState, Phase, System, TurnContext
 from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
-from src.engine.actions.tactical_action import ActivateCommand, System
 
 ENGINE = GameEngine(rules_engine=TI4RulesEngine())
 

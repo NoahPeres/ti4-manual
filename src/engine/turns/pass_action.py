@@ -1,13 +1,12 @@
 import dataclasses
 from collections.abc import Sequence
+from dataclasses import replace
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase, TurnContext
 from src.engine.core.player import Player
 from src.engine.turns.end_turn import EndTurnEvent
-
-from dataclasses import replace
 
 
 class PassEvent(Event):

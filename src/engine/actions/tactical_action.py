@@ -3,14 +3,11 @@ from dataclasses import dataclass, replace
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, System, TurnContext
-from src.engine.core.player import Player
+from src.engine.core.game_state import GameState, TurnContext
 
 
 @dataclass(frozen=True)
 class ActivateCommand(Command):
-    actor: Player
-    command_type: CommandType
     system_id: int
 
 
@@ -18,7 +15,9 @@ class TacticalActionCompletedEvent(Event):
     payload: str = "TacticalActionCompletedEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return replace(previous_state, turn_context=TurnContext(has_taken_action=True))
+        return replace(
+            previous_state, turn_context=replace(previous_state.turn_context, has_taken_action=True)
+        )
 
 
 class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
@@ -32,13 +31,14 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
     def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
         if not isinstance(command, ActivateCommand):
             raise TypeError(f"Expected ActivateCommand, got {type(command).__name__}")
+        try:
+            system = state.get_system(id=command.system_id)
+        except ValueError:
+            return False
         return (
             (state.active_player == command.actor)
             and not state.has_taken_turn
-            and not any(
-                token.player_name == command.actor.name
-                for token in state.get_system(id=command.system_id).command_tokens
-            )
+            and not any(token.player_name == command.actor.name for token in system.command_tokens)
         )
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
