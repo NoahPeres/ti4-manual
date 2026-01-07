@@ -150,7 +150,7 @@ def test_3_4_a_cannot_pass_until_all_strategy_cards_used() -> None:
     player_a = Player(
         name="A",
         strategy_cards=(
-            StrategyCard(name="leadership", initiative=1),
+            StrategyCard(name="Leadership", initiative=1),
             StrategyCard(name="Diplomacy", initiative=2, is_ready=False),
         ),
     )

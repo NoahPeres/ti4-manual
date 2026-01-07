@@ -23,11 +23,11 @@ class EndTurnEvent(Event):
         ]
         next_player: Player
         if higher_initiatives:
-            next_player: Player = min(higher_initiatives, key=lambda x: x.initiative)
+            next_player = min(higher_initiatives, key=lambda x: x.initiative)
         elif lower_initiatives:
-            next_player: Player = min(lower_initiatives, key=lambda x: x.initiative)
+            next_player = min(lower_initiatives, key=lambda x: x.initiative)
         else:
-            next_player: Player = min(previous_state.initiative_order, key=lambda x: x.initiative)
+            next_player = min(previous_state.initiative_order, key=lambda x: x.initiative)
         return dataclasses.replace(
             previous_state,
             active_player=next_player,
