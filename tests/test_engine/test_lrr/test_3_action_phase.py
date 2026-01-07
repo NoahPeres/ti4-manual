@@ -4,19 +4,11 @@ import pytest
 
 from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Phase, Player
+from src.engine.core.game_state import GameState, Phase
+from src.engine.core.player import Player
 from src.engine.strategy_cards import StrategyCard
 
-from .common import get_default_game_engine
-
-
-def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
-    engine = get_default_game_engine()
-    return GameSession(
-        initial_state=GameState(players=players, active_player=players[0], phase=Phase.ACTION),
-        engine=engine,
-    )
+from .common import make_basic_session_from_players
 
 
 def test_3_1_player_may_perform_one_action() -> None:

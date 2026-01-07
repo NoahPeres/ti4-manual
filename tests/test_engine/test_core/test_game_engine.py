@@ -10,7 +10,8 @@ from src.engine.core.game_engine import (
     InvariantViolationError,
 )
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Phase, Player
+from src.engine.core.game_state import GameState, Phase
+from src.engine.core.player import Player
 from src.engine.core.rules_engine import RulesEngine
 
 from .common import FailingInvariant, TrivialEvent

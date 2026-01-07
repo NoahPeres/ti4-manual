@@ -8,7 +8,8 @@ from hypothesis import strategies as st
 from src.engine import tokens
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
-from src.engine.core.game_state import GameState, Phase, Player, TurnContext
+from src.engine.core.game_state import GameState, Phase, TurnContext
+from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
 

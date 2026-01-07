@@ -8,7 +8,8 @@ from hypothesis import given
 from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_engine import CommandResult, GameEngine, IllegalStateMutationError
-from src.engine.core.game_state import GameState, Phase, Player
+from src.engine.core.game_state import GameState, Phase
+from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 from .common import TrivialEvent
