@@ -166,8 +166,15 @@ def test_3_5_after_all_pass_proceed_to_status_phase() -> None:
     player_a = Player(
         name="A", strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=False),)
     )
+    player_b = Player(
+        name="B", strategy_cards=(StrategyCard(name="Diplomacy", initiative=2, is_ready=False),)
+    )
     session = make_basic_session_from_players(players=(player_a,))
-    pass_action_state = session.apply_command(
+    player_a_pass_action_state = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
     )
-    assert pass_action_state.phase == Phase.STATUS
+    assert player_a_pass_action_state.phase != Phase.ACTION
+    player_b_pass_action_state = session.apply_command(
+        command=Command(actor=player_b, command_type=CommandType.PASS_ACTION)
+    )
+    assert player_b_pass_action_state.phase == Phase.STATUS
