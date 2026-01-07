@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, TurnContext
+from src.engine.core.game_state import GameState
 
 
 @dataclass(frozen=True)
