@@ -1,9 +1,11 @@
 import dataclasses
 from collections.abc import Sequence
+from dataclasses import replace
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, Phase, Player, TurnContext
+from src.engine.core.game_state import GameState, Phase, TurnContext
+from src.engine.core.player import Player
 from src.engine.turns.end_turn import EndTurnEvent
 
 
@@ -16,11 +18,11 @@ class PassEvent(Event):
             player if player != previous_state.active_player else passed_player
             for player in previous_state.players
         )
-        return GameState(
+        return replace(
+            previous_state,
             players=new_players,
             active_player=passed_player,
             turn_context=TurnContext(has_taken_action=False),
-            phase=Phase.ACTION,
         )
 
 

@@ -7,7 +7,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from src.engine.core.event import Event
-    from src.engine.core.game_state import GameState, Player
+    from src.engine.core.game_state import GameState
+    from src.engine.core.player import Player
 
 
 class CommandType(enum.StrEnum):

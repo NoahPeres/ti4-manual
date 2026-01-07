@@ -3,7 +3,8 @@ from collections.abc import Sequence
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, Player
+from src.engine.core.game_state import GameState
+from src.engine.core.player import Player
 
 
 class EndTurnEvent(Event):
