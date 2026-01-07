@@ -8,7 +8,7 @@ from hypothesis import given
 from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_engine import CommandResult, GameEngine, IllegalStateMutationError
-from src.engine.core.game_state import GameState, Player
+from src.engine.core.game_state import GameState, Phase, Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 from .common import TrivialEvent
@@ -41,12 +41,16 @@ class MutatingCommandRule(CommandRule):
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [TrivialEvent(payload="Does nothing"), MutatingEvent()]
 
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return True
+
 
 @st.composite
 def simple_game_state(draw):
     players: tuple[Player, ...] = PLAYERS
     active_player: Player = draw(st.sampled_from(players))
-    return GameState(players=players, active_player=active_player)
+    return GameState(players=players, active_player=active_player, phase=Phase.ACTION)
 
 
 class CommandAlwaysFails(CommandRule):

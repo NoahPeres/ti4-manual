@@ -10,7 +10,7 @@ from src.engine.core.game_engine import (
     InvariantViolationError,
 )
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Player
+from src.engine.core.game_state import GameState, Phase, Player
 from src.engine.core.rules_engine import RulesEngine
 
 from .common import FailingInvariant, TrivialEvent
@@ -32,7 +32,9 @@ class ChangePlayer(Event):
         current_player: Player = previous_state.active_player
         current_index: int = self.players.index(current_player)
         new_player: Player = self.players[(current_index + 1) % len(self.players)]
-        return GameState(players=previous_state.players, active_player=new_player)
+        return GameState(
+            players=previous_state.players, active_player=new_player, phase=Phase.ACTION
+        )
 
 
 class TrivialCommandRule(CommandRule):
@@ -44,6 +46,10 @@ class TrivialCommandRule(CommandRule):
 
     def derive_events(self, state: GameState, command: Command):
         return [TrivialEvent(payload="test")]
+
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return True
 
 
 class EndTurn(CommandRule):
@@ -57,6 +63,10 @@ class EndTurn(CommandRule):
         if command.command_type == CommandType.END_TURN:
             return [ChangePlayer(players=state.players)]
         return []
+
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return True
 
 
 class TrivialRulesEngine(RulesEngine):
@@ -73,7 +83,7 @@ def _set_up_session(
     command_rules: Sequence[CommandRule] | None = None,
 ) -> GameSession:
     if initial_state is None:
-        initial_state = GameState(players=players, active_player=initial_player)
+        initial_state = GameState(players=players, active_player=initial_player, phase=Phase.ACTION)
     if game_state_invariants is None:
         game_state_invariants = []
     if command_rules is None:

@@ -1,8 +1,9 @@
+import dataclasses
 from collections.abc import Sequence
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, Player, TurnContext
+from src.engine.core.game_state import GameState, Player
 
 
 class EndTurnEvent(Event):
@@ -26,14 +27,11 @@ class EndTurnEvent(Event):
         elif lower_initiatives:
             next_player = min(lower_initiatives, key=lambda x: x.initiative)
         else:
-            raise NotImplementedError(
-                f"No unpassed players remaining. All {len(previous_state.players)}"
-                " player(s) have passed."
-            )
-        return GameState(
-            players=previous_state.players,
+            next_player = min(previous_state.initiative_order, key=lambda x: x.initiative)
+        return dataclasses.replace(
+            previous_state,
             active_player=next_player,
-            turn_context=TurnContext(has_taken_action=False),
+            turn_context=dataclasses.replace(previous_state.turn_context, has_taken_action=False),
         )
 
 

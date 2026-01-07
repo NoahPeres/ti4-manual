@@ -5,7 +5,7 @@ import pytest
 from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Player
+from src.engine.core.game_state import GameState, Phase, Player
 from src.engine.strategy_cards import StrategyCard
 
 from .common import get_default_game_engine
@@ -14,10 +14,7 @@ from .common import get_default_game_engine
 def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
     engine = get_default_game_engine()
     return GameSession(
-        initial_state=GameState(
-            players=players,
-            active_player=players[0],
-        ),
+        initial_state=GameState(players=players, active_player=players[0], phase=Phase.ACTION),
         engine=engine,
     )
 
@@ -140,7 +137,7 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
 
 
 def test_3_4_cannot_pass_until_strategic_action_taken() -> None:
-    player_a = Player(name="A", strategy_cards=(StrategyCard(name="leadership", initiative=1),))
+    player_a = Player(name="A", strategy_cards=(StrategyCard(name="Leadership", initiative=1),))
     session = make_basic_session_from_players(players=(player_a,))
     try_to_pass = session.engine.apply_command(
         state=session.initial_state,
@@ -153,7 +150,7 @@ def test_3_4_a_cannot_pass_until_all_strategy_cards_used() -> None:
     player_a = Player(
         name="A",
         strategy_cards=(
-            StrategyCard(name="leadership", initiative=1),
+            StrategyCard(name="Leadership", initiative=1),
             StrategyCard(name="Diplomacy", initiative=2, is_ready=False),
         ),
     )
@@ -163,3 +160,21 @@ def test_3_4_a_cannot_pass_until_all_strategy_cards_used() -> None:
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
     )
     assert not try_to_pass.success
+
+
+def test_3_5_after_all_pass_proceed_to_status_phase() -> None:
+    player_a = Player(
+        name="A", strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=False),)
+    )
+    player_b = Player(
+        name="B", strategy_cards=(StrategyCard(name="Diplomacy", initiative=2, is_ready=False),)
+    )
+    session = make_basic_session_from_players(players=(player_a, player_b))
+    player_a_pass_action_state = session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION)
+    )
+    assert player_a_pass_action_state.phase == Phase.ACTION
+    player_b_pass_action_state = session.apply_command(
+        command=Command(actor=player_b, command_type=CommandType.PASS_ACTION)
+    )
+    assert player_b_pass_action_state.phase == Phase.STATUS

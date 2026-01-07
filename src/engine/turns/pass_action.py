@@ -3,7 +3,7 @@ from collections.abc import Sequence
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, Player, TurnContext
+from src.engine.core.game_state import GameState, Phase, Player, TurnContext
 from src.engine.turns.end_turn import EndTurnEvent
 
 
@@ -20,6 +20,7 @@ class PassEvent(Event):
             players=new_players,
             active_player=passed_player,
             turn_context=TurnContext(has_taken_action=False),
+            phase=Phase.ACTION,
         )
 
 
@@ -40,9 +41,23 @@ class PassCommandRule(CommandRuleWhenApplicable):
         return [PassEvent(), EndTurnEvent()]
 
 
+class AdvanceActionToStatusPhase(Event):
+    payload = "AdvanceActionToStatusPhase"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return dataclasses.replace(previous_state, phase=Phase.STATUS)
+
+
+class AdvanceToStatusRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        if (event.payload == "PassAction") and (len(state.initiative_order_unpassed) == 0):
+            return [AdvanceActionToStatusPhase()]
+        return []
+
+
 def get_command_rules() -> list[CommandRule]:
     return [PassCommandRule()]
 
 
 def get_event_rules() -> list[EventRule]:
-    return []
+    return [AdvanceToStatusRule()]
