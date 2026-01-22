@@ -4,11 +4,51 @@ from dataclasses import dataclass, replace
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState
+from src.engine.tokens import CommandToken
+from src.engine.core.player import Player, CommandSheet
 
 
 @dataclass(frozen=True)
 class ActivateCommand(Command):
     system_id: int
+
+
+class ActivateSystemEvent(Event):
+    def __init__(self, player_id: str, system_id: int) -> None:
+        self.system_id: int = system_id
+        self.player_id: str = player_id
+
+    payload: str = "ActivateSystemEvent"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        new_system = replace(
+            previous_state.get_system(id=self.system_id),
+            command_tokens=(
+                *previous_state.get_system(id=self.system_id).command_tokens,
+                CommandToken(player_name=self.player_id),
+            ),
+        )
+        new_galaxy = {
+            system for system in previous_state.galaxy if system.id != self.system_id
+        }.union({new_system})
+        old_player = previous_state.get_player(name=self.player_id)
+        new_player = replace(
+            old_player,
+            command_sheet=CommandSheet(
+                tactic=old_player.command_sheet.tactic[1:],
+                fleet=old_player.command_sheet.fleet,
+                strategy=old_player.command_sheet.strategy,
+            ),
+        )
+        players: list[Player] = [
+            player for player in previous_state.players if player.name != self.player_id
+        ] + [new_player]
+
+        return replace(
+            previous_state,
+            galaxy=new_galaxy,
+            players=tuple(players),
+        )
 
 
 class TacticalActionCompletedEvent(Event):
@@ -39,10 +79,16 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
             (state.active_player == command.actor)
             and not state.has_taken_turn
             and not any(token.player_name == command.actor.name for token in system.command_tokens)
+            and len(command.actor.command_sheet.tactic) > 0
         )
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
-        return [TacticalActionCompletedEvent()]
+        if not isinstance(command, ActivateCommand):
+            raise TypeError(f"Expected ActivateCommand, got {type(command).__name__}")
+        return [
+            ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
+            TacticalActionCompletedEvent(),
+        ]
 
 
 def get_command_rules() -> list[CommandRule]:
