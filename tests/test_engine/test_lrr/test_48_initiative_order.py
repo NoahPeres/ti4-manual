@@ -10,7 +10,7 @@ from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
 from src.engine.core.game_state import GameState, Phase, System, TurnContext
-from src.engine.core.player import Player
+from src.engine.core.player import CommandSheet, Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
 
@@ -25,7 +25,11 @@ class PlayerInitiative:
 
 
 def _make_player_with_strategy_card(name: str, strategy_card: StrategyCard) -> Player:
-    return Player(name=name, strategy_cards=(strategy_card,))
+    return Player(
+        name=name,
+        strategy_cards=(strategy_card,),
+        command_sheet=CommandSheet.make_from_int(name, tactic=1, fleet=0, strategy=0),
+    )
 
 
 @given(initiative=st.integers(min_value=1, max_value=8))

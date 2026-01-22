@@ -19,7 +19,7 @@ def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
             players=players,
             active_player=players[0],
             phase=Phase.ACTION,
-            galaxy={System(id=0, command_tokens=())},
+            galaxy={System(id=0, command_tokens=()), System(id=1, command_tokens=())},
         ),
         engine=engine,
     )

@@ -56,3 +56,9 @@ class GameState:
             return next(system for system in self.galaxy if system.id == id)
         except StopIteration:
             raise ValueError(f"System with id {id} not found in galaxy") from None
+
+    def get_player(self, name: str) -> Player:
+        try:
+            return next(player for player in self.players if player.name == name)
+        except StopIteration:
+            raise ValueError(f"Player with name {name} not found in game state") from None
