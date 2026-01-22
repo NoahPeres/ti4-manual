@@ -40,14 +40,15 @@ class ActivateSystemEvent(Event):
                 strategy=old_player.command_sheet.strategy,
             ),
         )
-        players: list[Player] = [
-            player for player in previous_state.players if player.name != self.player_id
-        ] + [new_player]
+        players = tuple(
+            new_player if player.name == self.player_id else player
+            for player in previous_state.players
+        )
 
         return replace(
             previous_state,
             galaxy=new_galaxy,
-            players=tuple(players),
+            players=players,
         )
 
 

@@ -19,7 +19,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token() -
     player_b = Player(
         name="B",
         strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
+        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=0, strategy=0),
     )
     fresh_system = System(id=0, command_tokens=())
     previously_activated_system = System(
