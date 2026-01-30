@@ -1,7 +1,7 @@
 import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -29,34 +29,32 @@ class Command:
     command_type: CommandType
 
 
-class CommandRule(Protocol):
+class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
     def is_applicable(command: Command) -> bool: ...
-    def validate_legality(self, state: GameState, command: Command) -> bool: ...
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]: ...
+    def validate_legality(self, state: GameState, command: C) -> bool: ...
+    def derive_events(self, state: GameState, command: C) -> Sequence[Event]: ...
 
 
-class CommandRuleWhenApplicable(ABC, CommandRule):
+class CommandRuleWhenApplicable[C: Command](ABC, CommandRule[C]):
     @abstractmethod
     def __repr__(self) -> str: ...
     @staticmethod
     @abstractmethod
     def is_applicable(command: Command) -> bool: ...
     @abstractmethod
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> bool: ...
+    def is_legal_given_applicable(self, state: GameState, command: C) -> bool: ...
     @abstractmethod
-    def derive_events_given_applicable(
-        self, state: GameState, command: Command
-    ) -> Sequence[Event]: ...
+    def derive_events_given_applicable(self, state: GameState, command: C) -> Sequence[Event]: ...
 
-    def validate_legality(self, state: GameState, command: Command) -> bool:
+    def validate_legality(self, state: GameState, command: C) -> bool:
         if not self.is_applicable(command):
             return True
         else:
             return self.is_legal_given_applicable(state=state, command=command)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(self, state: GameState, command: C) -> Sequence[Event]:
         if not self.is_applicable(command):
             return []
         else:

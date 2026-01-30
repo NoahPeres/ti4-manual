@@ -6,22 +6,25 @@ from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase
-from src.engine.core.player import Player
+from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 
 from .common import make_basic_session_from_players
 
 
-def _make_activate_command(player: Player) -> ActivateCommand:
+def _make_activate_command(player: Player, id: int = 0) -> ActivateCommand:
     return ActivateCommand(
         actor=player,
         command_type=CommandType.INITIATE_TACTICAL_ACTION,
-        system_id=0,
+        system_id=id,
     )
 
 
 def test_3_1_player_may_perform_one_action() -> None:
-    player_a = Player(name="A")
+    player_a = Player(
+        name="A", command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0)
+    )
+
     session = make_basic_session_from_players(players=(player_a,))
 
     # try to end turn having taken no action
@@ -108,7 +111,11 @@ def test_3_3_b_passed_players_can_do_secondary() -> None:
 
 
 def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
-    player_a = Player(name="A", strategy_cards=(StrategyCard(name="Leadership", initiative=1),))
+    player_a = Player(
+        name="A",
+        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
+        command_sheet=CommandSheet.make_from_int("A", tactic=2, fleet=0, strategy=0),
+    )
     player_b = Player(
         name="B",
         strategy_cards=(StrategyCard(name="Diplomacy", initiative=2, is_ready=False),),
@@ -123,7 +130,7 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
     assert end_turn.active_player == player_a
     assert session.engine.apply_command(
         state=end_turn,
-        command=_make_activate_command(player=player_a),
+        command=_make_activate_command(player=player_a, id=1),
     ).success
 
 
