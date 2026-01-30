@@ -21,10 +21,11 @@ class ActivateSystemEvent(Event):
     payload: str = "ActivateSystemEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
+        active_system = previous_state.get_system(id=self.system_id)
         new_system = replace(
-            previous_state.get_system(id=self.system_id),
+            active_system,
             command_tokens=(
-                *previous_state.get_system(id=self.system_id).command_tokens,
+                *active_system.command_tokens,
                 CommandToken(player_name=self.player_id),
             ),
         )
