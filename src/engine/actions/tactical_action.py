@@ -4,8 +4,8 @@ from dataclasses import dataclass, replace
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState
+from src.engine.core.player import CommandSheet
 from src.engine.tokens import CommandToken
-from src.engine.core.player import Player, CommandSheet
 
 
 @dataclass(frozen=True)
@@ -61,7 +61,7 @@ class TacticalActionCompletedEvent(Event):
         )
 
 
-class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
+class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateCommand]):
     def __repr__(self) -> str:
         return "InitiateTacticalAction"
 
@@ -69,9 +69,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
     def is_applicable(command: Command) -> bool:
         return command.command_type == CommandType.INITIATE_TACTICAL_ACTION
 
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        if not isinstance(command, ActivateCommand):
-            raise TypeError(f"Expected ActivateCommand, got {type(command).__name__}")
+    def is_legal_given_applicable(self, state: GameState, command: ActivateCommand) -> bool:
         try:
             system = state.get_system(id=command.system_id)
         except ValueError:
@@ -83,9 +81,9 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable):
             and len(command.actor.command_sheet.tactic) > 0
         )
 
-    def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
-        if not isinstance(command, ActivateCommand):
-            raise TypeError(f"Expected ActivateCommand, got {type(command).__name__}")
+    def derive_events_given_applicable(
+        self, state: GameState, command: ActivateCommand
+    ) -> Sequence[Event]:
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionCompletedEvent(),
