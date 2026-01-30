@@ -32,7 +32,7 @@ class Command:
 C = TypeVar("C", bound=Command)
 
 
-class CommandRule(Protocol, Generic[C]):
+class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
     def is_applicable(command: Command) -> bool: ...
@@ -40,7 +40,7 @@ class CommandRule(Protocol, Generic[C]):
     def derive_events(self, state: GameState, command: C) -> Sequence[Event]: ...
 
 
-class CommandRuleWhenApplicable(ABC, CommandRule[C], Generic[C]):
+class CommandRuleWhenApplicable[C: Command](ABC, CommandRule[C]):
     @abstractmethod
     def __repr__(self) -> str: ...
     @staticmethod
