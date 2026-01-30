@@ -35,10 +35,8 @@ class ActivateSystemEvent(Event):
         old_player = previous_state.get_player(name=self.player_id)
         new_player = replace(
             old_player,
-            command_sheet=CommandSheet(
-                tactic=old_player.command_sheet.tactic[1:],
-                fleet=old_player.command_sheet.fleet,
-                strategy=old_player.command_sheet.strategy,
+            command_sheet=replace(
+                old_player.command_sheet, tactic=old_player.command_sheet.tactic[1:]
             ),
         )
         players = tuple(

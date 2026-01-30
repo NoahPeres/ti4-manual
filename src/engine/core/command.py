@@ -29,9 +29,6 @@ class Command:
     command_type: CommandType
 
 
-C = TypeVar("C", bound=Command)
-
-
 class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
