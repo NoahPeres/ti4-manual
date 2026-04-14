@@ -1,7 +1,7 @@
 import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -17,6 +17,7 @@ class CommandType(enum.StrEnum):
     ALWAYS_INVALID = "always_invalid"
     INITIATE_TACTICAL_ACTION = "initiate_tactical_action"
     PASS_ACTION = "pass_action"
+    END_MOVEMENT = "end_movement"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:

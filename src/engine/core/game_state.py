@@ -1,3 +1,4 @@
+from re import A
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -5,9 +6,18 @@ from src.engine.core.player import Player
 from src.engine.tokens import CommandToken
 
 
+class TacticalActionStep(StrEnum):
+    ACTIVATION = "activation"
+    MOVEMENT = "movement"
+    SPACE_COMBAT = "space_combat"
+    INVASION = "invasion"
+    PRODUCTION = "production"
+
+
 @dataclass(frozen=True)
 class TurnContext:
     has_taken_action: bool
+    tactical_action_step: TacticalActionStep | None = None
 
 
 class Phase(StrEnum):

@@ -3,8 +3,7 @@ from dataclasses import dataclass, replace
 
 from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState
-from src.engine.core.player import CommandSheet
+from src.engine.core.game_state import GameState, TacticalActionStep
 from src.engine.tokens import CommandToken
 
 
@@ -48,11 +47,38 @@ class ActivateSystemEvent(Event):
             previous_state,
             galaxy=new_galaxy,
             players=players,
+            turn_context=replace(
+                previous_state.turn_context, tactical_action_step=TacticalActionStep.ACTIVATION
+            ),
         )
 
 
-class TacticalActionCompletedEvent(Event):
-    payload: str = "TacticalActionCompletedEvent"
+class AdvanceToMovementStep(Event):
+    payload = "AdvanceToMovementStep"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return replace(
+            previous_state,
+            turn_context=replace(
+                previous_state.turn_context, tactical_action_step=TacticalActionStep.MOVEMENT
+            ),
+        )
+
+
+class AdvanceToSpaceCombatStep(Event):
+    payload = "AdvanceToSpaceCombatStep"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return replace(
+            previous_state,
+            turn_context=replace(
+                previous_state.turn_context, tactical_action_step=TacticalActionStep.SPACE_COMBAT
+            ),
+        )
+
+
+class TacticalActionInitiatedEvent(Event):
+    payload: str = "TacticalActionInitiatedEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         return replace(
@@ -85,8 +111,27 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
     ) -> Sequence[Event]:
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
-            TacticalActionCompletedEvent(),
+            TacticalActionInitiatedEvent(),
+            AdvanceToMovementStep(),
         ]
+
+
+class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
+    def __repr__(self) -> str:
+        return "EndMovement"
+
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return command.command_type == CommandType.END_MOVEMENT
+
+    def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
+        return (
+            state.active_player == command.actor
+            and state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
+        )
+
+    def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
+        return [AdvanceToSpaceCombatStep()]
 
 
 def get_command_rules() -> list[CommandRule]:
