@@ -1,4 +1,3 @@
-from typing import overload
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 

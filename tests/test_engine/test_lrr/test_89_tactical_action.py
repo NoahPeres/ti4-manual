@@ -1,23 +1,22 @@
 from dataclasses import replace
 
 from src.engine.actions.tactical_action import ActivateCommand, MoveShipCommand
-from src.engine.core.command import CommandType, Command
+from src.engine.core.command import Command, CommandType
+from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
-    System,
-    TacticalActionStep,
     GameState,
     Phase,
-    TurnContext,
     Ship,
     ShipKind,
+    System,
+    TacticalActionStep,
+    TurnContext,
 )
-from src.engine.core.game_session import GameSession
 from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 
-
-from .common import make_basic_session_from_players, get_default_game_engine
+from .common import get_default_game_engine, make_basic_session_from_players
 
 
 def test_89_1_active_player_must_activate_system_without_their_command_token() -> None:
