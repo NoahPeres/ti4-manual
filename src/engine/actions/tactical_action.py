@@ -1,3 +1,4 @@
+from typing import overload
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
@@ -10,6 +11,14 @@ from src.engine.tokens import CommandToken
 @dataclass(frozen=True)
 class ActivateCommand(Command):
     system_id: int
+
+
+@dataclass(frozen=True)
+class MoveShipCommand(Command):
+    ship_id: int
+    ship_owner_name: str
+    from_system_id: int
+    to_system_id: int
 
 
 class ActivateSystemEvent(Event):
@@ -48,7 +57,9 @@ class ActivateSystemEvent(Event):
             galaxy=new_galaxy,
             players=players,
             turn_context=replace(
-                previous_state.turn_context, tactical_action_step=TacticalActionStep.ACTIVATION
+                previous_state.turn_context,
+                tactical_action_step=TacticalActionStep.ACTIVATION,
+                active_system_id=self.system_id,
             ),
         )
 
@@ -134,8 +145,48 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
         return [AdvanceToSpaceCombatStep()]
 
 
+class AddMoveToPendingEvent(Event):
+    def __init__(self, ship_id: int, from_system_id: int, to_system_id: int) -> None:
+        self.ship_id = ship_id
+        self.from_system_id = from_system_id
+        self.to_system_id = to_system_id
+
+    payload = "AddMoveToPending"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        # TODO implement
+        return previous_state
+
+
+class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
+    def __repr__(self) -> str:
+        return "MoveShip"
+
+    @staticmethod
+    def is_applicable(command: Command) -> bool:
+        return command.command_type == CommandType.MOVE_SHIP
+
+    def is_legal_given_applicable(self, state: GameState, command: MoveShipCommand) -> bool:
+        return (
+            state.active_player == command.actor
+            and state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
+            and command.actor == command.ship_owner_name
+        )
+
+    def derive_events_given_applicable(
+        self, state: GameState, command: MoveShipCommand
+    ) -> Sequence[Event]:
+        return [
+            AddMoveToPendingEvent(
+                ship_id=command.ship_id,
+                from_system_id=command.from_system_id,
+                to_system_id=command.to_system_id,
+            )
+        ]
+
+
 def get_command_rules() -> list[CommandRule]:
-    return [InitiateTacticalActionCommandRule()]
+    return [InitiateTacticalActionCommandRule(), EndMovementCommandRule(), MoveShipCommandRule()]
 
 
 def get_event_rules() -> list[EventRule]:
