@@ -2,7 +2,13 @@ import dataclasses
 from collections.abc import Sequence
 from dataclasses import replace
 
-from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandRuleWhenApplicable,
+    CommandType,
+    ValidationResult,
+)
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase, TurnContext
 from src.engine.core.player import Player
@@ -34,10 +40,16 @@ class PassCommandRule(CommandRuleWhenApplicable):
     def is_applicable(command: Command) -> bool:
         return command.command_type == CommandType.PASS_ACTION
 
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        return (state.active_player == command.actor) and all(
-            card.is_exhausted for card in state.active_player.strategy_cards
-        )
+    def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
+        if not (state.active_player == command.actor):
+            return ValidationResult(
+                is_valid=False, info="Only the active player can pass their turn"
+            )
+        if not all(card.is_exhausted for card in state.active_player.strategy_cards):
+            return ValidationResult(
+                is_valid=False, info="All strategy cards must be exhausted to pass"
+            )
+        return ValidationResult(is_valid=True)
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
         return [PassEvent(), EndTurnEvent()]

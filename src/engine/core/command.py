@@ -31,11 +31,17 @@ class Command:
     command_type: CommandType
 
 
+@dataclass(frozen=True)
+class ValidationResult:
+    is_valid: bool
+    info: str = ""
+
+
 class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
     def is_applicable(command: Command) -> bool: ...
-    def validate_legality(self, state: GameState, command: C) -> bool: ...
+    def validate_legality(self, state: GameState, command: C) -> ValidationResult: ...
     def derive_events(self, state: GameState, command: C) -> Sequence[Event]: ...
 
 
@@ -46,13 +52,13 @@ class CommandRuleWhenApplicable[C: Command](ABC, CommandRule[C]):
     @abstractmethod
     def is_applicable(command: Command) -> bool: ...
     @abstractmethod
-    def is_legal_given_applicable(self, state: GameState, command: C) -> bool: ...
+    def is_legal_given_applicable(self, state: GameState, command: C) -> ValidationResult: ...
     @abstractmethod
     def derive_events_given_applicable(self, state: GameState, command: C) -> Sequence[Event]: ...
 
-    def validate_legality(self, state: GameState, command: C) -> bool:
+    def validate_legality(self, state: GameState, command: C) -> ValidationResult:
         if not self.is_applicable(command):
-            return True
+            return ValidationResult(is_valid=True)
         else:
             return self.is_legal_given_applicable(state=state, command=command)
 

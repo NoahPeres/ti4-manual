@@ -44,12 +44,13 @@ class GameEngine:
     def apply_command(self, state: GameState, command: Command) -> CommandResult:
         # Validate command legality
         for rule in self.rules_engine.command_rules:
-            if not rule.validate_legality(state, command):
+            validation_result = rule.validate_legality(state, command)
+            if not validation_result.is_valid:
                 return CommandResult(
                     new_state=state,
                     success=False,
                     events=[],
-                    info=f"Command invalid: {command} because of rule {rule}",
+                    info=f"Command invalid: {command}. Reason: {validation_result.info}",
                 )
         # Derive events from command
         new_state: GameState = state

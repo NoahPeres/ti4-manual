@@ -1,7 +1,13 @@
 import dataclasses
 from collections.abc import Sequence
 
-from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandRuleWhenApplicable,
+    CommandType,
+    ValidationResult,
+)
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState
 from src.engine.core.player import Player
@@ -44,8 +50,16 @@ class EndTurn(CommandRuleWhenApplicable):
     def is_applicable(command: Command) -> bool:
         return command.command_type == CommandType.END_TURN
 
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> bool:
-        return (state.active_player == command.actor) and state.has_taken_turn
+    def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
+        if not (state.active_player == command.actor):
+            return ValidationResult(
+                is_valid=False, info="Only the active player can end their turn"
+            )
+        if not state.has_taken_turn:
+            return ValidationResult(
+                is_valid=False, info="A player must take a turn before ending it"
+            )
+        return ValidationResult(is_valid=True)
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
         return [EndTurnEvent()]

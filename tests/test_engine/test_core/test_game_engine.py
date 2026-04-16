@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from src.engine.core.command import Command, CommandRule, CommandType
+from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event
 from src.engine.core.game_engine import (
     GameEngine,
@@ -45,10 +45,12 @@ class TrivialCommandRule(CommandRule):
     def __repr__(self) -> str:
         return "TrivialCommandRule"
 
-    def validate_legality(self, state: GameState, command: Command):
-        return command.command_type == CommandType.ALWAYS_VALID
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if command.command_type == CommandType.ALWAYS_VALID:
+            return ValidationResult(is_valid=True)
+        return ValidationResult(is_valid=False, info="Command is not always valid")
 
-    def derive_events(self, state: GameState, command: Command):
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [TrivialEvent(payload="test")]
 
     @staticmethod
@@ -60,10 +62,12 @@ class EndTurn(CommandRule):
     def __repr__(self) -> str:
         return "EndTurn"
 
-    def validate_legality(self, state: GameState, command: Command):
-        return command.actor == state.active_player
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if command.actor == state.active_player:
+            return ValidationResult(is_valid=True)
+        return ValidationResult(is_valid=False, info="Only the active player can end their turn")
 
-    def derive_events(self, state: GameState, command: Command):
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         if command.command_type == CommandType.END_TURN:
             return [ChangePlayer(players=state.players)]
         return []

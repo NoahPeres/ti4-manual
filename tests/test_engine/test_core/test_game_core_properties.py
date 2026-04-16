@@ -5,7 +5,7 @@ import hypothesis.strategies as st
 import pytest
 from hypothesis import given
 
-from src.engine.core.command import Command, CommandRule, CommandType
+from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_engine import CommandResult, GameEngine, IllegalStateMutationError
 from src.engine.core.game_state import GameState, Phase
@@ -36,8 +36,8 @@ class MutatingCommandRule(CommandRule):
     def __repr__(self) -> str:
         return "MutatingCommandRule"
 
-    def validate_legality(self, state: GameState, command: Command) -> bool:
-        return True
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [TrivialEvent(payload="Does nothing"), MutatingEvent()]
@@ -58,8 +58,8 @@ class CommandAlwaysFails(CommandRule):
     def __repr__(self) -> str:
         return "CommandAlwaysFails"
 
-    def validate_legality(self, state: GameState, command: Command) -> bool:
-        return False
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        return ValidationResult(is_valid=False, info="This command always fails")
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return []
