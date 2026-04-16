@@ -36,6 +36,13 @@ class Phase(StrEnum):
 
 
 @dataclass(frozen=True)
+class Ship:
+    id: int
+    owner_name: str
+    kind: ShipKind
+
+
+@dataclass(frozen=True)
 class System:
     id: int
     command_tokens: tuple[CommandToken, ...]
@@ -46,13 +53,6 @@ class System:
 
 
 Galaxy = set[System]
-
-
-@dataclass(frozen=True)
-class Ship:
-    id: int
-    owner_name: str
-    kind: ShipKind
 
 
 @dataclass(frozen=True)
