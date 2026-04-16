@@ -42,6 +42,9 @@ class System:
     command_tokens: tuple[CommandToken, ...]
     ships: frozenset[Ship] = frozenset()
 
+    def has_command_token(self, player: Player) -> bool:
+        return any(token.player_name == player.name for token in self.command_tokens)
+
 
 Galaxy = set[System]
 
@@ -101,3 +104,9 @@ class GameState:
             return next(system for system in self.galaxy if ship in system.ships)
         except StopIteration:
             raise ValueError(f"Ship with id {ship.id} not found in any system") from None
+
+    def get_ship_from_id(self, id: int) -> Ship:
+        try:
+            return next(ship for system in self.galaxy for ship in system.ships if ship.id == id)
+        except StopIteration:
+            raise ValueError(f"Ship with id {id} not found in any system") from None

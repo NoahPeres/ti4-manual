@@ -148,7 +148,16 @@ def test_89_2_only_active_player_moves_ships() -> None:
             players=(player_a, player_b),
             active_player=player_a,
             phase=Phase.ACTION,
-            galaxy={System(id=0, command_tokens=()), System(id=1, command_tokens=())},
+            galaxy={
+                System(id=0, command_tokens=()),
+                System(
+                    id=1,
+                    command_tokens=(),
+                    ships=frozenset(
+                        {Ship(id=0, owner_name=player_b.name, kind=ShipKind.DREADNOUGHT)}
+                    ),
+                ),
+            },
             turn_context=TurnContext(
                 has_taken_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
@@ -163,8 +172,6 @@ def test_89_2_only_active_player_moves_ships() -> None:
             actor=player_b,
             command_type=CommandType.MOVE_SHIP,
             ship_id=0,
-            ship_owner_name=player_b.name,
-            from_system_id=1,
             to_system_id=0,
         ),
     )
@@ -178,9 +185,14 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
         strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
         command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=3, strategy=0),
     )
+    player_b = Player(
+        name="B",
+        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
+        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=3, strategy=0),
+    )
     session = GameSession(
         initial_state=GameState(
-            players=(player_a,),
+            players=(player_a, player_b),
             active_player=player_a,
             phase=Phase.ACTION,
             galaxy={
@@ -196,18 +208,55 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
         engine=get_default_game_engine(),
     )
     active_system = session.current_state.active_system
-    current_system = session.current_state.get_current_system(ship)
 
     assert active_system is not None
-    assert current_system is not None
     result = session.engine.apply_command(
         state=session.current_state,
         command=MoveShipCommand(
             actor=player_a,
             command_type=CommandType.MOVE_SHIP,
             ship_id=0,
-            ship_owner_name=ship.owner_name,
-            from_system_id=current_system.id,
+            to_system_id=active_system.id,
+        ),
+    )
+    assert not result.success
+
+
+def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
+    ship = Ship(kind=ShipKind.DREADNOUGHT, owner_name="A", id=0)
+    player_a = Player(
+        name="A",
+        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
+        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=3, strategy=0),
+    )
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a,),
+            active_player=player_a,
+            phase=Phase.ACTION,
+            galaxy={
+                System(id=0, command_tokens=()),
+                System(
+                    id=1, command_tokens=(CommandToken(player_name="A"),), ships=frozenset({ship})
+                ),
+            },
+            turn_context=TurnContext(
+                has_taken_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+        ),
+        engine=get_default_game_engine(),
+    )
+    active_system = session.current_state.active_system
+
+    assert active_system is not None
+    result = session.engine.apply_command(
+        state=session.current_state,
+        command=MoveShipCommand(
+            actor=player_a,
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
             to_system_id=active_system.id,
         ),
     )

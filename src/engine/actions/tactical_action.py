@@ -16,8 +16,6 @@ class ActivateCommand(Command):
 @dataclass(frozen=True)
 class MoveShipCommand(Command):
     ship_id: int
-    ship_owner_name: str
-    from_system_id: int
     to_system_id: int
 
 
@@ -146,9 +144,8 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
 
 
 class AddMoveToPendingEvent(Event):
-    def __init__(self, ship_id: int, from_system_id: int, to_system_id: int) -> None:
+    def __init__(self, ship_id: int, to_system_id: int) -> None:
         self.ship_id = ship_id
-        self.from_system_id = from_system_id
         self.to_system_id = to_system_id
 
     payload = "AddMoveToPending"
@@ -167,10 +164,18 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
         return command.command_type == CommandType.MOVE_SHIP
 
     def is_legal_given_applicable(self, state: GameState, command: MoveShipCommand) -> bool:
+        ship = state.get_ship_from_id(id=command.ship_id)
+        owner = state.get_player(name=ship.owner_name)
+        active_system = state.active_system
+        current_system = state.get_current_system(ship)
+        if active_system is None or current_system is None:
+            return False
         return (
             state.active_player == command.actor
             and state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
-            and command.actor == command.ship_owner_name
+            and command.actor == owner
+            and command.to_system_id == active_system.id
+            and not current_system.has_command_token(state.active_player)
         )
 
     def derive_events_given_applicable(
@@ -179,7 +184,6 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
         return [
             AddMoveToPendingEvent(
                 ship_id=command.ship_id,
-                from_system_id=command.from_system_id,
                 to_system_id=command.to_system_id,
             )
         ]
