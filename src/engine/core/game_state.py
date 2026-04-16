@@ -102,7 +102,7 @@ class GameState:
         try:
             return next(system for system in self.galaxy if ship in system.ships)
         except StopIteration:
-            raise ValueError(f"Ship with id {ship.id} not found in any system") from None
+            return None
 
     def get_ship_from_id(self, id: int) -> Ship:
         try:
