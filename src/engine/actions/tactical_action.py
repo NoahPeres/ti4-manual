@@ -188,17 +188,6 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
     def is_legal_given_applicable(
         self, state: GameState, command: MoveShipCommand
     ) -> ValidationResult:
-        try:
-            ship = state.get_ship_from_id(id=command.ship_id)
-        except ValueError:
-            return ValidationResult(is_valid=False, info="Invalid ship ID")
-        owner = state.get_player(name=ship.owner_name)
-        active_system = state.active_system
-        current_system = state.get_current_system(ship)
-        if active_system is None:
-            return ValidationResult(is_valid=False, info="No active system")
-        if current_system is None:
-            return ValidationResult(is_valid=False, info="Ship is not in any system")
         if not state.active_player == command.actor:
             return ValidationResult(is_valid=False, info="Only the active player can move ships")
         if not state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT:
@@ -206,10 +195,24 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
                 is_valid=False,
                 info="Can only move ships during the movement step of a tactical action",
             )
+        try:
+            ship = state.get_ship_from_id(id=command.ship_id)
+        except ValueError:
+            return ValidationResult(is_valid=False, info="Invalid ship ID")
+        try:
+            owner = state.get_player(name=ship.owner_name)
+        except ValueError:
+            return ValidationResult(is_valid=False, info="Invalid ship owner")
         if not command.actor == owner:
             return ValidationResult(is_valid=False, info="Player can only move their own ships")
+        active_system = state.active_system
+        if active_system is None:
+            return ValidationResult(is_valid=False, info="No active system")
         if not command.to_system_id == active_system.id:
             return ValidationResult(is_valid=False, info="Can only move ships to the active system")
+        current_system = state.get_current_system(ship)
+        if current_system is None:
+            return ValidationResult(is_valid=False, info="Ship is not in any system")
         if current_system.has_command_token(state.active_player):
             return ValidationResult(
                 is_valid=False, info="Cannot move ships from a system with your command token"
