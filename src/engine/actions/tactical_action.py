@@ -131,7 +131,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
                 is_valid=False,
                 info="Player must have tokens in their tactic pool to perform tactical action",
             )
-        return ValidationResult(True)
+        return ValidationResult(is_valid=True)
 
     def derive_events_given_applicable(
         self, state: GameState, command: ActivateCommand
@@ -152,9 +152,9 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
         return command.command_type == CommandType.END_MOVEMENT
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
-        if not state.active_player == command.actor:
+        if state.active_player != command.actor:
             return ValidationResult(is_valid=False, info="Only the active player can end movement")
-        if not state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT:
+        if state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT:
             return ValidationResult(
                 is_valid=False,
                 info="Can only end movement during the movement step of a tactical action",
@@ -188,9 +188,9 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
     def is_legal_given_applicable(
         self, state: GameState, command: MoveShipCommand
     ) -> ValidationResult:
-        if not state.active_player == command.actor:
+        if state.active_player != command.actor:
             return ValidationResult(is_valid=False, info="Only the active player can move ships")
-        if not state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT:
+        if state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT:
             return ValidationResult(
                 is_valid=False,
                 info="Can only move ships during the movement step of a tactical action",
@@ -203,12 +203,12 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
             owner = state.get_player(name=ship.owner_name)
         except ValueError:
             return ValidationResult(is_valid=False, info="Invalid ship owner")
-        if not command.actor == owner:
+        if command.actor != owner:
             return ValidationResult(is_valid=False, info="Player can only move their own ships")
         active_system = state.active_system
         if active_system is None:
             return ValidationResult(is_valid=False, info="No active system")
-        if not command.to_system_id == active_system.id:
+        if command.to_system_id != active_system.id:
             return ValidationResult(is_valid=False, info="Can only move ships to the active system")
         current_system = state.get_current_system(ship)
         if current_system is None:

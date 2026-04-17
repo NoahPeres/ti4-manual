@@ -51,7 +51,7 @@ class EndTurn(CommandRuleWhenApplicable):
         return command.command_type == CommandType.END_TURN
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
-        if not (state.active_player == command.actor):
+        if state.active_player != command.actor:
             return ValidationResult(
                 is_valid=False, info="Only the active player can end their turn"
             )
