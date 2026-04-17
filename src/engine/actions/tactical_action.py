@@ -67,7 +67,7 @@ class ActivateSystemEvent(Event):
         )
 
 
-class AdvanceToMovementStep(Event):
+class AdvanceToMovementStepEvent(Event):
     payload = "AdvanceToMovementStep"
 
     def apply(self, previous_state: GameState) -> GameState:
@@ -79,7 +79,7 @@ class AdvanceToMovementStep(Event):
         )
 
 
-class AdvanceToSpaceCombatStep(Event):
+class AdvanceToSpaceCombatStepEvent(Event):
     payload = "AdvanceToSpaceCombatStep"
 
     def apply(self, previous_state: GameState) -> GameState:
@@ -139,7 +139,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionInitiatedEvent(),
-            AdvanceToMovementStep(),
+            AdvanceToMovementStepEvent(),
         ]
 
 
@@ -162,7 +162,7 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
-        return [AdvanceToSpaceCombatStep()]
+        return [AdvanceToSpaceCombatStepEvent()]
 
 
 class AddMoveToPendingEvent(Event):
