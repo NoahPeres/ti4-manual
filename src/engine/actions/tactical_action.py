@@ -188,7 +188,10 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
     def is_legal_given_applicable(
         self, state: GameState, command: MoveShipCommand
     ) -> ValidationResult:
-        ship = state.get_ship_from_id(id=command.ship_id)
+        try:
+            ship = state.get_ship_from_id(id=command.ship_id)
+        except ValueError:
+            return ValidationResult(is_valid=False, info="Invalid ship ID")
         owner = state.get_player(name=ship.owner_name)
         active_system = state.active_system
         current_system = state.get_current_system(ship)
