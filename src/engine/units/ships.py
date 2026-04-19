@@ -12,6 +12,6 @@ class ShipKind(StrEnum):
 
 @dataclass(frozen=True)
 class Ship:
-    id: int
+    ship_id: int
     owner_name: str
     kind: ShipKind

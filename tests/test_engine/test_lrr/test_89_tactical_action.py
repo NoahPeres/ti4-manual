@@ -155,12 +155,12 @@ def test_89_2_only_active_player_moves_ships() -> None:
                     id=1,
                     command_tokens=(),
                     ships=frozenset(
-                        {Ship(id=0, owner_name=player_b.name, kind=ShipKind.DREADNOUGHT)}
+                        {Ship(ship_id=0, owner_name=player_b.name, kind=ShipKind.DREADNOUGHT)}
                     ),
                 ),
             },
             turn_context=TurnContext(
-                has_taken_action=True,
+                has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
                 active_system_id=0,
             ),
@@ -180,7 +180,7 @@ def test_89_2_only_active_player_moves_ships() -> None:
 
 
 def test_89_2_active_player_may_move_only_their_ships() -> None:
-    ship = Ship(kind=ShipKind.DREADNOUGHT, owner_name="B", id=0)
+    ship = Ship(kind=ShipKind.DREADNOUGHT, owner_name="B", ship_id=0)
     player_a = Player(
         name="A",
         strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
@@ -201,7 +201,7 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
                 System(id=1, command_tokens=(), ships=frozenset({ship})),
             },
             turn_context=TurnContext(
-                has_taken_action=True,
+                has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
                 active_system_id=0,
             ),
@@ -225,7 +225,7 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
 
 
 def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
-    ship = Ship(kind=ShipKind.DREADNOUGHT, owner_name="A", id=0)
+    ship = Ship(kind=ShipKind.DREADNOUGHT, owner_name="A", ship_id=0)
     player_a = Player(
         name="A",
         strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
@@ -243,7 +243,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
                 ),
             },
             turn_context=TurnContext(
-                has_taken_action=True,
+                has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
                 active_system_id=0,
             ),
@@ -279,7 +279,7 @@ def test_89_2_b_active_player_may_move_no_ships() -> None:
             phase=Phase.ACTION,
             galaxy={System(id=0, command_tokens=()), System(id=1, command_tokens=())},
             turn_context=TurnContext(
-                has_taken_action=False, tactical_action_step=TacticalActionStep.MOVEMENT
+                has_initiated_action=False, tactical_action_step=TacticalActionStep.MOVEMENT
             ),
         ),
         engine=get_default_game_engine(),

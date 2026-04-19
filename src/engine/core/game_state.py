@@ -16,7 +16,7 @@ class TacticalActionStep(StrEnum):
 
 @dataclass(frozen=True)
 class TurnContext:
-    has_taken_action: bool
+    has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
 
@@ -47,7 +47,9 @@ class GameState:
     active_player: Player
     phase: Phase
     galaxy: Galaxy
-    turn_context: TurnContext = field(default_factory=lambda: TurnContext(has_taken_action=False))
+    turn_context: TurnContext = field(
+        default_factory=lambda: TurnContext(has_initiated_action=False)
+    )
     ships: frozenset[Ship] = frozenset()
 
     @property
@@ -65,7 +67,7 @@ class GameState:
 
     @property
     def has_taken_turn(self) -> bool:
-        return self.turn_context.has_taken_action or self.active_player.has_passed
+        return self.turn_context.has_initiated_action or self.active_player.has_passed
 
     @property
     def active_system(self) -> System | None:
@@ -93,7 +95,7 @@ class GameState:
 
     def get_ship_from_id(self, id: int) -> Ship:
         try:
-            return next(ship for ship in self.ships if ship.id == id)
+            return next(ship for ship in self.ships if ship.ship_id == id)
         except StopIteration:
             raise ValueError(f"Ship with id {id} not found in game state") from None
 

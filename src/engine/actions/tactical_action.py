@@ -83,7 +83,8 @@ class TacticalActionInitiatedEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         return replace(
-            previous_state, turn_context=replace(previous_state.turn_context, has_taken_action=True)
+            previous_state,
+            turn_context=replace(previous_state.turn_context, has_initiated_action=True),
         )
 
 

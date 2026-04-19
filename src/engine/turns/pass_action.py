@@ -28,7 +28,7 @@ class PassEvent(Event):
             previous_state,
             players=new_players,
             active_player=passed_player,
-            turn_context=TurnContext(has_taken_action=False),
+            turn_context=TurnContext(has_initiated_action=False),
         )
 
 

@@ -28,7 +28,7 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
         return command.command_type == CommandType.END_MOVEMENT
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
-        if state.active_player != command.actor:
+        if not state.is_active_player(command.actor):
             return ValidationResult(is_valid=False, info="Only the active player can end movement")
         if state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT:
             return ValidationResult(
@@ -71,7 +71,10 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
                 is_valid=False,
                 info="Can only move ships during the movement step of a tactical action",
             )
-        ship = state.get_ship_from_id(id=command.ship_id)
+        try:
+            ship = state.get_ship_from_id(id=command.ship_id)
+        except ValueError:
+            return ValidationResult(is_valid=False, info="Invalid ship ID")
         try:
             owner = state.get_player(name=ship.owner_name)
         except ValueError:
@@ -95,6 +98,7 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
     def derive_events_given_applicable(
         self, state: GameState, command: MoveShipCommand
     ) -> Sequence[Event]:
+        del state
         return [
             AddMoveToPendingEvent(
                 ship_id=command.ship_id,

@@ -38,7 +38,9 @@ class EndTurnEvent(Event):
         return dataclasses.replace(
             previous_state,
             active_player=next_player,
-            turn_context=dataclasses.replace(previous_state.turn_context, has_taken_action=False),
+            turn_context=dataclasses.replace(
+                previous_state.turn_context, has_initiated_action=False
+            ),
         )
 
 
