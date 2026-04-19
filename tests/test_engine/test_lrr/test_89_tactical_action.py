@@ -203,6 +203,7 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
                 tactical_action_step=TacticalActionStep.MOVEMENT,
                 active_system_id=0,
             ),
+            ships=frozenset({ship}),
         ),
         engine=get_default_game_engine(),
     )
@@ -244,6 +245,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
                 tactical_action_step=TacticalActionStep.MOVEMENT,
                 active_system_id=0,
             ),
+            ships=frozenset({ship}),
         ),
         engine=get_default_game_engine(),
     )

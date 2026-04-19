@@ -62,6 +62,7 @@ class GameState:
     phase: Phase
     galaxy: Galaxy
     turn_context: TurnContext = field(default_factory=lambda: TurnContext(has_taken_action=False))
+    ships: frozenset[Ship] = frozenset()
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -106,6 +107,6 @@ class GameState:
 
     def get_ship_from_id(self, id: int) -> Ship:
         try:
-            return next(ship for system in self.galaxy for ship in system.ships if ship.id == id)
+            return next(ship for ship in self.ships if ship.id == id)
         except StopIteration:
             raise ValueError(f"Ship with id {id} not found in any system") from None

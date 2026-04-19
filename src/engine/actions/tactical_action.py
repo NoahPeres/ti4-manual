@@ -195,10 +195,7 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
                 is_valid=False,
                 info="Can only move ships during the movement step of a tactical action",
             )
-        try:
-            ship = state.get_ship_from_id(id=command.ship_id)
-        except ValueError:
-            return ValidationResult(is_valid=False, info="Invalid ship ID")
+        ship = state.get_ship_from_id(id=command.ship_id)
         try:
             owner = state.get_player(name=ship.owner_name)
         except ValueError:
