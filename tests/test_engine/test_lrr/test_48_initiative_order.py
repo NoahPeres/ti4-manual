@@ -78,7 +78,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
     initial_state = GameState(
         players=players,
         active_player=player_1,
-        turn_context=TurnContext(has_taken_action=False),
+        turn_context=TurnContext(has_initiated_action=False),
         phase=Phase.ACTION,
         galaxy={System(id=0, command_tokens=())},
     )

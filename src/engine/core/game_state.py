@@ -3,11 +3,22 @@ from enum import StrEnum
 
 from src.engine.core.player import Player
 from src.engine.tokens import CommandToken
+from src.engine.units.ships import Ship
+
+
+class TacticalActionStep(StrEnum):
+    ACTIVATION = "activation"
+    MOVEMENT = "movement"
+    SPACE_COMBAT = "space_combat"
+    INVASION = "invasion"
+    PRODUCTION = "production"
 
 
 @dataclass(frozen=True)
 class TurnContext:
-    has_taken_action: bool
+    has_initiated_action: bool
+    tactical_action_step: TacticalActionStep | None = None
+    active_system_id: int | None = None
 
 
 class Phase(StrEnum):
@@ -21,6 +32,10 @@ class Phase(StrEnum):
 class System:
     id: int
     command_tokens: tuple[CommandToken, ...]
+    ships: frozenset[Ship] = frozenset()
+
+    def has_command_token(self, player: Player) -> bool:
+        return any(token.player_name == player.name for token in self.command_tokens)
 
 
 Galaxy = set[System]
@@ -32,7 +47,10 @@ class GameState:
     active_player: Player
     phase: Phase
     galaxy: Galaxy
-    turn_context: TurnContext = field(default_factory=lambda: TurnContext(has_taken_action=False))
+    turn_context: TurnContext = field(
+        default_factory=lambda: TurnContext(has_initiated_action=False)
+    )
+    ships: frozenset[Ship] = frozenset()
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -49,7 +67,13 @@ class GameState:
 
     @property
     def has_taken_turn(self) -> bool:
-        return self.turn_context.has_taken_action or self.active_player.has_passed
+        return self.turn_context.has_initiated_action or self.active_player.has_passed
+
+    @property
+    def active_system(self) -> System | None:
+        if self.turn_context.active_system_id is None:
+            return None
+        return self.get_system(id=self.turn_context.active_system_id)
 
     def get_system(self, id: int) -> System:
         try:
@@ -62,3 +86,18 @@ class GameState:
             return next(player for player in self.players if player.name == name)
         except StopIteration:
             raise ValueError(f"Player with name {name} not found in game state") from None
+
+    def get_current_system(self, ship: Ship) -> System | None:
+        try:
+            return next(system for system in self.galaxy if ship in system.ships)
+        except StopIteration:
+            return None
+
+    def get_ship_from_id(self, id: int) -> Ship:
+        try:
+            return next(ship for ship in self.ships if ship.ship_id == id)
+        except StopIteration:
+            raise ValueError(f"Ship with id {id} not found in game state") from None
+
+    def is_active_player(self, player: Player) -> bool:
+        return self.active_player == player

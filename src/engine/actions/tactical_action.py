@@ -1,10 +1,15 @@
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
-from src.engine.core.command import Command, CommandRule, CommandRuleWhenApplicable, CommandType
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandRuleWhenApplicable,
+    CommandType,
+    ValidationResult,
+)
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState
-from src.engine.core.player import CommandSheet
+from src.engine.core.game_state import GameState, TacticalActionStep
 from src.engine.tokens import CommandToken
 
 
@@ -48,15 +53,38 @@ class ActivateSystemEvent(Event):
             previous_state,
             galaxy=new_galaxy,
             players=players,
+            turn_context=replace(
+                previous_state.turn_context,
+                tactical_action_step=TacticalActionStep.ACTIVATION,
+                active_system_id=self.system_id,
+            ),
         )
 
 
-class TacticalActionCompletedEvent(Event):
-    payload: str = "TacticalActionCompletedEvent"
+def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
+    class AdvanceToStepEvent(Event):
+        payload = f"AdvanceTo{step.name}Step"
+
+        def apply(self, previous_state: GameState) -> GameState:
+            return replace(
+                previous_state,
+                turn_context=replace(previous_state.turn_context, tactical_action_step=step),
+            )
+
+    return AdvanceToStepEvent
+
+
+AdvanceToMovementStepEvent = _make_advance_to_step_event(TacticalActionStep.MOVEMENT)
+AdvanceToSpaceCombatStepEvent = _make_advance_to_step_event(TacticalActionStep.SPACE_COMBAT)
+
+
+class TacticalActionInitiatedEvent(Event):
+    payload: str = "TacticalActionInitiatedEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         return replace(
-            previous_state, turn_context=replace(previous_state.turn_context, has_taken_action=True)
+            previous_state,
+            turn_context=replace(previous_state.turn_context, has_initiated_action=True),
         )
 
 
@@ -68,24 +96,38 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
     def is_applicable(command: Command) -> bool:
         return command.command_type == CommandType.INITIATE_TACTICAL_ACTION
 
-    def is_legal_given_applicable(self, state: GameState, command: ActivateCommand) -> bool:
+    def is_legal_given_applicable(
+        self, state: GameState, command: ActivateCommand
+    ) -> ValidationResult:
         try:
             system = state.get_system(id=command.system_id)
         except ValueError:
-            return False
-        return (
-            (state.active_player == command.actor)
-            and not state.has_taken_turn
-            and not any(token.player_name == command.actor.name for token in system.command_tokens)
-            and len(command.actor.command_sheet.tactic) > 0
-        )
+            return ValidationResult(is_valid=False, info="System not found")
+        if not state.is_active_player(command.actor):
+            return ValidationResult(
+                is_valid=False, info="Only the active player can initiate a tactical action"
+            )
+        if state.has_taken_turn:
+            return ValidationResult(is_valid=False, info="Player has already taken a turn")
+        if system.has_command_token(command.actor):
+            return ValidationResult(
+                is_valid=False,
+                info="Cannot activate a system with your command token",
+            )
+        if len(command.actor.command_sheet.tactic) == 0:
+            return ValidationResult(
+                is_valid=False,
+                info="Player must have tokens in their tactic pool to perform tactical action",
+            )
+        return ValidationResult(is_valid=True)
 
     def derive_events_given_applicable(
         self, state: GameState, command: ActivateCommand
     ) -> Sequence[Event]:
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
-            TacticalActionCompletedEvent(),
+            TacticalActionInitiatedEvent(),
+            AdvanceToMovementStepEvent(),
         ]
 
 

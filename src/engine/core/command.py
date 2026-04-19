@@ -1,7 +1,7 @@
 import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -17,6 +17,8 @@ class CommandType(enum.StrEnum):
     ALWAYS_INVALID = "always_invalid"
     INITIATE_TACTICAL_ACTION = "initiate_tactical_action"
     PASS_ACTION = "pass_action"
+    END_MOVEMENT = "end_movement"
+    MOVE_SHIP = "move_ship"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:
@@ -29,11 +31,17 @@ class Command:
     command_type: CommandType
 
 
+@dataclass(frozen=True)
+class ValidationResult:
+    is_valid: bool
+    info: str = ""
+
+
 class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
     def is_applicable(command: Command) -> bool: ...
-    def validate_legality(self, state: GameState, command: C) -> bool: ...
+    def validate_legality(self, state: GameState, command: C) -> ValidationResult: ...
     def derive_events(self, state: GameState, command: C) -> Sequence[Event]: ...
 
 
@@ -44,13 +52,13 @@ class CommandRuleWhenApplicable[C: Command](ABC, CommandRule[C]):
     @abstractmethod
     def is_applicable(command: Command) -> bool: ...
     @abstractmethod
-    def is_legal_given_applicable(self, state: GameState, command: C) -> bool: ...
+    def is_legal_given_applicable(self, state: GameState, command: C) -> ValidationResult: ...
     @abstractmethod
     def derive_events_given_applicable(self, state: GameState, command: C) -> Sequence[Event]: ...
 
-    def validate_legality(self, state: GameState, command: C) -> bool:
+    def validate_legality(self, state: GameState, command: C) -> ValidationResult:
         if not self.is_applicable(command):
-            return True
+            return ValidationResult(is_valid=True)
         else:
             return self.is_legal_given_applicable(state=state, command=command)
 

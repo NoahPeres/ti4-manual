@@ -15,7 +15,7 @@ def test_end_turn_command_changes_active_player() -> None:
         state=GameState(
             players=(TEST_PLAYER, ANOTHER_PLAYER),
             active_player=TEST_PLAYER,
-            turn_context=TurnContext(has_taken_action=True),
+            turn_context=TurnContext(has_initiated_action=True),
             phase=Phase.ACTION,
             galaxy=set(),
         ),
@@ -32,7 +32,7 @@ def test_only_active_player_can_end_turn() -> None:
         state=GameState(
             players=(TEST_PLAYER, ANOTHER_PLAYER),
             active_player=ANOTHER_PLAYER,
-            turn_context=TurnContext(has_taken_action=True),
+            turn_context=TurnContext(has_initiated_action=True),
             phase=Phase.ACTION,
             galaxy=set(),
         ),
