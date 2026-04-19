@@ -67,28 +67,21 @@ class ActivateSystemEvent(Event):
         )
 
 
-class AdvanceToMovementStepEvent(Event):
-    payload = "AdvanceToMovementStep"
+def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
+    class AdvanceToStepEvent(Event):
+        payload = f"AdvanceTo{step.name}Step"
 
-    def apply(self, previous_state: GameState) -> GameState:
-        return replace(
-            previous_state,
-            turn_context=replace(
-                previous_state.turn_context, tactical_action_step=TacticalActionStep.MOVEMENT
-            ),
-        )
+        def apply(self, previous_state: GameState) -> GameState:
+            return replace(
+                previous_state,
+                turn_context=replace(previous_state.turn_context, tactical_action_step=step),
+            )
+
+    return AdvanceToStepEvent
 
 
-class AdvanceToSpaceCombatStepEvent(Event):
-    payload = "AdvanceToSpaceCombatStep"
-
-    def apply(self, previous_state: GameState) -> GameState:
-        return replace(
-            previous_state,
-            turn_context=replace(
-                previous_state.turn_context, tactical_action_step=TacticalActionStep.SPACE_COMBAT
-            ),
-        )
+AdvanceToMovementStepEvent = _make_advance_to_step_event(TacticalActionStep.MOVEMENT)
+AdvanceToSpaceCombatStepEvent = _make_advance_to_step_event(TacticalActionStep.SPACE_COMBAT)
 
 
 class TacticalActionInitiatedEvent(Event):

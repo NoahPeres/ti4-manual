@@ -3,6 +3,7 @@ from enum import StrEnum
 
 from src.engine.core.player import Player
 from src.engine.tokens import CommandToken
+from src.engine.units.ships import Ship
 
 
 class TacticalActionStep(StrEnum):
@@ -11,14 +12,6 @@ class TacticalActionStep(StrEnum):
     SPACE_COMBAT = "space_combat"
     INVASION = "invasion"
     PRODUCTION = "production"
-
-
-class ShipKind(StrEnum):
-    FLAGSHIP = "flagship"
-    DREADNOUGHT = "dreadnought"
-    CRUISER = "cruiser"
-    DESTROYER = "destroyer"
-    FIGHTER = "fighter"
 
 
 @dataclass(frozen=True)
@@ -33,13 +26,6 @@ class Phase(StrEnum):
     ACTION = "action"
     STATUS = "status"
     AGENDA = "agenda"
-
-
-@dataclass(frozen=True)
-class Ship:
-    id: int
-    owner_name: str
-    kind: ShipKind
 
 
 @dataclass(frozen=True)
@@ -109,4 +95,4 @@ class GameState:
         try:
             return next(ship for ship in self.ships if ship.id == id)
         except StopIteration:
-            raise ValueError(f"Ship with id {id} not found in any system") from None
+            raise ValueError(f"Ship with id {id} not found in game state") from None

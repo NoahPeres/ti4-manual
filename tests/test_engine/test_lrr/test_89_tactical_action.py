@@ -6,8 +6,6 @@ from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
     GameState,
     Phase,
-    Ship,
-    ShipKind,
     System,
     TacticalActionStep,
     TurnContext,
@@ -15,8 +13,11 @@ from src.engine.core.game_state import (
 from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
-
-from .common import get_default_game_engine, make_basic_session_from_players
+from src.engine.units.ships import Ship, ShipKind
+from tests.test_engine.test_lrr.common import (
+    get_default_game_engine,
+    make_basic_session_from_players,
+)
 
 
 def test_89_1_active_player_must_activate_system_without_their_command_token() -> None:
