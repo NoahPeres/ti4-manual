@@ -63,7 +63,7 @@ class EndTurn(CommandRule):
         return "EndTurn"
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if command.actor == state.active_player:
+        if state.is_active_player(command.actor) and command.command_type == CommandType.END_TURN:
             return ValidationResult(is_valid=True)
         return ValidationResult(is_valid=False, info="Only the active player can end their turn")
 

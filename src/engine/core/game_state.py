@@ -96,3 +96,6 @@ class GameState:
             return next(ship for ship in self.ships if ship.id == id)
         except StopIteration:
             raise ValueError(f"Ship with id {id} not found in game state") from None
+
+    def is_active_player(self, player: Player) -> bool:
+        return self.active_player == player

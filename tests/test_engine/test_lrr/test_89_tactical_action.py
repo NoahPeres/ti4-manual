@@ -1,6 +1,7 @@
 from dataclasses import replace
 
-from src.engine.actions.tactical_action import ActivateCommand, MoveShipCommand
+from src.engine.actions.movement import MoveShipCommand
+from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (

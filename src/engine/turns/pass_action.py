@@ -41,7 +41,7 @@ class PassCommandRule(CommandRuleWhenApplicable):
         return command.command_type == CommandType.PASS_ACTION
 
     def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
-        if state.active_player != command.actor:
+        if not state.is_active_player(command.actor):
             return ValidationResult(
                 is_valid=False, info="Only the active player can pass their turn"
             )

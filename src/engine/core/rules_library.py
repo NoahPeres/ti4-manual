@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Protocol, cast
 
-from src.engine.actions import tactical_action
+from src.engine.actions import movement, tactical_action
 from src.engine.core.command import CommandRule
 from src.engine.core.event import EventRule
 from src.engine.turns import end_turn, pass_action
@@ -19,6 +19,7 @@ MODULES_WITH_RULES: Sequence[RulesModule] = [
         end_turn,
         tactical_action,
         pass_action,
+        movement,
     ]
 ]
 
