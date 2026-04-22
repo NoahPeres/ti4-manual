@@ -17,7 +17,7 @@ def test_end_turn_command_changes_active_player() -> None:
             active_player=TEST_PLAYER,
             turn_context=TurnContext(has_initiated_action=True),
             phase=Phase.ACTION,
-            galaxy=set(),
+            galaxy=frozenset(),
         ),
         command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
     )
@@ -34,7 +34,7 @@ def test_only_active_player_can_end_turn() -> None:
             active_player=ANOTHER_PLAYER,
             turn_context=TurnContext(has_initiated_action=True),
             phase=Phase.ACTION,
-            galaxy=set(),
+            galaxy=frozenset(),
         ),
         command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
     )

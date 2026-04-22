@@ -37,11 +37,11 @@ class ChangePlayer(Event):
             players=previous_state.players,
             active_player=new_player,
             phase=Phase.ACTION,
-            galaxy=set(),
+            galaxy=frozenset(),
         )
 
 
-class TrivialCommandRule(CommandRule):
+class TrivialCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "TrivialCommandRule"
 
@@ -58,7 +58,7 @@ class TrivialCommandRule(CommandRule):
         return True
 
 
-class EndTurn(CommandRule):
+class EndTurn(CommandRule[Command]):
     def __repr__(self) -> str:
         return "EndTurn"
 
@@ -78,8 +78,8 @@ class EndTurn(CommandRule):
 
 
 class TrivialRulesEngine(RulesEngine):
-    def __init__(self, command_rules: Sequence[CommandRule]) -> None:
-        self.command_rules: Sequence[CommandRule] = command_rules
+    def __init__(self, command_rules: Sequence[CommandRule[Command]]) -> None:
+        self.command_rules: Sequence[CommandRule[Command]] = command_rules
         self.event_rules = []
 
 
@@ -88,11 +88,11 @@ def _set_up_session(
     initial_player: Player = TEST_PLAYER,
     game_state_invariants: list[GameStateInvariant] | None = None,
     initial_state: GameState | None = None,
-    command_rules: Sequence[CommandRule] | None = None,
+    command_rules: Sequence[CommandRule[Command]] | None = None,
 ) -> GameSession:
     if initial_state is None:
         initial_state = GameState(
-            players=players, active_player=initial_player, phase=Phase.ACTION, galaxy=set()
+            players=players, active_player=initial_player, phase=Phase.ACTION, galaxy=frozenset()
         )
     if game_state_invariants is None:
         game_state_invariants = []

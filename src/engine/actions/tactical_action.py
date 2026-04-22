@@ -131,7 +131,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
         ]
 
 
-def get_command_rules() -> list[CommandRule]:
+def get_command_rules() -> list[CommandRule[ActivateCommand]]:
     return [InitiateTacticalActionCommandRule()]
 
 
