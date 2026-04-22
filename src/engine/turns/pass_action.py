@@ -32,7 +32,7 @@ class PassEvent(Event):
         )
 
 
-class PassCommandRule(CommandRuleWhenApplicable):
+class PassCommandRule(CommandRuleWhenApplicable[Command]):
     def __repr__(self) -> str:
         return "PassAction"
 
@@ -69,7 +69,7 @@ class AdvanceToStatusRule(EventRule):
         return []
 
 
-def get_command_rules() -> list[CommandRule]:
+def get_command_rules() -> list[CommandRule[Command]]:
     return [PassCommandRule()]
 
 

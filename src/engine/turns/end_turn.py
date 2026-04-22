@@ -44,7 +44,7 @@ class EndTurnEvent(Event):
         )
 
 
-class EndTurn(CommandRuleWhenApplicable):
+class EndTurn(CommandRuleWhenApplicable[Command]):
     def __repr__(self) -> str:
         return "EndTurn"
 
@@ -67,7 +67,7 @@ class EndTurn(CommandRuleWhenApplicable):
         return [EndTurnEvent()]
 
 
-def get_command_rules() -> list[CommandRule]:
+def get_command_rules() -> list[CommandRule[Command]]:
     return [EndTurn()]
 
 
