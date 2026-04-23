@@ -331,6 +331,7 @@ def test_89_2_a_ships_with_insufficient_move_cannot_move() -> None:
         ),
     )
     assert not result.success
+    assert len(result.new_state.turn_context.pending_moves) == 0
 
 
 def test_89_2_a_ship_with_sufficient_move_may_move() -> None:
@@ -346,6 +347,7 @@ def test_89_2_a_ship_with_sufficient_move_may_move() -> None:
         ),
     )
     assert result.success
+    assert len(result.new_state.turn_context.pending_moves) == 1
 
 
 def test_89_2_b_active_player_may_move_no_ships() -> None:

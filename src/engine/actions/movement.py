@@ -60,17 +60,13 @@ class AddMoveToPendingEvent(Event):
         active_system = previous_state.active_system
         if active_system is None:
             raise ValueError("No active system in state when applying AddMoveToPendingEvent")
-        move_set = previous_state.turn_context.pending_moves.union(
-            frozenset(
-                {
-                    Move(
-                        ship_id=self.ship_id,
-                        from_system_id=active_system.id,
-                        to_system_id=self.to_system_id,
-                    )
-                }
+        move_set = previous_state.turn_context.pending_moves | {
+            Move(
+                ship_id=self.ship_id,
+                from_system_id=active_system.id,
+                to_system_id=self.to_system_id,
             )
-        )
+        }
         return replace(
             previous_state,
             turn_context=replace(previous_state.turn_context, pending_moves=move_set),
