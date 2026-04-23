@@ -6,6 +6,7 @@ from src.engine.core.command import Command, CommandType
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
     GameState,
+    HexCoord,
     Phase,
     System,
     TacticalActionStep,
@@ -14,7 +15,7 @@ from src.engine.core.game_state import (
 from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
-from src.engine.units.ships import Ship, ShipKind
+from src.engine.units.ships import Ship, ShipKind, ShipStats
 from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     make_basic_session_from_players,
@@ -149,16 +150,18 @@ def test_89_2_only_active_player_moves_ships() -> None:
             players=(player_a, player_b),
             active_player=player_a,
             phase=Phase.ACTION,
-            galaxy={
-                System(id=0, command_tokens=()),
-                System(
-                    id=1,
-                    command_tokens=(),
-                    ships=frozenset(
-                        {Ship(ship_id=0, owner_name=player_b.name, kind=ShipKind.DREADNOUGHT)}
+            galaxy=frozenset(
+                {
+                    System(id=0, command_tokens=()),
+                    System(
+                        id=1,
+                        command_tokens=(),
+                        ships=frozenset(
+                            {Ship(ship_id=0, owner_name=player_b.name, kind=ShipKind.DREADNOUGHT)}
+                        ),
                     ),
-                ),
-            },
+                }
+            ),
             turn_context=TurnContext(
                 has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
@@ -196,10 +199,12 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
             players=(player_a, player_b),
             active_player=player_a,
             phase=Phase.ACTION,
-            galaxy={
-                System(id=0, command_tokens=()),
-                System(id=1, command_tokens=(), ships=frozenset({ship})),
-            },
+            galaxy=frozenset(
+                {
+                    System(id=0, command_tokens=()),
+                    System(id=1, command_tokens=(), ships=frozenset({ship})),
+                }
+            ),
             turn_context=TurnContext(
                 has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
@@ -236,12 +241,16 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
             players=(player_a,),
             active_player=player_a,
             phase=Phase.ACTION,
-            galaxy={
-                System(id=0, command_tokens=()),
-                System(
-                    id=1, command_tokens=(CommandToken(player_name="A"),), ships=frozenset({ship})
-                ),
-            },
+            galaxy=frozenset(
+                {
+                    System(id=0, command_tokens=()),
+                    System(
+                        id=1,
+                        command_tokens=(CommandToken(player_name="A"),),
+                        ships=frozenset({ship}),
+                    ),
+                }
+            ),
             turn_context=TurnContext(
                 has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
@@ -266,6 +275,80 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
     assert not result.success
 
 
+def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
+    player_a = Player(
+        "A", strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),)
+    )
+    ship = Ship(
+        ship_id=0,
+        owner_name="A",
+        kind=ShipKind.DREADNOUGHT,
+        stats=ShipStats(cost=4, combat=5, move=1, capacity=1),
+    )
+    system_0 = System(
+        id=0,
+        command_tokens=(CommandToken("A"),) if active_system_id == 0 else (),
+        coordinates=HexCoord(0, 0),
+        ships=frozenset({ship}),
+    )
+    system_1 = System(
+        id=1,
+        command_tokens=(CommandToken("A"),) if active_system_id == 1 else (),
+        coordinates=HexCoord(0, 1),
+    )
+    system_2 = System(
+        id=2,
+        command_tokens=(CommandToken("A"),) if active_system_id == 2 else (),
+        coordinates=HexCoord(0, 2),
+    )
+
+    return GameState(
+        players=(player_a,),
+        active_player=player_a,
+        phase=Phase.ACTION,
+        galaxy=frozenset({system_0, system_1, system_2}),
+        turn_context=TurnContext(
+            has_initiated_action=True,
+            tactical_action_step=TacticalActionStep.MOVEMENT,
+            active_system_id=active_system_id,
+        ),
+        ships=frozenset({ship}),
+    )
+
+
+def test_89_2_a_ships_with_insufficient_move_cannot_move() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=2)
+    engine = get_default_game_engine()
+
+    result = engine.apply_command(
+        state=state,
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=2,
+        ),
+    )
+    assert not result.success
+    assert len(result.new_state.turn_context.pending_moves) == 0
+
+
+def test_89_2_a_ship_with_sufficient_move_may_move() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    result = engine.apply_command(
+        state=state,
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+        ),
+    )
+    assert result.success
+    assert len(result.new_state.turn_context.pending_moves) == 1
+
+
 def test_89_2_b_active_player_may_move_no_ships() -> None:
     player_a = Player(
         name="A",
@@ -277,7 +360,7 @@ def test_89_2_b_active_player_may_move_no_ships() -> None:
             players=(player_a,),
             active_player=player_a,
             phase=Phase.ACTION,
-            galaxy={System(id=0, command_tokens=()), System(id=1, command_tokens=())},
+            galaxy=frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
             turn_context=TurnContext(
                 has_initiated_action=False, tactical_action_step=TacticalActionStep.MOVEMENT
             ),

@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from copy import deepcopy
+from typing import Callable
 
 import hypothesis.strategies as st
 import pytest
@@ -32,7 +33,7 @@ class MutatingEvent(Event):
         return previous_state
 
 
-class MutatingCommandRule(CommandRule):
+class MutatingCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "MutatingCommandRule"
 
@@ -48,13 +49,15 @@ class MutatingCommandRule(CommandRule):
 
 
 @st.composite
-def simple_game_state(draw):
+def simple_game_state(draw: Callable[[st.SearchStrategy[Player]], Player]) -> GameState:
     players: tuple[Player, ...] = PLAYERS
     active_player: Player = draw(st.sampled_from(players))
-    return GameState(players=players, active_player=active_player, phase=Phase.ACTION, galaxy=set())
+    return GameState(
+        players=players, active_player=active_player, phase=Phase.ACTION, galaxy=frozenset()
+    )
 
 
-class CommandAlwaysFails(CommandRule):
+class CommandAlwaysFails(CommandRule[Command]):
     def __repr__(self) -> str:
         return "CommandAlwaysFails"
 
@@ -67,10 +70,10 @@ class CommandAlwaysFails(CommandRule):
 
 class CustomRulesEngine(TI4RulesEngine):
     def __init__(
-        self, command_rules: Sequence[CommandRule], event_rules: Sequence[EventRule]
+        self, command_rules: Sequence[CommandRule[Command]], event_rules: Sequence[EventRule]
     ) -> None:
         super().__init__()
-        self.command_rules: Sequence[CommandRule] = command_rules
+        self.command_rules: Sequence[CommandRule[Command]] = command_rules
         self.event_rules: Sequence[EventRule] = event_rules
 
 

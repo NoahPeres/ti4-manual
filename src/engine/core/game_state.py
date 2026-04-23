@@ -14,13 +14,6 @@ class TacticalActionStep(StrEnum):
     PRODUCTION = "production"
 
 
-@dataclass(frozen=True)
-class TurnContext:
-    has_initiated_action: bool
-    tactical_action_step: TacticalActionStep | None = None
-    active_system_id: int | None = None
-
-
 class Phase(StrEnum):
     STRATEGY = "strategy"
     ACTION = "action"
@@ -29,16 +22,38 @@ class Phase(StrEnum):
 
 
 @dataclass(frozen=True)
+class HexCoord:
+    x: int
+    y: int
+
+
+@dataclass(frozen=True)
 class System:
     id: int
     command_tokens: tuple[CommandToken, ...]
     ships: frozenset[Ship] = frozenset()
+    coordinates: HexCoord | None = None
 
     def has_command_token(self, player: Player) -> bool:
         return any(token.player_name == player.name for token in self.command_tokens)
 
 
-Galaxy = set[System]
+@dataclass(frozen=True)
+class Move:
+    ship_id: int
+    from_system_id: int
+    to_system_id: int
+
+
+@dataclass(frozen=True)
+class TurnContext:
+    has_initiated_action: bool
+    tactical_action_step: TacticalActionStep | None = None
+    active_system_id: int | None = None
+    pending_moves: frozenset[Move] = field(default_factory=frozenset)
+
+
+Galaxy = frozenset[System]
 
 
 @dataclass(frozen=True)

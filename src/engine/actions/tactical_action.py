@@ -34,9 +34,9 @@ class ActivateSystemEvent(Event):
                 CommandToken(player_name=self.player_id),
             ),
         )
-        new_galaxy = {
-            system for system in previous_state.galaxy if system.id != self.system_id
-        }.union({new_system})
+        new_galaxy = frozenset(
+            {system for system in previous_state.galaxy if system.id != self.system_id}
+        ) | {new_system}
         old_player = previous_state.get_player(name=self.player_id)
         new_player = replace(
             old_player,
@@ -131,7 +131,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
         ]
 
 
-def get_command_rules() -> list[CommandRule]:
+def get_command_rules() -> list[CommandRule[ActivateCommand]]:
     return [InitiateTacticalActionCommandRule()]
 
 

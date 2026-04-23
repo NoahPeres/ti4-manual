@@ -80,7 +80,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInit
         active_player=player_1,
         turn_context=TurnContext(has_initiated_action=False),
         phase=Phase.ACTION,
-        galaxy={System(id=0, command_tokens=())},
+        galaxy=frozenset({System(id=0, command_tokens=())}),
     )
     # Player 1 ends turn
     player_1_action = ENGINE.apply_command(

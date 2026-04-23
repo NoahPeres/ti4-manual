@@ -59,11 +59,9 @@ class CommandRuleWhenApplicable[C: Command](ABC, CommandRule[C]):
     def validate_legality(self, state: GameState, command: C) -> ValidationResult:
         if not self.is_applicable(command):
             return ValidationResult(is_valid=True)
-        else:
-            return self.is_legal_given_applicable(state=state, command=command)
+        return self.is_legal_given_applicable(state=state, command=command)
 
     def derive_events(self, state: GameState, command: C) -> Sequence[Event]:
         if not self.is_applicable(command):
             return []
-        else:
-            return self.derive_events_given_applicable(state=state, command=command)
+        return self.derive_events_given_applicable(state=state, command=command)
