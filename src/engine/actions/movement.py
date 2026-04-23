@@ -87,8 +87,7 @@ def distance(coordinates_a: HexCoord, coordinates_b: HexCoord) -> int:
     dy = coordinates_b.y - coordinates_a.y
     if dx * dy >= 0:
         return max(abs(dx), abs(dy))
-    else:
-        return abs(dx) + abs(dy)
+    return abs(dx) + abs(dy)
 
 
 def calculate_move_distance(system_a: System, system_b: System) -> int:

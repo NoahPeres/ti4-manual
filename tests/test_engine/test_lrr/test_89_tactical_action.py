@@ -287,22 +287,22 @@ def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
     )
     system_0 = System(
         id=0,
-        command_tokens=(CommandToken("A"),) if active_system_id == 0 else tuple(),
+        command_tokens=(CommandToken("A"),) if active_system_id == 0 else (),
         coordinates=HexCoord(0, 0),
         ships=frozenset({ship}),
     )
     system_1 = System(
         id=1,
-        command_tokens=(CommandToken("A"),) if active_system_id == 1 else tuple(),
+        command_tokens=(CommandToken("A"),) if active_system_id == 1 else (),
         coordinates=HexCoord(0, 1),
     )
     system_2 = System(
         id=2,
-        command_tokens=(CommandToken("A"),) if active_system_id == 2 else tuple(),
+        command_tokens=(CommandToken("A"),) if active_system_id == 2 else (),
         coordinates=HexCoord(0, 2),
     )
 
-    state = GameState(
+    return GameState(
         players=(player_a,),
         active_player=player_a,
         phase=Phase.ACTION,
@@ -314,7 +314,6 @@ def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
         ),
         ships=frozenset({ship}),
     )
-    return state
 
 
 def test_89_2_a_ships_with_insufficient_move_cannot_move() -> None:
