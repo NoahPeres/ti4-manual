@@ -36,7 +36,7 @@ class ActivateSystemEvent(Event):
         )
         new_galaxy = frozenset(
             {system for system in previous_state.galaxy if system.id != self.system_id}
-        ) | frozenset({new_system})
+        ) | {new_system}
         old_player = previous_state.get_player(name=self.player_id)
         new_player = replace(
             old_player,

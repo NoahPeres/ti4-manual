@@ -64,8 +64,7 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
         def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
             if event.payload == "PassAction":
                 return [OnEndTurnEvent()]
-            else:
-                return []
+            return []
 
     session.engine.rules_engine.event_rules = [
         *session.engine.rules_engine.event_rules,

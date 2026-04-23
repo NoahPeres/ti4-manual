@@ -277,7 +277,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
 
 def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
     player_a = Player(
-        "A", strategy_cards=(StrategyCard(name="LEADERSHIP", initiative=1, is_ready=True),)
+        "A", strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),)
     )
     ship = Ship(
         ship_id=0,
