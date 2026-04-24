@@ -58,11 +58,6 @@ class Ship:
 
 
 @dataclass(frozen=True)
-class Fighter(Ship):
-    quantity: int = 1
-
-
-@dataclass(frozen=True)
 class GroundForce:
     unit_id: int
     owner_name: str
@@ -72,11 +67,6 @@ class GroundForce:
 
     def is_transportable(self) -> bool:
         return True
-
-
-@dataclass(frozen=True)
-class Infantry(GroundForce):
-    quantity: int = 1
 
 
 print(kind_from_str("FIGHTER"))

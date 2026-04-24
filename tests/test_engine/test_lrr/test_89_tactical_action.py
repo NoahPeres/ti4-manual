@@ -19,10 +19,8 @@ from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
-    Fighter,
     GroundForce,
     GroundForceKind,
-    Infantry,
     Ship,
     ShipKind,
     UnitStats,
@@ -411,7 +409,7 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
         stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
         system_id=0,
     )
-    ground_force = Infantry(
+    ground_force = GroundForce(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
@@ -446,7 +444,7 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
         stats=UnitStats(cost=1, combat=9, move=2, capacity=None),
         system_id=0,
     )
-    ground_force = Infantry(
+    ground_force = GroundForce(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
@@ -477,14 +475,14 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
         stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
         system_id=0,
     )
-    ground_force = Infantry(
+    ground_force = GroundForce(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
         stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
-    fighter = Fighter(
+    fighter = Ship(
         unit_id=2,
         owner_name="A",
         kind=ShipKind.FIGHTER,
@@ -632,14 +630,14 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
         stats=UnitStats(cost=3, combat=9, move=1, capacity=4),
         system_id=0,
     )
-    friendly_ground_force = Infantry(
+    friendly_ground_force = GroundForce(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
         stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
-    enemy_ground_force = Infantry(
+    enemy_ground_force = GroundForce(
         unit_id=2,
         owner_name="B",
         kind=GroundForceKind.INFANTRY,
