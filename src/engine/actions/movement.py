@@ -18,7 +18,7 @@ from src.engine.core.game_state import (
     TacticalActionStep,
 )
 from src.engine.core.player import Player
-from src.engine.units.ships import Ship
+from src.engine.units.units import Ship
 
 
 @dataclass(frozen=True)

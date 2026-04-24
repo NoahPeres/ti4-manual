@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from src.engine.core.player import Player
 from src.engine.tokens import CommandToken
-from src.engine.units.ships import Ship
+from src.engine.units.units import Ship
 
 
 class TacticalActionStep(StrEnum):

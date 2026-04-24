@@ -15,7 +15,7 @@ from src.engine.core.game_state import (
 from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
-from src.engine.units.ships import Ship, ShipKind, ShipStats
+from src.engine.units.units import Infantry, Ship, ShipKind, UnitStats, GroundForce, GroundForceKind
 from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     make_basic_session_from_players,
@@ -283,7 +283,7 @@ def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
         ship_id=0,
         owner_name="A",
         kind=ShipKind.DREADNOUGHT,
-        stats=ShipStats(cost=4, combat=5, move=1, capacity=1),
+        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
     )
     system_0 = System(
         id=0,
@@ -316,7 +316,7 @@ def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
     )
 
 
-def test_89_2_a_ships_with_insufficient_move_cannot_move() -> None:
+def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
     state = _setup_simple_movement_scenario(active_system_id=2)
     engine = get_default_game_engine()
 
@@ -333,7 +333,7 @@ def test_89_2_a_ships_with_insufficient_move_cannot_move() -> None:
     assert len(result.new_state.turn_context.pending_moves) == 0
 
 
-def test_89_2_a_ship_with_sufficient_move_may_move() -> None:
+def test_89_2_ship_with_sufficient_move_may_move() -> None:
     state = _setup_simple_movement_scenario(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
@@ -347,6 +347,58 @@ def test_89_2_a_ship_with_sufficient_move_may_move() -> None:
     )
     assert result.success
     assert len(result.new_state.turn_context.pending_moves) == 1
+
+
+def test_89_2_move_into_active_system() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    result = engine.apply_command(
+        state=state,
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+        ),
+    )
+    move = next(iter(result.new_state.turn_context.pending_moves))
+    assert move.to_system_id == 1
+
+
+def test_89_2_cannot_move_into_non_active_system() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    result = engine.apply_command(
+        state=state,
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=2,
+        ),
+    )
+    assert not result.success
+    assert len(result.new_state.turn_context.pending_moves) == 0
+
+
+def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    ground_force = Infantry(
+        ground_force_id=0,
+        owner_name="A",
+        kind=GroundForceKind.INFANTRY,
+        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
+    )
+    result = engine.apply_command(
+        state=replace(state, ships=state.ships | frozenset({ground_force})),
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.CARRY_UNIT,
+            ship_id=0,
+            to_system_id=1,
+        ),
+    )
 
 
 def test_89_2_b_active_player_may_move_no_ships() -> None:
