@@ -12,11 +12,11 @@ from src.engine.strategy_cards import StrategyCard
 from .common import make_basic_session_from_players
 
 
-def _make_activate_command(player: Player, id: int = 0) -> ActivateCommand:
+def _make_activate_command(player: Player, player_id: int = 0) -> ActivateCommand:
     return ActivateCommand(
         actor=player,
         command_type=CommandType.INITIATE_TACTICAL_ACTION,
-        system_id=id,
+        system_id=player_id,
     )
 
 
@@ -129,7 +129,7 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
     assert end_turn.active_player == player_a
     assert session.engine.apply_command(
         state=end_turn,
-        command=_make_activate_command(player=player_a, id=1),
+        command=_make_activate_command(player=player_a, player_id=1),
     ).success
 
 

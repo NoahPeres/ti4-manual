@@ -26,7 +26,7 @@ class ActivateSystemEvent(Event):
     payload: str = "ActivateSystemEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        active_system = previous_state.get_system(id=self.system_id)
+        active_system = previous_state.get_system(system_id=self.system_id)
         new_system = replace(
             active_system,
             command_tokens=(
@@ -100,7 +100,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
         self, state: GameState, command: ActivateCommand
     ) -> ValidationResult:
         try:
-            system = state.get_system(id=command.system_id)
+            system = state.get_system(system_id=command.system_id)
         except ValueError:
             return ValidationResult(is_valid=False, info="System not found")
         if not state.is_active_player(command.actor):

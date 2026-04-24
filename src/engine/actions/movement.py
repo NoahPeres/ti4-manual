@@ -114,7 +114,7 @@ def _check_valid_objects(
     state: GameState, command: MoveShipCommand
 ) -> tuple[ValidationResult, MoveProperties | None]:
     try:
-        ship = state.get_ship_from_id(id=command.ship_id)
+        ship = state.get_ship_from_id(ship_id=command.ship_id)
     except ValueError:
         return ValidationResult(is_valid=False, info="Invalid ship ID"), None
     try:
@@ -127,9 +127,12 @@ def _check_valid_objects(
     current_system = state.get_current_system(ship)
     if current_system is None:
         return ValidationResult(is_valid=False, info="Ship is not in any system"), None
-    transported_units = frozenset(
-        state.get_unit_from_id(id=unit_id) for unit_id in command.transported_unit_ids
-    )
+    try:
+        transported_units = frozenset(
+            state.get_unit_from_id(unit_id=unit_id) for unit_id in command.transported_unit_ids
+        )
+    except ValueError:
+        return ValidationResult(is_valid=False, info="Invalid transported unit ID"), None
     return ValidationResult(is_valid=True), MoveProperties(
         ship=ship,
         owner=owner,
@@ -179,6 +182,8 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
 def _validate_capacity_for_transport(
     ship: Ship, transported_units: frozenset[Unit]
 ) -> ValidationResult:
+    if len(transported_units) == 0:
+        return ValidationResult(is_valid=True)
     if ship.stats.capacity is None:
         return ValidationResult(
             is_valid=False, info="Cannot transport units with a ship that has no capacity"
@@ -187,6 +192,16 @@ def _validate_capacity_for_transport(
         return ValidationResult(
             is_valid=False,
             info=f"Cannot transport {transported_units} units with capacity {ship.stats.capacity}",
+        )
+    if any(not unit.is_transportable() for unit in transported_units):
+        return ValidationResult(
+            is_valid=False,
+            info=f"Cannot transport non-transportable units: {transported_units}",
+        )
+    if any(unit.owner_name != ship.owner_name for unit in transported_units):
+        return ValidationResult(
+            is_valid=False,
+            info="Cannot transport units that do not belong to the same player as the ship",
         )
     return ValidationResult(is_valid=True)
 

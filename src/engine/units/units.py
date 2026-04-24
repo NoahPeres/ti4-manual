@@ -9,11 +9,20 @@ class ShipKind(StrEnum):
     CRUISER = "cruiser"
     DESTROYER = "destroyer"
     FIGHTER = "fighter"
+    CARRIER = "carrier"
 
 
 class GroundForceKind(StrEnum):
     INFANTRY = "infantry"
     MECH = "mech"
+
+
+def kind_from_str(unit_kind_str: str) -> ShipKind | GroundForceKind:
+    if unit_kind_str in ShipKind._member_names_:
+        return ShipKind[unit_kind_str]
+    if unit_kind_str in GroundForceKind._member_names_:
+        return GroundForceKind[unit_kind_str]
+    raise ValueError(f"Invalid unit kind string: {unit_kind_str}")
 
 
 UnitKind = ShipKind | GroundForceKind
@@ -33,6 +42,8 @@ class Unit(Protocol):
     stats: UnitStats
     system_id: int | None
 
+    def is_transportable(self) -> bool: ...
+
 
 @dataclass(frozen=True)
 class Ship(Unit):
@@ -41,6 +52,9 @@ class Ship(Unit):
     stats: UnitStats
     system_id: int | None
     kind: ShipKind
+
+    def is_transportable(self) -> bool:
+        return self.kind == ShipKind.FIGHTER
 
 
 @dataclass(frozen=True)
@@ -56,7 +70,13 @@ class GroundForce(Unit):
     system_id: int | None
     kind: GroundForceKind
 
+    def is_transportable(self) -> bool:
+        return True
+
 
 @dataclass(frozen=True)
 class Infantry(GroundForce):
     quantity: int = 1
+
+
+print(kind_from_str("FIGHTER"))

@@ -1,5 +1,8 @@
 from dataclasses import replace
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 from src.engine.actions.movement import MoveShipCommand
 from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
@@ -15,7 +18,16 @@ from src.engine.core.game_state import (
 from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
-from src.engine.units.units import Fighter, GroundForceKind, Infantry, Ship, ShipKind, UnitStats
+from src.engine.units.units import (
+    Fighter,
+    GroundForce,
+    GroundForceKind,
+    Infantry,
+    Ship,
+    ShipKind,
+    UnitStats,
+    kind_from_str,
+)
 from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     make_basic_session_from_players,
@@ -77,7 +89,7 @@ def test_89_1_a_active_player_places_token_from_tactic_pool() -> None:
             actor=player_a, command_type=CommandType.INITIATE_TACTICAL_ACTION, system_id=0
         ),
     )
-    activated_system = new_state.get_system(id=0)
+    activated_system = new_state.get_system(system_id=0)
     assert any(token.player_name == player_a.name for token in activated_system.command_tokens)
 
 
@@ -487,6 +499,163 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
             ship_id=0,
             to_system_id=1,
             transported_unit_ids=frozenset({ground_force.unit_id, fighter.unit_id}),
+        ),
+    )
+    assert not result.success
+    assert len(result.new_state.turn_context.pending_moves) == 0
+
+
+@given(
+    transported_unit_type_str=st.sampled_from(
+        ShipKind._member_names_ + GroundForceKind._member_names_
+    )
+)
+def test_89_2_a_valid_unit_types_for_transport(
+    transported_unit_type_str: str,
+) -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    ship = Ship(
+        unit_id=0,
+        owner_name="A",
+        kind=ShipKind.DREADNOUGHT,
+        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
+        system_id=0,
+    )
+    transported_unit_kind = kind_from_str(transported_unit_type_str)
+    transported_unit = (
+        Ship(
+            unit_id=1,
+            owner_name="A",
+            kind=transported_unit_kind,
+            stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
+            system_id=0,
+        )
+        if isinstance(transported_unit_kind, ShipKind)
+        else GroundForce(
+            unit_id=1,
+            owner_name="A",
+            kind=transported_unit_kind,
+            stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
+            system_id=0,
+        )
+    )
+    result = engine.apply_command(
+        state=replace(state, units=frozenset({ship, transported_unit})),
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+            transported_unit_ids=frozenset({transported_unit.unit_id}),
+        ),
+    )
+    if transported_unit_kind == ShipKind.FIGHTER or isinstance(
+        transported_unit_kind, GroundForceKind
+    ):
+        assert result.success
+        assert len(result.new_state.turn_context.pending_moves) == 1
+        assert (
+            len(
+                next(
+                    move for move in result.new_state.turn_context.pending_moves
+                ).transported_unit_ids
+            )
+            == 1
+        )
+    else:
+        assert not result.success
+        assert len(result.new_state.turn_context.pending_moves) == 0
+
+
+def test_89_2_a_player_may_transport_no_units() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    ship = Ship(
+        unit_id=0,
+        owner_name="A",
+        kind=ShipKind.DESTROYER,
+        stats=UnitStats(cost=1, combat=9, move=2, capacity=None),
+        system_id=0,
+    )
+    result = engine.apply_command(
+        state=replace(state, units=frozenset({ship})),
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+            transported_unit_ids=frozenset(),
+        ),
+    )
+    assert result.success
+    assert len(result.new_state.turn_context.pending_moves) == 1
+    assert (
+        len(next(move for move in result.new_state.turn_context.pending_moves).transported_unit_ids)
+        == 0
+    )
+
+
+def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
+    player_a = Player(
+        name="A",
+        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
+        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=1, strategy=0),
+    )
+    player_b = Player(
+        name="B",
+        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
+        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=1, strategy=0),
+    )
+    state = GameState(
+        players=(player_a, player_b),
+        active_player=player_a,
+        phase=Phase.ACTION,
+        galaxy=frozenset(
+            {
+                System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
+                System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
+            }
+        ),
+        turn_context=TurnContext(
+            has_initiated_action=True,
+            tactical_action_step=TacticalActionStep.MOVEMENT,
+            active_system_id=1,
+        ),
+        units=frozenset(),
+    )
+    engine = get_default_game_engine()
+    ship = Ship(
+        unit_id=0,
+        owner_name="A",
+        kind=ShipKind.CARRIER,
+        stats=UnitStats(cost=3, combat=9, move=1, capacity=4),
+        system_id=0,
+    )
+    friendly_ground_force = Infantry(
+        unit_id=1,
+        owner_name="A",
+        kind=GroundForceKind.INFANTRY,
+        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
+        system_id=0,
+    )
+    enemy_ground_force = Infantry(
+        unit_id=2,
+        owner_name="B",
+        kind=GroundForceKind.INFANTRY,
+        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
+        system_id=0,
+    )
+    result = engine.apply_command(
+        state=replace(state, units=frozenset({ship, friendly_ground_force, enemy_ground_force})),
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+            transported_unit_ids=frozenset(
+                {friendly_ground_force.unit_id, enemy_ground_force.unit_id}
+            ),
         ),
     )
     assert not result.success

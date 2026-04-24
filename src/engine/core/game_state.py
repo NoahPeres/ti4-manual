@@ -88,13 +88,13 @@ class GameState:
     def active_system(self) -> System | None:
         if self.turn_context.active_system_id is None:
             return None
-        return self.get_system(id=self.turn_context.active_system_id)
+        return self.get_system(system_id=self.turn_context.active_system_id)
 
-    def get_system(self, id: int) -> System:
+    def get_system(self, system_id: int) -> System:
         try:
-            return next(system for system in self.galaxy if system.id == id)
+            return next(system for system in self.galaxy if system.id == system_id)
         except StopIteration:
-            raise ValueError(f"System with id {id} not found in galaxy") from None
+            raise ValueError(f"System with id {system_id} not found in galaxy") from None
 
     def get_player(self, name: str) -> Player:
         try:
@@ -105,16 +105,16 @@ class GameState:
     def get_current_system(self, unit: Unit) -> System | None:
         return self.get_system(unit.system_id) if unit.system_id is not None else None
 
-    def get_unit_from_id(self, id: int) -> Unit:
+    def get_unit_from_id(self, unit_id: int) -> Unit:
         try:
-            return next(unit for unit in self.units if unit.unit_id == id)
+            return next(unit for unit in self.units if unit.unit_id == unit_id)
         except StopIteration:
-            raise ValueError(f"Unit with id {id} not found in game state") from None
+            raise ValueError(f"Unit with id {unit_id} not found in game state") from None
 
-    def get_ship_from_id(self, id: int) -> Ship:
-        unit = self.get_unit_from_id(id)
+    def get_ship_from_id(self, ship_id: int) -> Ship:
+        unit = self.get_unit_from_id(ship_id)
         if not isinstance(unit, Ship):
-            raise ValueError(f"Unit with id {id} is not a ship")
+            raise ValueError(f"Unit with id {ship_id} is not a ship")
         return unit
 
     def is_active_player(self, player: Player) -> bool:
