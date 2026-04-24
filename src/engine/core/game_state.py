@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from src.engine.core.player import Player
 from src.engine.tokens import CommandToken
-from src.engine.units.units import Ship
+from src.engine.units.units import Ship, Unit
 
 
 class TacticalActionStep(StrEnum):
@@ -31,7 +31,6 @@ class HexCoord:
 class System:
     id: int
     command_tokens: tuple[CommandToken, ...]
-    ships: frozenset[Ship] = frozenset()
     coordinates: HexCoord | None = None
 
     def has_command_token(self, player: Player) -> bool:
@@ -43,6 +42,7 @@ class Move:
     ship_id: int
     from_system_id: int
     to_system_id: int
+    transported_unit_ids: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ class GameState:
     turn_context: TurnContext = field(
         default_factory=lambda: TurnContext(has_initiated_action=False)
     )
-    ships: frozenset[Ship] = frozenset()
+    units: frozenset[Unit] = frozenset()
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -102,17 +102,20 @@ class GameState:
         except StopIteration:
             raise ValueError(f"Player with name {name} not found in game state") from None
 
-    def get_current_system(self, ship: Ship) -> System | None:
+    def get_current_system(self, unit: Unit) -> System | None:
+        return self.get_system(unit.system_id) if unit.system_id is not None else None
+
+    def get_unit_from_id(self, id: int) -> Unit:
         try:
-            return next(system for system in self.galaxy if ship in system.ships)
+            return next(unit for unit in self.units if unit.unit_id == id)
         except StopIteration:
-            return None
+            raise ValueError(f"Unit with id {id} not found in game state") from None
 
     def get_ship_from_id(self, id: int) -> Ship:
-        try:
-            return next(ship for ship in self.ships if ship.ship_id == id)
-        except StopIteration:
-            raise ValueError(f"Ship with id {id} not found in game state") from None
+        unit = self.get_unit_from_id(id)
+        if not isinstance(unit, Ship):
+            raise ValueError(f"Unit with id {id} is not a ship")
+        return unit
 
     def is_active_player(self, player: Player) -> bool:
         return self.active_player == player

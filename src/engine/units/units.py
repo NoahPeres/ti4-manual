@@ -1,5 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 
 class ShipKind(StrEnum):
@@ -15,6 +16,9 @@ class GroundForceKind(StrEnum):
     MECH = "mech"
 
 
+UnitKind = ShipKind | GroundForceKind
+
+
 @dataclass(frozen=True)
 class UnitStats:
     cost: int | None = None
@@ -23,12 +27,20 @@ class UnitStats:
     capacity: int | None = None
 
 
-@dataclass(frozen=True)
-class Ship:
-    ship_id: int
+class Unit(Protocol):
+    unit_id: int
     owner_name: str
+    stats: UnitStats
+    system_id: int | None
+
+
+@dataclass(frozen=True)
+class Ship(Unit):
+    unit_id: int
+    owner_name: str
+    stats: UnitStats
+    system_id: int | None
     kind: ShipKind
-    stats: UnitStats = field(default_factory=UnitStats)
 
 
 @dataclass(frozen=True)
@@ -37,11 +49,12 @@ class Fighter(Ship):
 
 
 @dataclass(frozen=True)
-class GroundForce:
-    ground_force_id: int
+class GroundForce(Unit):
+    unit_id: int
     owner_name: str
+    stats: UnitStats
+    system_id: int | None
     kind: GroundForceKind
-    stats: UnitStats = field(default_factory=UnitStats)
 
 
 @dataclass(frozen=True)

@@ -18,13 +18,14 @@ from src.engine.core.game_state import (
     TacticalActionStep,
 )
 from src.engine.core.player import Player
-from src.engine.units.units import Ship
+from src.engine.units.units import Ship, Unit
 
 
 @dataclass(frozen=True)
 class MoveShipCommand(Command):
     ship_id: int
     to_system_id: int
+    transported_unit_ids: frozenset[int] = frozenset()
 
 
 class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
@@ -50,9 +51,12 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
 
 
 class AddMoveToPendingEvent(Event):
-    def __init__(self, ship_id: int, to_system_id: int) -> None:
+    def __init__(
+        self, ship_id: int, to_system_id: int, transported_unit_ids: frozenset[int] = frozenset()
+    ) -> None:
         self.ship_id = ship_id
         self.to_system_id = to_system_id
+        self.transported_unit_ids = transported_unit_ids
 
     payload = "AddMoveToPending"
 
@@ -65,6 +69,7 @@ class AddMoveToPendingEvent(Event):
                 ship_id=self.ship_id,
                 from_system_id=active_system.id,
                 to_system_id=self.to_system_id,
+                transported_unit_ids=self.transported_unit_ids,
             )
         }
         return replace(
@@ -102,6 +107,7 @@ class MoveProperties:
     owner: Player
     active_system: System
     current_system: System
+    transported_units: frozenset[Unit] = frozenset()
 
 
 def _check_valid_objects(
@@ -121,11 +127,15 @@ def _check_valid_objects(
     current_system = state.get_current_system(ship)
     if current_system is None:
         return ValidationResult(is_valid=False, info="Ship is not in any system"), None
+    transported_units = frozenset(
+        state.get_unit_from_id(id=unit_id) for unit_id in command.transported_unit_ids
+    )
     return ValidationResult(is_valid=True), MoveProperties(
         ship=ship,
         owner=owner,
         active_system=active_system,
         current_system=current_system,
+        transported_units=transported_units,
     )
 
 
@@ -157,6 +167,27 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
         > move_properties.ship.stats.move
     ):
         return ValidationResult(is_valid=False, info="Ship does not have sufficient move to move")
+    capacity_validation_result = _validate_capacity_for_transport(
+        move_properties.ship, move_properties.transported_units
+    )
+    if not capacity_validation_result.is_valid:
+        return capacity_validation_result
+
+    return ValidationResult(is_valid=True)
+
+
+def _validate_capacity_for_transport(
+    ship: Ship, transported_units: frozenset[Unit]
+) -> ValidationResult:
+    if ship.stats.capacity is None:
+        return ValidationResult(
+            is_valid=False, info="Cannot transport units with a ship that has no capacity"
+        )
+    if len(transported_units) > ship.stats.capacity:
+        return ValidationResult(
+            is_valid=False,
+            info=f"Cannot transport {transported_units} units with capacity {ship.stats.capacity}",
+        )
     return ValidationResult(is_valid=True)
 
 
@@ -181,6 +212,7 @@ class MoveShipCommandRule(CommandRuleWhenApplicable[MoveShipCommand]):
             AddMoveToPendingEvent(
                 ship_id=command.ship_id,
                 to_system_id=command.to_system_id,
+                transported_unit_ids=command.transported_unit_ids,
             )
         ]
 
