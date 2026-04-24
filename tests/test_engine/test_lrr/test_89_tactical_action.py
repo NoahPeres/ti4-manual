@@ -417,7 +417,7 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
         system_id=0,
     )
     result = engine.apply_command(
-        state=replace(state, units=frozenset({ship}) | frozenset({ground_force})),
+        state=replace(state, units=frozenset({ship, ground_force})),
         command=MoveShipCommand(
             actor=state.get_player("A"),
             command_type=CommandType.MOVE_SHIP,
@@ -428,10 +428,8 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
     )
     assert result.success
     assert len(result.new_state.turn_context.pending_moves) == 1
-    assert (
-        len(next(move for move in result.new_state.turn_context.pending_moves).transported_unit_ids)
-        == 1
-    )
+    (move,) = result.new_state.turn_context.pending_moves
+    assert len(move.transported_unit_ids) == 1
 
 
 def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
@@ -452,7 +450,7 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
         system_id=0,
     )
     result = engine.apply_command(
-        state=replace(state, units=frozenset({ship}) | frozenset({ground_force})),
+        state=replace(state, units=frozenset({ship, ground_force})),
         command=MoveShipCommand(
             actor=state.get_player("A"),
             command_type=CommandType.MOVE_SHIP,

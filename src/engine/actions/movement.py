@@ -193,7 +193,7 @@ def _validate_capacity_for_transport(
             is_valid=False,
             info=f"Cannot transport {transported_units} units with capacity {ship.stats.capacity}",
         )
-    if any(not unit.is_transportable() for unit in transported_units):
+    if any(not unit.is_transportable for unit in transported_units):
         return ValidationResult(
             is_valid=False,
             info=f"Cannot transport non-transportable units: {transported_units}",

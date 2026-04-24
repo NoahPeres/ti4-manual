@@ -37,11 +37,16 @@ class UnitStats:
 
 
 class Unit(Protocol):
-    unit_id: int
-    owner_name: str
-    stats: UnitStats
-    system_id: int | None
+    @property
+    def unit_id(self) -> int: ...
+    @property
+    def owner_name(self) -> str: ...
+    @property
+    def stats(self) -> UnitStats: ...
+    @property
+    def system_id(self) -> int | None: ...
 
+    @property
     def is_transportable(self) -> bool: ...
 
 
@@ -53,6 +58,7 @@ class Ship:
     system_id: int | None
     kind: ShipKind
 
+    @property
     def is_transportable(self) -> bool:
         return self.kind == ShipKind.FIGHTER
 
@@ -65,6 +71,7 @@ class GroundForce:
     system_id: int | None
     kind: GroundForceKind
 
+    @property
     def is_transportable(self) -> bool:
         return True
 
