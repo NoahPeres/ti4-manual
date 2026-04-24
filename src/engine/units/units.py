@@ -46,7 +46,7 @@ class Unit(Protocol):
 
 
 @dataclass(frozen=True)
-class Ship(Unit):
+class Ship:
     unit_id: int
     owner_name: str
     stats: UnitStats
@@ -63,7 +63,7 @@ class Fighter(Ship):
 
 
 @dataclass(frozen=True)
-class GroundForce(Unit):
+class GroundForce:
     unit_id: int
     owner_name: str
     stats: UnitStats
