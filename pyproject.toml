@@ -19,7 +19,7 @@ dependencies = [
     exclude = ["__pycache__", ".venv", "build", "dist", "ti4_manual.egg-info"]
 
 [tool.ruff.lint]
-select = ["C", "E", "F", "W", "C90", "I", "B", "FBT", "RET", "SIM"]  # E/W/F = pyflakes/flake8-like, I = isort codes, B = bugbear
+select = ["A", "C", "E", "F", "W", "C90", "I", "B", "FBT", "RET", "SIM"]  # E/W/F = pyflakes/flake8-like, I = isort codes, B = bugbear
 ignore = ["E203"]
 
 

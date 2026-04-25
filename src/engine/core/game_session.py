@@ -11,6 +11,7 @@ class GameSession:
         self.initial_state: GameState = initial_state
         self.engine: GameEngine = engine
         self.history: list[CommandResult] = []
+        self.failure_history: list[CommandResult] = []
 
     @property
     def current_state(self) -> GameState:
@@ -25,6 +26,7 @@ class GameSession:
             new_state: GameState = command_result.new_state
             self.history.append(command_result)
             return new_state
+        self.failure_history.append(command_result)
         return self.current_state
 
     def undo(self) -> GameState:

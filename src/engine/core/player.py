@@ -6,9 +6,9 @@ from src.engine.tokens import CommandToken, TokenType
 
 @dataclass(frozen=True)
 class CommandSheet:
-    tactic: list[CommandToken] = field(default_factory=list)
-    fleet: list[CommandToken] = field(default_factory=list)
-    strategy: list[CommandToken] = field(default_factory=list)
+    tactic: list[CommandToken] = field(default_factory=list[CommandToken])
+    fleet: list[CommandToken] = field(default_factory=list[CommandToken])
+    strategy: list[CommandToken] = field(default_factory=list[CommandToken])
 
     @classmethod
     def make_from_int(
@@ -25,7 +25,7 @@ class CommandSheet:
 class Player:
     name: str
     strategy_cards: tuple[StrategyCard, ...] = field(default_factory=tuple)
-    play_area: frozenset[TokenType] = field(default_factory=frozenset)
+    play_area: frozenset[TokenType] = field(default_factory=frozenset[TokenType])
     command_sheet: CommandSheet = field(default_factory=CommandSheet)
     has_passed: bool = False
 

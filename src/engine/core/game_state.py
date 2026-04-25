@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from src.engine.core.player import Player
 from src.engine.tokens import CommandToken
-from src.engine.units.ships import Ship
+from src.engine.units.units import Ship, Unit
 
 
 class TacticalActionStep(StrEnum):
@@ -31,7 +31,6 @@ class HexCoord:
 class System:
     id: int
     command_tokens: tuple[CommandToken, ...]
-    ships: frozenset[Ship] = frozenset()
     coordinates: HexCoord | None = None
 
     def has_command_token(self, player: Player) -> bool:
@@ -43,6 +42,7 @@ class Move:
     ship_id: int
     from_system_id: int
     to_system_id: int
+    transported_unit_ids: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ class TurnContext:
     has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
-    pending_moves: frozenset[Move] = field(default_factory=frozenset)
+    pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
 
 
 Galaxy = frozenset[System]
@@ -65,7 +65,7 @@ class GameState:
     turn_context: TurnContext = field(
         default_factory=lambda: TurnContext(has_initiated_action=False)
     )
-    ships: frozenset[Ship] = frozenset()
+    units: frozenset[Unit] = frozenset()
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -88,13 +88,13 @@ class GameState:
     def active_system(self) -> System | None:
         if self.turn_context.active_system_id is None:
             return None
-        return self.get_system(id=self.turn_context.active_system_id)
+        return self.get_system(system_id=self.turn_context.active_system_id)
 
-    def get_system(self, id: int) -> System:
+    def get_system(self, system_id: int) -> System:
         try:
-            return next(system for system in self.galaxy if system.id == id)
+            return next(system for system in self.galaxy if system.id == system_id)
         except StopIteration:
-            raise ValueError(f"System with id {id} not found in galaxy") from None
+            raise ValueError(f"System with id {system_id} not found in galaxy") from None
 
     def get_player(self, name: str) -> Player:
         try:
@@ -102,17 +102,20 @@ class GameState:
         except StopIteration:
             raise ValueError(f"Player with name {name} not found in game state") from None
 
-    def get_current_system(self, ship: Ship) -> System | None:
-        try:
-            return next(system for system in self.galaxy if ship in system.ships)
-        except StopIteration:
-            return None
+    def get_current_system(self, unit: Unit) -> System | None:
+        return self.get_system(unit.system_id) if unit.system_id is not None else None
 
-    def get_ship_from_id(self, id: int) -> Ship:
+    def get_unit_from_id(self, unit_id: int) -> Unit:
         try:
-            return next(ship for ship in self.ships if ship.ship_id == id)
+            return next(unit for unit in self.units if unit.unit_id == unit_id)
         except StopIteration:
-            raise ValueError(f"Ship with id {id} not found in game state") from None
+            raise ValueError(f"Unit with id {unit_id} not found in game state") from None
+
+    def get_ship_from_id(self, ship_id: int) -> Ship:
+        unit = self.get_unit_from_id(ship_id)
+        if not isinstance(unit, Ship):
+            raise ValueError(f"Unit with id {ship_id} is not a ship")
+        return unit
 
     def is_active_player(self, player: Player) -> bool:
         return self.active_player == player
