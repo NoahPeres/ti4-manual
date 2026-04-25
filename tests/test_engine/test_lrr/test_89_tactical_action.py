@@ -20,7 +20,7 @@ from src.engine.units.units import (
     GroundForceKind,
     ShipKind,
     Unit,
-    kind_from_str,
+    UnitKind,
     make_unit_with_id,
 )
 from tests.test_engine.test_lrr.common import (
@@ -396,15 +396,14 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
     assert len(result.new_state.turn_context.pending_moves) == 0
 
 
-@given(transported_unit_type_str=st.sampled_from(list(ShipKind) + list(GroundForceKind)))
+@given(transported_unit_kind=st.sampled_from(list(ShipKind) + list(GroundForceKind)))
 def test_89_2_a_valid_unit_types_for_transport(
-    transported_unit_type_str: str,
+    transported_unit_kind: UnitKind,
 ) -> None:
     state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
 
-    transported_unit_kind = kind_from_str(transported_unit_type_str)
     transported_unit = make_unit_with_id(
         unit_id=1,
         owner_name="A",

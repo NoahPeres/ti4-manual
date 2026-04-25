@@ -92,7 +92,7 @@ unit_stats_lookup: dict[UnitKind, UnitStats] = {
     ShipKind.FIGHTER: UnitStats(cost=1, combat=9),
     ShipKind.DREADNOUGHT: UnitStats(cost=4, combat=5, move=1, capacity=1),
     ShipKind.CARRIER: UnitStats(cost=3, combat=9, move=1, capacity=4),
-    ShipKind.CRUISER: UnitStats(cost=2, combat=7, move=1),
+    ShipKind.CRUISER: UnitStats(cost=2, combat=7, move=2),
     ShipKind.FLAGSHIP: UnitStats(cost=8, combat=7, move=1, capacity=3),
     GroundForceKind.INFANTRY: UnitStats(cost=1, combat=8),
     GroundForceKind.MECH: UnitStats(cost=2, combat=6),

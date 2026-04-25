@@ -32,9 +32,6 @@ class ResolvePendingMovesEvent(Event):
     payload = "ResolvePendingMoves"
 
     def apply(self, previous_state: GameState) -> GameState:
-        active_system = previous_state.active_system
-        if active_system is None:
-            raise ValueError("No active system in state when applying ResolvePendingMovesEvent")
         moved_units: set[Unit] = set()
         for move in previous_state.turn_context.pending_moves:
             ship = previous_state.get_ship_from_id(move.ship_id)
@@ -238,7 +235,9 @@ def _validate_capacity_for_transport(
             info="Cannot transport units that do not belong to the same player as the ship",
         )
     if any(unit.system_id != ship.system_id for unit in transported_units):
-        # NOTE: This is a oversimplification, stress test this when we implement capacity
+        # NOTE: This is a simplification — once multi-step movement / path-finding is
+        # implemented, transports should be allowed to pick up units from any system
+        # along the carrier's path, not only its starting system.
         return ValidationResult(
             is_valid=False,
             info="Cannot transport units that are not in the same system as the ship",

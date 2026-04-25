@@ -63,7 +63,7 @@ def make_tactical_action_movement_state(
         )
         units = frozenset({default_ship})
 
-    player = Player(
+    player = make_player(
         name=player_name,
         strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),),
     )
