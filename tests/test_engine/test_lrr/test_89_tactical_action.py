@@ -18,6 +18,7 @@ from src.engine.core.game_state import (
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
     GroundForceKind,
+    Ship,
     ShipKind,
     Unit,
     kind_from_str,
@@ -136,6 +137,13 @@ def test_89_2_only_active_player_moves_ships() -> None:
                 has_initiated_action=True,
                 tactical_action_step=TacticalActionStep.MOVEMENT,
                 active_system_id=0,
+            ),
+            units=frozenset(
+                {
+                    make_unit_with_id(
+                        unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0
+                    )
+                }
             ),
         ),
         engine=get_default_game_engine(),
@@ -455,6 +463,19 @@ def test_89_2_a_player_may_transport_no_units() -> None:
 def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
     player_a = make_player("A")
     player_b = make_player("B")
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.CARRIER, system_id=0)
+    friendly_ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="A",
+        kind=GroundForceKind.INFANTRY,
+        system_id=0,
+    )
+    enemy_ground_force = make_unit_with_id(
+        unit_id=2,
+        owner_name="B",
+        kind=GroundForceKind.INFANTRY,
+        system_id=0,
+    )
     state = GameState(
         players=(player_a, player_b),
         active_player=player_a,
@@ -470,24 +491,12 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
             tactical_action_step=TacticalActionStep.MOVEMENT,
             active_system_id=1,
         ),
-        units=frozenset(),
+        units=frozenset({ship, friendly_ground_force, enemy_ground_force}),
     )
     engine = get_default_game_engine()
-    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.CARRIER, system_id=0)
-    friendly_ground_force = make_unit_with_id(
-        unit_id=1,
-        owner_name="A",
-        kind=GroundForceKind.INFANTRY,
-        system_id=0,
-    )
-    enemy_ground_force = make_unit_with_id(
-        unit_id=2,
-        owner_name="B",
-        kind=GroundForceKind.INFANTRY,
-        system_id=0,
-    )
+
     result = engine.apply_command(
-        state=replace(state, units=frozenset({ship, friendly_ground_force, enemy_ground_force})),
+        state=state,
         command=MoveShipCommand(
             actor=state.get_player("A"),
             command_type=CommandType.MOVE_SHIP,
