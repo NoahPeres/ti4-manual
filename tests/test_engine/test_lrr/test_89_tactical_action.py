@@ -19,6 +19,7 @@ from src.engine.tokens import CommandToken
 from src.engine.units.units import (
     GroundForceKind,
     ShipKind,
+    Unit,
     kind_from_str,
     make_unit_with_id,
 )
@@ -26,7 +27,7 @@ from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     make_basic_session_from_players,
     make_player,
-    make_tactical_action_state,
+    make_tactical_action_movement_state,
 )
 
 
@@ -232,7 +233,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
 
 
 def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
-    state = make_tactical_action_state(active_system_id=2)
+    state = make_tactical_action_movement_state(active_system_id=2)
     engine = get_default_game_engine()
 
     result = engine.apply_command(
@@ -249,7 +250,7 @@ def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
 
 
 def test_89_2_ship_with_sufficient_move_may_move() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
         state=state,
@@ -265,7 +266,7 @@ def test_89_2_ship_with_sufficient_move_may_move() -> None:
 
 
 def test_89_2_move_into_active_system() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
         state=state,
@@ -281,7 +282,7 @@ def test_89_2_move_into_active_system() -> None:
 
 
 def test_89_2_cannot_move_into_non_active_system() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
         state=state,
@@ -297,7 +298,7 @@ def test_89_2_cannot_move_into_non_active_system() -> None:
 
 
 def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -328,7 +329,7 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
 
 
 def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -357,7 +358,7 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
 
 
 def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
 
@@ -391,7 +392,7 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
 def test_89_2_a_valid_unit_types_for_transport(
     transported_unit_type_str: str,
 ) -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
 
@@ -425,7 +426,7 @@ def test_89_2_a_valid_unit_types_for_transport(
 
 
 def test_89_2_a_player_may_transport_no_units() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -502,7 +503,7 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
 
 
 def test_89_2_a_cannot_transport_units_not_on_path() -> None:
-    state = make_tactical_action_state(active_system_id=1)
+    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -539,7 +540,9 @@ def test_89_2_b_active_player_may_move_no_ships() -> None:
             phase=Phase.ACTION,
             galaxy=frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
             turn_context=TurnContext(
-                has_initiated_action=False, tactical_action_step=TacticalActionStep.MOVEMENT
+                has_initiated_action=False,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
             ),
         ),
         engine=get_default_game_engine(),
@@ -548,6 +551,63 @@ def test_89_2_b_active_player_may_move_no_ships() -> None:
         Command(actor=player_a, command_type=CommandType.END_MOVEMENT)
     )
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+
+
+CENTRE_RING_OF_SYSTEMS = frozenset(
+    {
+        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
+        System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
+        System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
+        System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
+        System(id=4, command_tokens=(), coordinates=HexCoord(0, -1)),
+        System(id=5, command_tokens=(), coordinates=HexCoord(1, 1)),
+        System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
+    }
+)
+
+
+@given(
+    ships=st.lists(
+        st.builds(
+            make_unit_with_id,
+            unit_id=st.integers(min_value=0, max_value=10),
+            owner_name=st.just("A"),
+            kind=st.sampled_from([kind for kind in list(ShipKind) if kind != ShipKind.FIGHTER]),
+            system_id=st.integers(
+                min_value=min(system.id for system in CENTRE_RING_OF_SYSTEMS if system.id != 0),
+                max_value=max(system.id for system in CENTRE_RING_OF_SYSTEMS if system.id != 0),
+            ),
+        ),
+        min_size=1,
+        max_size=5,
+    ),
+)
+def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
+    session = GameSession(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0, units=frozenset(ships), systems=CENTRE_RING_OF_SYSTEMS
+        ),
+        engine=get_default_game_engine(),
+    )
+    move_commands = [
+        MoveShipCommand(
+            actor=session.initial_state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=ship.unit_id,
+            to_system_id=0,
+        )
+        for ship in ships
+    ]
+    for command in move_commands:
+        new_state = session.apply_command(command)
+        assert len(session.failure_history) == 0
+    new_state = session.apply_command(
+        Command(actor=session.initial_state.get_player("A"), command_type=CommandType.END_MOVEMENT)
+    )
+    for ship in ships:
+        new_ship = new_state.get_ship_from_id(ship.unit_id)
+        assert new_state.get_current_system(new_ship) == new_state.active_system
+    assert new_state.turn_context.pending_moves == frozenset()
 
 
 """STEP 2—MOVEMENT: The active player may move any

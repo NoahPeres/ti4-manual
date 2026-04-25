@@ -28,6 +28,31 @@ class MoveShipCommand(Command):
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+class ResolvePendingMovesEvent(Event):
+    payload = "ResolvePendingMoves"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        active_system = previous_state.active_system
+        if active_system is None:
+            raise ValueError("No active system in state when applying ResolvePendingMovesEvent")
+        moved_ships: set[Unit] = set()
+        for move in previous_state.turn_context.pending_moves:
+            ship = previous_state.get_ship_from_id(move.ship_id)
+            new_ship = replace(ship, system_id=move.to_system_id)
+            moved_ships.add(new_ship)
+        moved_ship_ids = {ship.unit_id for ship in moved_ships}
+        new_units = frozenset(
+            {unit for unit in previous_state.units if unit.unit_id not in moved_ship_ids}
+            | moved_ships
+        )
+
+        return replace(
+            previous_state,
+            units=new_units,
+            turn_context=replace(previous_state.turn_context, pending_moves=frozenset()),
+        )
+
+
 class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
     def __repr__(self) -> str:
         return "EndMovement"
@@ -47,7 +72,7 @@ class EndMovementCommandRule(CommandRuleWhenApplicable[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
-        return [AdvanceToSpaceCombatStepEvent()]
+        return [ResolvePendingMovesEvent(), AdvanceToSpaceCombatStepEvent()]
 
 
 class AddMoveToPendingEvent(Event):

@@ -5,8 +5,8 @@ from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
 
-TEST_PLAYER = Player("TestPlayer", strategy_cards=(StrategyCard("XXX", 1),))
-ANOTHER_PLAYER = Player("AnotherPlayer", strategy_cards=(StrategyCard("YYY", 2),))
+TEST_PLAYER = Player(name="TestPlayer", strategy_cards=(StrategyCard("XXX", 1),))
+ANOTHER_PLAYER = Player(name="AnotherPlayer", strategy_cards=(StrategyCard("YYY", 2),))
 ENGINE = GameEngine(rules_engine=TI4RulesEngine())
 
 

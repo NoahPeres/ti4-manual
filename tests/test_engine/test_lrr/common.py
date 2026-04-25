@@ -47,11 +47,11 @@ def make_player(
     )
 
 
-def make_tactical_action_state(
+def make_tactical_action_movement_state(
     active_system_id: int,
     units: frozenset[Unit] | None = None,
     player_name: str = "A",
-    num_systems: int = 3,
+    systems: frozenset[System] | None = None,
 ) -> GameState:
     """Create a GameState in the MOVEMENT step of a tactical action.
 
@@ -60,7 +60,7 @@ def make_tactical_action_state(
         units: Frozenset of units to include in the state. If None, includes a default
                Dreadnought ship at system 0
         player_name: Name of the active player (defaults to "A")
-        num_systems: Number of systems to create with sequential coordinates (defaults to 3)
+        systems: Frozenset of systems to include in the state. If None, creates default systems
 
     Returns:
         A GameState ready for movement phase testing
@@ -80,15 +80,18 @@ def make_tactical_action_state(
         strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),),
     )
 
-    # Create systems with coordinates in a line
-    systems = frozenset(
-        System(
-            id=system_id,
-            command_tokens=(CommandToken(player_name),) if system_id == active_system_id else (),
-            coordinates=HexCoord(0, system_id),
+    if systems is None:
+        # Create systems with coordinates in a line
+        systems = frozenset(
+            System(
+                id=system_id,
+                command_tokens=(CommandToken(player_name),)
+                if system_id == active_system_id
+                else (),
+                coordinates=HexCoord(0, system_id),
+            )
+            for system_id in range(3)
         )
-        for system_id in range(num_systems)
-    )
 
     return GameState(
         players=(player,),
