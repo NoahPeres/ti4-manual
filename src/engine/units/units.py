@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
@@ -52,6 +52,8 @@ class Unit(Protocol):
     @property
     def is_transportable(self) -> bool: ...
 
+    def set_system_id(self, new_system_id: int | None) -> Unit: ...
+
 
 @dataclass(frozen=True)
 class Ship:
@@ -65,6 +67,9 @@ class Ship:
     def is_transportable(self) -> bool:
         return self.kind == ShipKind.FIGHTER
 
+    def set_system_id(self, new_system_id: int | None) -> Ship:
+        return replace(self, system_id=new_system_id)
+
 
 @dataclass(frozen=True)
 class GroundForce:
@@ -77,6 +82,9 @@ class GroundForce:
     @property
     def is_transportable(self) -> bool:
         return True
+
+    def set_system_id(self, new_system_id: int | None) -> GroundForce:
+        return replace(self, system_id=new_system_id)
 
 
 unit_stats_lookup: dict[UnitKind, UnitStats] = {

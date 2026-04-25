@@ -53,18 +53,6 @@ def make_tactical_action_movement_state(
     player_name: str = "A",
     systems: frozenset[System] | None = None,
 ) -> GameState:
-    """Create a GameState in the MOVEMENT step of a tactical action.
-
-    Args:
-        active_system_id: The ID of the system that is currently active
-        units: Frozenset of units to include in the state. If None, includes a default
-               Dreadnought ship at system 0
-        player_name: Name of the active player (defaults to "A")
-        systems: Frozenset of systems to include in the state. If None, creates default systems
-
-    Returns:
-        A GameState ready for movement phase testing
-    """
     if units is None:
         # Create default ship at system 0
         default_ship = make_unit_with_id(
@@ -104,4 +92,17 @@ def make_tactical_action_movement_state(
             active_system_id=active_system_id,
         ),
         units=units,
+    )
+
+
+def grant_all_units_unique_ids(units: frozenset[Unit]) -> frozenset[Unit]:
+    """Only for testing, ensure units have unique ids"""
+    return frozenset(
+        make_unit_with_id(
+            unit_id=i,
+            owner_name=unit.owner_name,
+            kind=unit.kind,
+            system_id=unit.system_id,
+        )
+        for i, unit in enumerate(units)
     )

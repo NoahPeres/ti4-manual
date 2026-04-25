@@ -18,7 +18,6 @@ from src.engine.core.game_state import (
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
     GroundForceKind,
-    Ship,
     ShipKind,
     Unit,
     kind_from_str,
@@ -26,6 +25,7 @@ from src.engine.units.units import (
 )
 from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
+    grant_all_units_unique_ids,
     make_basic_session_from_players,
     make_player,
     make_tactical_action_movement_state,
@@ -579,7 +579,7 @@ CENTRE_RING_OF_SYSTEMS = frozenset(
     ships=st.lists(
         st.builds(
             make_unit_with_id,
-            unit_id=st.integers(min_value=0, max_value=10),
+            unit_id=st.sampled_from(range(11)),
             owner_name=st.just("A"),
             kind=st.sampled_from([kind for kind in list(ShipKind) if kind != ShipKind.FIGHTER]),
             system_id=st.integers(
@@ -592,9 +592,10 @@ CENTRE_RING_OF_SYSTEMS = frozenset(
     ),
 )
 def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
+    unique_ships = grant_all_units_unique_ids(frozenset(ships))
     session = GameSession(
         initial_state=make_tactical_action_movement_state(
-            active_system_id=0, units=frozenset(ships), systems=CENTRE_RING_OF_SYSTEMS
+            active_system_id=0, units=unique_ships, systems=CENTRE_RING_OF_SYSTEMS
         ),
         engine=get_default_game_engine(),
     )
@@ -605,7 +606,7 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
             ship_id=ship.unit_id,
             to_system_id=0,
         )
-        for ship in ships
+        for ship in unique_ships
     ]
     for command in move_commands:
         new_state = session.apply_command(command)
@@ -613,9 +614,60 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
     new_state = session.apply_command(
         Command(actor=session.initial_state.get_player("A"), command_type=CommandType.END_MOVEMENT)
     )
-    for ship in ships:
+    for ship in unique_ships:
         new_ship = new_state.get_ship_from_id(ship.unit_id)
         assert new_state.get_current_system(new_ship) == new_state.active_system
+    assert new_state.turn_context.pending_moves == frozenset()
+
+
+@given(
+    units=st.lists(
+        st.builds(
+            make_unit_with_id,
+            unit_id=st.integers(min_value=0, max_value=10),
+            owner_name=st.just("A"),
+            kind=st.sampled_from(
+                [ShipKind.FIGHTER, GroundForceKind.INFANTRY, GroundForceKind.MECH]
+            ),
+            system_id=st.just(0),
+        ),
+        min_size=1,
+        max_size=4,
+    )
+)
+def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
+    unique_units = grant_all_units_unique_ids(frozenset(units))
+    ship = make_unit_with_id(
+        unit_id=len(unique_units),
+        owner_name="A",
+        kind=ShipKind.CARRIER,
+        system_id=0,
+    )
+    unique_units = frozenset(unique_units.union({ship}))
+    session = GameSession(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=1, units=unique_units, systems=CENTRE_RING_OF_SYSTEMS
+        ),
+        engine=get_default_game_engine(),
+    )
+    transported_unit_ids = frozenset(
+        unit.unit_id for unit in unique_units if unit.unit_id != ship.unit_id
+    )
+    move_command = MoveShipCommand(
+        actor=session.initial_state.get_player("A"),
+        command_type=CommandType.MOVE_SHIP,
+        ship_id=ship.unit_id,
+        to_system_id=1,
+        transported_unit_ids=transported_unit_ids,
+    )
+    new_state = session.apply_command(move_command)
+    assert len(session.failure_history) == 0
+    new_state = session.apply_command(
+        Command(actor=session.initial_state.get_player("A"), command_type=CommandType.END_MOVEMENT)
+    )
+    for unit in unique_units:
+        new_unit = new_state.get_unit_from_id(unit.unit_id)
+        assert new_state.get_current_system(new_unit) == new_state.active_system
     assert new_state.turn_context.pending_moves == frozenset()
 
 

@@ -35,15 +35,19 @@ class ResolvePendingMovesEvent(Event):
         active_system = previous_state.active_system
         if active_system is None:
             raise ValueError("No active system in state when applying ResolvePendingMovesEvent")
-        moved_ships: set[Unit] = set()
+        moved_units: set[Unit] = set()
         for move in previous_state.turn_context.pending_moves:
             ship = previous_state.get_ship_from_id(move.ship_id)
-            new_ship = replace(ship, system_id=move.to_system_id)
-            moved_ships.add(new_ship)
-        moved_ship_ids = {ship.unit_id for ship in moved_ships}
+            new_ship = ship.set_system_id(move.to_system_id)
+            moved_units.add(new_ship)
+            for transported_unit_id in move.transported_unit_ids:
+                unit = previous_state.get_unit_from_id(transported_unit_id)
+                new_unit = unit.set_system_id(move.to_system_id)
+                moved_units.add(new_unit)
+        moved_unit_ids = {unit.unit_id for unit in moved_units}
         new_units = frozenset(
-            {unit for unit in previous_state.units if unit.unit_id not in moved_ship_ids}
-            | moved_ships
+            {unit for unit in previous_state.units if unit.unit_id not in moved_unit_ids}
+            | moved_units
         )
 
         return replace(
@@ -217,16 +221,16 @@ def _validate_capacity_for_transport(
         return ValidationResult(
             is_valid=False,
             info=f"Cannot transport {len(transported_units)} units with"
-            f"capacity {ship.stats.capacity}",
+            f" capacity {ship.stats.capacity}",
         )
     not_transportable_units = frozenset(
         unit for unit in transported_units if not unit.is_transportable
     )
-    if any(not_transportable_units):
+    if not_transportable_units:
         return ValidationResult(
             is_valid=False,
-            info=f"Cannot transport non-transportable units:"
-            f" {(unit.kind for unit in not_transportable_units)}",
+            info="Cannot transport non-transportable units: "
+            f"{[unit.kind for unit in not_transportable_units]}",
         )
     if any(unit.owner_name != ship.owner_name for unit in transported_units):
         return ValidationResult(
