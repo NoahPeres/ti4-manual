@@ -26,6 +26,7 @@ from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     make_basic_session_from_players,
     make_player,
+    make_tactical_action_state,
 )
 
 
@@ -230,41 +231,8 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
     assert not result.success
 
 
-def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
-    player_a = make_player("A")
-    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
-    system_0 = System(
-        id=0,
-        command_tokens=(CommandToken("A"),) if active_system_id == 0 else (),
-        coordinates=HexCoord(0, 0),
-    )
-    system_1 = System(
-        id=1,
-        command_tokens=(CommandToken("A"),) if active_system_id == 1 else (),
-        coordinates=HexCoord(0, 1),
-    )
-    system_2 = System(
-        id=2,
-        command_tokens=(CommandToken("A"),) if active_system_id == 2 else (),
-        coordinates=HexCoord(0, 2),
-    )
-
-    return GameState(
-        players=(player_a,),
-        active_player=player_a,
-        phase=Phase.ACTION,
-        galaxy=frozenset({system_0, system_1, system_2}),
-        turn_context=TurnContext(
-            has_initiated_action=True,
-            tactical_action_step=TacticalActionStep.MOVEMENT,
-            active_system_id=active_system_id,
-        ),
-        units=frozenset({ship}),
-    )
-
-
 def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=2)
+    state = make_tactical_action_state(active_system_id=2)
     engine = get_default_game_engine()
 
     result = engine.apply_command(
@@ -281,7 +249,7 @@ def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
 
 
 def test_89_2_ship_with_sufficient_move_may_move() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
         state=state,
@@ -297,7 +265,7 @@ def test_89_2_ship_with_sufficient_move_may_move() -> None:
 
 
 def test_89_2_move_into_active_system() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
         state=state,
@@ -313,7 +281,7 @@ def test_89_2_move_into_active_system() -> None:
 
 
 def test_89_2_cannot_move_into_non_active_system() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     result = engine.apply_command(
         state=state,
@@ -329,7 +297,7 @@ def test_89_2_cannot_move_into_non_active_system() -> None:
 
 
 def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -360,7 +328,7 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
 
 
 def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -389,7 +357,7 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
 
 
 def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
 
@@ -423,7 +391,7 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
 def test_89_2_a_valid_unit_types_for_transport(
     transported_unit_type_str: str,
 ) -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
 
@@ -457,7 +425,7 @@ def test_89_2_a_valid_unit_types_for_transport(
 
 
 def test_89_2_a_player_may_transport_no_units() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,
@@ -534,7 +502,7 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
 
 
 def test_89_2_a_cannot_transport_units_not_on_path() -> None:
-    state = _setup_simple_movement_scenario(active_system_id=1)
+    state = make_tactical_action_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(
         unit_id=0,

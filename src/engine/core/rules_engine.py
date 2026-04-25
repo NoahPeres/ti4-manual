@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Protocol
 
+from src.engine.core.command import Command
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -13,5 +15,5 @@ class RulesEngine(Protocol):
     events).
     """
 
-    command_rules: Sequence[CommandRule]
+    command_rules: Sequence[CommandRule[Command]]
     event_rules: Sequence[EventRule]

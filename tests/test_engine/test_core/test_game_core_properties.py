@@ -15,7 +15,7 @@ from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 from .common import TrivialEvent
 
-PLAYERS = (Player("Player1"), Player("Player2"), Player("Player3"))
+PLAYERS = (Player(name="Player1"), Player(name="Player2"), Player(name="Player3"))
 DETERMINISTIC_COMMANDS: list[CommandType] = [CommandType.END_TURN]
 
 

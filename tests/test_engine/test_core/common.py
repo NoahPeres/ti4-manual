@@ -14,6 +14,6 @@ class TrivialEvent(Event):
     def __init__(self, payload: str) -> None:
         self.payload: str = payload
 
-    def apply(self, previous_state):
+    def apply(self, previous_state: GameState) -> GameState:
         # For testing purposes, we just return the previous state unchanged
         return previous_state
