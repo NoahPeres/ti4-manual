@@ -15,8 +15,6 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     TurnContext,
 )
-from src.engine.core.player import CommandSheet, Player
-from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
     GroundForceKind,
