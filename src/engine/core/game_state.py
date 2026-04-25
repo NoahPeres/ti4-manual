@@ -50,7 +50,7 @@ class TurnContext:
     has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
-    pending_moves: frozenset[Move] = field(default_factory=frozenset)
+    pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
 
 
 Galaxy = frozenset[System]

@@ -191,17 +191,28 @@ def _validate_capacity_for_transport(
     if len(transported_units) > ship.stats.capacity:
         return ValidationResult(
             is_valid=False,
-            info=f"Cannot transport {transported_units} units with capacity {ship.stats.capacity}",
+            info=f"Cannot transport {len(transported_units)} units with"
+            f"capacity {ship.stats.capacity}",
         )
-    if any(not unit.is_transportable for unit in transported_units):
+    not_transportable_units = frozenset(
+        unit for unit in transported_units if not unit.is_transportable
+    )
+    if any(not_transportable_units):
         return ValidationResult(
             is_valid=False,
-            info=f"Cannot transport non-transportable units: {transported_units}",
+            info=f"Cannot transport non-transportable units:"
+            f" {(unit.kind for unit in not_transportable_units)}",
         )
     if any(unit.owner_name != ship.owner_name for unit in transported_units):
         return ValidationResult(
             is_valid=False,
             info="Cannot transport units that do not belong to the same player as the ship",
+        )
+    if any(unit.system_id != ship.system_id for unit in transported_units):
+        # NOTE: This is a oversimplification, stress test this when we implement capacity
+        return ValidationResult(
+            is_valid=False,
+            info="Cannot transport units that are not in the same system as the ship",
         )
     return ValidationResult(is_valid=True)
 

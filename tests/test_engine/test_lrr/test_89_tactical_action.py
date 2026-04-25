@@ -19,30 +19,21 @@ from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
-    GroundForce,
     GroundForceKind,
-    Ship,
     ShipKind,
-    UnitStats,
     kind_from_str,
+    make_unit_with_id,
 )
 from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     make_basic_session_from_players,
+    make_player,
 )
 
 
 def test_89_1_active_player_must_activate_system_without_their_command_token() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
-    )
-    player_b = Player(
-        name="B",
-        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
-        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=0, strategy=0),
-    )
+    player_a = make_player("A")
+    player_b = make_player("B")
     fresh_system = System(id=0, command_tokens=())
     previously_activated_system = System(
         id=0, command_tokens=(CommandToken(player_name=player_a.name),)
@@ -76,11 +67,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token() -
 
 
 def test_89_1_a_active_player_places_token_from_tactic_pool() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
-    )
+    player_a = make_player("A")
     session = make_basic_session_from_players(players=(player_a,))
     new_state = session.apply_command(
         command=ActivateCommand(
@@ -92,11 +79,7 @@ def test_89_1_a_active_player_places_token_from_tactic_pool() -> None:
 
 
 def test_89_1_a_that_system_is_the_active_system() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
-    )
+    player_a = make_player("A")
     session = make_basic_session_from_players(players=(player_a,))
     new_state = session.apply_command(
         command=ActivateCommand(
@@ -107,16 +90,8 @@ def test_89_1_a_that_system_is_the_active_system() -> None:
 
 
 def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
-    )
-    player_b = Player(
-        name="B",
-        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
-        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=0, strategy=0),
-    )
+    player_a = make_player("A")
+    player_b = make_player("B")
     system_with_b_token = System(id=0, command_tokens=(CommandToken(player_name=player_b.name),))
     session = make_basic_session_from_players(players=(player_a, player_b))
     assert session.engine.apply_command(
@@ -130,11 +105,7 @@ def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
 
 
 def test_89_1_advance_to_movement_after_activation() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
-    )
+    player_a = make_player("A")
     session = make_basic_session_from_players(players=(player_a,))
     new_state = session.apply_command(
         command=ActivateCommand(
@@ -145,16 +116,8 @@ def test_89_1_advance_to_movement_after_activation() -> None:
 
 
 def test_89_2_only_active_player_moves_ships() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=3, strategy=0),
-    )
-    player_b = Player(
-        name="B",
-        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
-        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=3, strategy=0),
-    )
+    player_a = make_player("A")
+    player_b = make_player("B")
     session = GameSession(
         initial_state=GameState(
             players=(player_a, player_b),
@@ -190,23 +153,9 @@ def test_89_2_only_active_player_moves_ships() -> None:
 
 
 def test_89_2_active_player_may_move_only_their_ships() -> None:
-    ship = Ship(
-        kind=ShipKind.DREADNOUGHT,
-        owner_name="B",
-        unit_id=0,
-        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
-        system_id=1,
-    )
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=3, strategy=0),
-    )
-    player_b = Player(
-        name="B",
-        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
-        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=3, strategy=0),
-    )
+    ship = make_unit_with_id(unit_id=0, owner_name="B", kind=ShipKind.DREADNOUGHT, system_id=1)
+    player_a = make_player("A")
+    player_b = make_player("B")
     session = GameSession(
         initial_state=GameState(
             players=(player_a, player_b),
@@ -243,18 +192,8 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
 
 
 def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
-    ship = Ship(
-        kind=ShipKind.DREADNOUGHT,
-        owner_name="A",
-        unit_id=0,
-        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
-        system_id=1,
-    )
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=3, strategy=0),
-    )
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=1)
+    player_a = make_player("A")
     session = GameSession(
         initial_state=GameState(
             players=(player_a,),
@@ -294,16 +233,8 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
 
 
 def _setup_simple_movement_scenario(active_system_id: int) -> GameState:
-    player_a = Player(
-        "A", strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),)
-    )
-    ship = Ship(
-        unit_id=0,
-        owner_name="A",
-        kind=ShipKind.DREADNOUGHT,
-        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
-        system_id=0,
-    )
+    player_a = make_player("A")
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
     system_0 = System(
         id=0,
         command_tokens=(CommandToken("A"),) if active_system_id == 0 else (),
@@ -402,18 +333,16 @@ def test_89_2_cannot_move_into_non_active_system() -> None:
 def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
     state = _setup_simple_movement_scenario(active_system_id=1)
     engine = get_default_game_engine()
-    ship = Ship(
+    ship = make_unit_with_id(
         unit_id=0,
         owner_name="A",
         kind=ShipKind.DREADNOUGHT,
-        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
         system_id=0,
     )
-    ground_force = GroundForce(
+    ground_force = make_unit_with_id(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
-        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
     result = engine.apply_command(
@@ -435,18 +364,16 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
 def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
     state = _setup_simple_movement_scenario(active_system_id=1)
     engine = get_default_game_engine()
-    ship = Ship(
+    ship = make_unit_with_id(
         unit_id=0,
         owner_name="A",
         kind=ShipKind.DESTROYER,
-        stats=UnitStats(cost=1, combat=9, move=2, capacity=None),
         system_id=0,
     )
-    ground_force = GroundForce(
+    ground_force = make_unit_with_id(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
-        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
     result = engine.apply_command(
@@ -466,25 +393,18 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
 def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
     state = _setup_simple_movement_scenario(active_system_id=1)
     engine = get_default_game_engine()
-    ship = Ship(
-        unit_id=0,
-        owner_name="A",
-        kind=ShipKind.DREADNOUGHT,
-        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
-        system_id=0,
-    )
-    ground_force = GroundForce(
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
+
+    ground_force = make_unit_with_id(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
-        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
-    fighter = Ship(
+    fighter = make_unit_with_id(
         unit_id=2,
         owner_name="A",
         kind=ShipKind.FIGHTER,
-        stats=UnitStats(cost=1, combat=7, move=1, capacity=None),
         system_id=0,
     )
     result = engine.apply_command(
@@ -501,40 +421,20 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
     assert len(result.new_state.turn_context.pending_moves) == 0
 
 
-@given(
-    transported_unit_type_str=st.sampled_from(
-        ShipKind._member_names_ + GroundForceKind._member_names_
-    )
-)
+@given(transported_unit_type_str=st.sampled_from(list(ShipKind) + list(GroundForceKind)))
 def test_89_2_a_valid_unit_types_for_transport(
     transported_unit_type_str: str,
 ) -> None:
     state = _setup_simple_movement_scenario(active_system_id=1)
     engine = get_default_game_engine()
-    ship = Ship(
-        unit_id=0,
-        owner_name="A",
-        kind=ShipKind.DREADNOUGHT,
-        stats=UnitStats(cost=4, combat=5, move=1, capacity=1),
-        system_id=0,
-    )
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
+
     transported_unit_kind = kind_from_str(transported_unit_type_str)
-    transported_unit = (
-        Ship(
-            unit_id=1,
-            owner_name="A",
-            kind=transported_unit_kind,
-            stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
-            system_id=0,
-        )
-        if isinstance(transported_unit_kind, ShipKind)
-        else GroundForce(
-            unit_id=1,
-            owner_name="A",
-            kind=transported_unit_kind,
-            stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
-            system_id=0,
-        )
+    transported_unit = make_unit_with_id(
+        unit_id=1,
+        owner_name="A",
+        kind=transported_unit_kind,
+        system_id=0,
     )
     result = engine.apply_command(
         state=replace(state, units=frozenset({ship, transported_unit})),
@@ -551,14 +451,8 @@ def test_89_2_a_valid_unit_types_for_transport(
     ):
         assert result.success
         assert len(result.new_state.turn_context.pending_moves) == 1
-        assert (
-            len(
-                next(
-                    move for move in result.new_state.turn_context.pending_moves
-                ).transported_unit_ids
-            )
-            == 1
-        )
+        (move,) = result.new_state.turn_context.pending_moves
+        assert len(move.transported_unit_ids) == 1
     else:
         assert not result.success
         assert len(result.new_state.turn_context.pending_moves) == 0
@@ -567,11 +461,10 @@ def test_89_2_a_valid_unit_types_for_transport(
 def test_89_2_a_player_may_transport_no_units() -> None:
     state = _setup_simple_movement_scenario(active_system_id=1)
     engine = get_default_game_engine()
-    ship = Ship(
+    ship = make_unit_with_id(
         unit_id=0,
         owner_name="A",
         kind=ShipKind.DESTROYER,
-        stats=UnitStats(cost=1, combat=9, move=2, capacity=None),
         system_id=0,
     )
     result = engine.apply_command(
@@ -593,16 +486,8 @@ def test_89_2_a_player_may_transport_no_units() -> None:
 
 
 def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=1, strategy=0),
-    )
-    player_b = Player(
-        name="B",
-        strategy_cards=(StrategyCard(name="Diplomacy", initiative=2),),
-        command_sheet=CommandSheet.make_from_int("B", tactic=1, fleet=1, strategy=0),
-    )
+    player_a = make_player("A")
+    player_b = make_player("B")
     state = GameState(
         players=(player_a, player_b),
         active_player=player_a,
@@ -621,25 +506,17 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
         units=frozenset(),
     )
     engine = get_default_game_engine()
-    ship = Ship(
-        unit_id=0,
-        owner_name="A",
-        kind=ShipKind.CARRIER,
-        stats=UnitStats(cost=3, combat=9, move=1, capacity=4),
-        system_id=0,
-    )
-    friendly_ground_force = GroundForce(
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.CARRIER, system_id=0)
+    friendly_ground_force = make_unit_with_id(
         unit_id=1,
         owner_name="A",
         kind=GroundForceKind.INFANTRY,
-        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
-    enemy_ground_force = GroundForce(
+    enemy_ground_force = make_unit_with_id(
         unit_id=2,
         owner_name="B",
         kind=GroundForceKind.INFANTRY,
-        stats=UnitStats(cost=1, combat=8, move=None, capacity=None),
         system_id=0,
     )
     result = engine.apply_command(
@@ -658,12 +535,37 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
     assert len(result.new_state.turn_context.pending_moves) == 0
 
 
-def test_89_2_b_active_player_may_move_no_ships() -> None:
-    player_a = Player(
-        name="A",
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=3, strategy=0),
+def test_89_2_a_cannot_transport_units_not_on_path() -> None:
+    state = _setup_simple_movement_scenario(active_system_id=1)
+    engine = get_default_game_engine()
+    ship = make_unit_with_id(
+        unit_id=0,
+        owner_name="A",
+        kind=ShipKind.CARRIER,
+        system_id=0,
     )
+    ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="A",
+        kind=GroundForceKind.INFANTRY,
+        system_id=2,
+    )
+    result = engine.apply_command(
+        state=replace(state, units=frozenset({ship, ground_force})),
+        command=MoveShipCommand(
+            actor=state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+            transported_unit_ids=frozenset({ground_force.unit_id}),
+        ),
+    )
+    assert not result.success
+    assert len(result.new_state.turn_context.pending_moves) == 0
+
+
+def test_89_2_b_active_player_may_move_no_ships() -> None:
+    player_a = make_player("A")
     session = GameSession(
         initial_state=GameState(
             players=(player_a,),
