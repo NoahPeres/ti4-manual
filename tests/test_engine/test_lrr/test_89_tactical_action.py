@@ -561,6 +561,31 @@ def test_89_2_b_active_player_may_move_no_ships() -> None:
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
 
 
+def test_89_2_c_players_may_use_space_cannon_after_movement() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+            phase=Phase.ACTION,
+            galaxy=frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
+            turn_context=TurnContext(
+                has_initiated_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+        ),
+        engine=get_default_game_engine(),
+    )
+    new_state = session.apply_command(
+        Command(actor=player_a, command_type=CommandType.END_MOVEMENT)
+    )
+    use_space_cannon = Command(actor=player_b, command_type=CommandType.USE_SPACE_CANNON)
+    result = session.engine.apply_command(state=new_state, command=use_space_cannon)
+    assert result.success
+
+
 CENTRE_RING_OF_SYSTEMS = frozenset(
     {
         System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
