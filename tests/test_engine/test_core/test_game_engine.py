@@ -45,6 +45,10 @@ class TrivialCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "TrivialCommandRule"
 
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return set(CommandType.all_command_types())
+
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if command.command_type == CommandType.ALWAYS_VALID:
             return ValidationResult(is_valid=True)
@@ -53,14 +57,14 @@ class TrivialCommandRule(CommandRule[Command]):
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [TrivialEvent(payload="test")]
 
-    @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return True
-
 
 class EndTurn(CommandRule[Command]):
     def __repr__(self) -> str:
         return "EndTurn"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.END_TURN}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if state.is_active_player(command.actor) and command.command_type == CommandType.END_TURN:
@@ -71,10 +75,6 @@ class EndTurn(CommandRule[Command]):
         if command.command_type == CommandType.END_TURN:
             return [ChangePlayer(players=state.players)]
         return []
-
-    @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return True
 
 
 class TrivialRulesEngine(RulesEngine):

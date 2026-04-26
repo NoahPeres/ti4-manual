@@ -5,7 +5,6 @@ from dataclasses import replace
 from src.engine.core.command import (
     Command,
     CommandRule,
-    CommandRuleWhenApplicable,
     CommandType,
     ValidationResult,
 )
@@ -32,15 +31,15 @@ class PassEvent(Event):
         )
 
 
-class PassCommandRule(CommandRuleWhenApplicable[Command]):
+class PassCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "PassAction"
 
     @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return command.command_type == CommandType.PASS_ACTION
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.PASS_ACTION}
 
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if not state.is_active_player(command.actor):
             return ValidationResult(
                 is_valid=False, info="Only the active player can pass their turn"
@@ -51,7 +50,7 @@ class PassCommandRule(CommandRuleWhenApplicable[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [PassEvent(), EndTurnEvent()]
 
 

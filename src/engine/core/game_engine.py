@@ -1,4 +1,5 @@
 from dataclasses import FrozenInstanceError, dataclass
+import logging
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -8,6 +9,8 @@ if TYPE_CHECKING:
     from src.engine.core.event import Event
     from src.engine.core.game_state import GameState
     from src.engine.core.rules_engine import RulesEngine
+
+logger = logging.getLogger(__name__)
 
 
 class GameStateInvariant(Protocol):
@@ -37,13 +40,58 @@ class GameEngine:
         self,
         rules_engine: RulesEngine,
         invariants: Sequence[GameStateInvariant] | None = None,
+        strict: bool = False,
     ) -> None:
         self.rules_engine: RulesEngine = rules_engine
         self.invariants: Sequence[GameStateInvariant] = invariants if invariants is not None else []
+        self.strict: bool = strict
+
+        # Build command type to rules registry
+        from src.engine.core.command import CommandType
+
+        self._command_type_to_rules: dict[CommandType, list] = {}
+        for rule in self.rules_engine.command_rules:
+            for cmd_type in rule.handles_command_types():
+                self._command_type_to_rules.setdefault(cmd_type, []).append(rule)
+
+        # Check for unimplemented command types
+        all_command_types = set(CommandType.all_command_types())
+        implemented = set(self._command_type_to_rules.keys())
+        unimplemented = all_command_types - implemented
+
+        if unimplemented:
+            msg = f"Unimplemented command types: {sorted(str(cmd) for cmd in unimplemented)}"
+            if self.strict:
+                raise NotImplementedError(msg)
+            else:
+                logger.warning(msg)
+
+    def get_implemented_command_types(self) -> set["CommandType"]:
+        """Return the set of CommandTypes that have at least one rule."""
+        return set(self._command_type_to_rules.keys())
+
+    def get_unimplemented_command_types(self) -> set["CommandType"]:
+        """Return the set of CommandTypes with no rules."""
+        from src.engine.core.command import CommandType
+
+        all_types = set(CommandType.all_command_types())
+        return all_types - self.get_implemented_command_types()
 
     def apply_command(self, state: GameState, command: Command) -> CommandResult:
-        # Validate command legality
-        for rule in self.rules_engine.command_rules:
+        # Check if command type is implemented
+        if command.command_type not in self.get_implemented_command_types():
+            return CommandResult(
+                new_state=state,
+                success=False,
+                events=[],
+                info=f"Command type not implemented: {command.command_type}",
+            )
+
+        # Get relevant rules for this command type
+        relevant_rules = self._command_type_to_rules.get(command.command_type, [])
+
+        # Validate command legality with all relevant rules
+        for rule in relevant_rules:
             validation_result = rule.validate_legality(state, command)
             if not validation_result.is_valid:
                 reason = validation_result.info or "<no reason provided>"
@@ -57,7 +105,7 @@ class GameEngine:
         new_state: GameState = state
         events: list[Event] = []
         resolved_events: list[Event] = []
-        for rule in self.rules_engine.command_rules:
+        for rule in relevant_rules:
             events += rule.derive_events(state, command)
 
         while events:

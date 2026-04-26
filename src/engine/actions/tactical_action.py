@@ -4,7 +4,6 @@ from dataclasses import dataclass, replace
 from src.engine.core.command import (
     Command,
     CommandRule,
-    CommandRuleWhenApplicable,
     CommandType,
     ValidationResult,
 )
@@ -88,15 +87,15 @@ class TacticalActionInitiatedEvent(Event):
         )
 
 
-class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateCommand]):
+class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
     def __repr__(self) -> str:
         return "InitiateTacticalAction"
 
     @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return command.command_type == CommandType.INITIATE_TACTICAL_ACTION
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.INITIATE_TACTICAL_ACTION}
 
-    def is_legal_given_applicable(
+    def validate_legality(
         self, state: GameState, command: ActivateCommand
     ) -> ValidationResult:
         try:
@@ -121,7 +120,7 @@ class InitiateTacticalActionCommandRule(CommandRuleWhenApplicable[ActivateComman
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events_given_applicable(
+    def derive_events(
         self, state: GameState, command: ActivateCommand
     ) -> Sequence[Event]:
         return [

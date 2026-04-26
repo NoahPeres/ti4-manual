@@ -37,15 +37,16 @@ class MutatingCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "MutatingCommandRule"
 
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        # Test rule that intercepts all command types
+        return set(CommandType.all_command_types())
+
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [TrivialEvent(payload="Does nothing"), MutatingEvent()]
-
-    @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return True
 
 
 @st.composite
@@ -60,6 +61,11 @@ def simple_game_state(draw: Callable[[st.SearchStrategy[Player]], Player]) -> Ga
 class CommandAlwaysFails(CommandRule[Command]):
     def __repr__(self) -> str:
         return "CommandAlwaysFails"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        # Test rule that intercepts all command types
+        return set(CommandType.all_command_types())
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         return ValidationResult(is_valid=False, info="This command always fails")

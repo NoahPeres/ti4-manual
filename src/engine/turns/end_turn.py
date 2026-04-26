@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from src.engine.core.command import (
     Command,
     CommandRule,
-    CommandRuleWhenApplicable,
     CommandType,
     ValidationResult,
 )
@@ -44,15 +43,15 @@ class EndTurnEvent(Event):
         )
 
 
-class EndTurn(CommandRuleWhenApplicable[Command]):
+class EndTurn(CommandRule[Command]):
     def __repr__(self) -> str:
         return "EndTurn"
 
     @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return command.command_type == CommandType.END_TURN
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.END_TURN}
 
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if not state.is_active_player(command.actor):
             return ValidationResult(
                 is_valid=False, info="Only the active player can end their turn"
@@ -63,7 +62,7 @@ class EndTurn(CommandRuleWhenApplicable[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         return [EndTurnEvent()]
 
 
