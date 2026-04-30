@@ -252,14 +252,10 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
     def handles_command_types() -> set[CommandType]:
         return {CommandType.MOVE_SHIP}
 
-    def validate_legality(
-        self, state: GameState, command: MoveShipCommand
-    ) -> ValidationResult:
+    def validate_legality(self, state: GameState, command: MoveShipCommand) -> ValidationResult:
         return _validate_tactical_action_move(state, command)
 
-    def derive_events(
-        self, state: GameState, command: MoveShipCommand
-    ) -> Sequence[Event]:
+    def derive_events(self, state: GameState, command: MoveShipCommand) -> Sequence[Event]:
         del state
         return [
             AddMoveToPendingEvent(

@@ -1,6 +1,8 @@
-from dataclasses import FrozenInstanceError, dataclass
 import logging
+from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
+
+from src.engine.core.command import CommandRule, CommandType
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -40,39 +42,31 @@ class GameEngine:
         self,
         rules_engine: RulesEngine,
         invariants: Sequence[GameStateInvariant] | None = None,
-        strict: bool = False,
     ) -> None:
         self.rules_engine: RulesEngine = rules_engine
         self.invariants: Sequence[GameStateInvariant] = invariants if invariants is not None else []
-        self.strict: bool = strict
 
-        # Build command type to rules registry
-        from src.engine.core.command import CommandType
-
-        self._command_type_to_rules: dict[CommandType, list] = {}
+        self._command_type_to_rules: dict[CommandType, list[CommandRule[Command]]] = {}
         for rule in self.rules_engine.command_rules:
             for cmd_type in rule.handles_command_types():
                 self._command_type_to_rules.setdefault(cmd_type, []).append(rule)
 
-        # Check for unimplemented command types
-        all_command_types = set(CommandType.all_command_types())
-        implemented = set(self._command_type_to_rules.keys())
-        unimplemented = all_command_types - implemented
+        unimplemented = self.get_unimplemented_command_types()
 
         if unimplemented:
             msg = f"Unimplemented command types: {sorted(str(cmd) for cmd in unimplemented)}"
-            if self.strict:
-                raise NotImplementedError(msg)
-            else:
-                logger.warning(msg)
+            raise NotImplementedError(msg)
 
-    def get_implemented_command_types(self) -> set["CommandType"]:
+    def get_implemented_command_types(self) -> set[CommandType]:
         """Return the set of CommandTypes that have at least one rule."""
-        return set(self._command_type_to_rules.keys())
+        return set(self._command_type_to_rules.keys()) | {
+            CommandType.ALWAYS_VALID,
+            CommandType.ALWAYS_INVALID,
+            # These are vacuously 'implemented'
+        }
 
-    def get_unimplemented_command_types(self) -> set["CommandType"]:
+    def get_unimplemented_command_types(self) -> set[CommandType]:
         """Return the set of CommandTypes with no rules."""
-        from src.engine.core.command import CommandType
 
         all_types = set(CommandType.all_command_types())
         return all_types - self.get_implemented_command_types()

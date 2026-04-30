@@ -95,9 +95,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
     def handles_command_types() -> set[CommandType]:
         return {CommandType.INITIATE_TACTICAL_ACTION}
 
-    def validate_legality(
-        self, state: GameState, command: ActivateCommand
-    ) -> ValidationResult:
+    def validate_legality(self, state: GameState, command: ActivateCommand) -> ValidationResult:
         try:
             system = state.get_system(system_id=command.system_id)
         except ValueError:
@@ -120,9 +118,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(
-        self, state: GameState, command: ActivateCommand
-    ) -> Sequence[Event]:
+    def derive_events(self, state: GameState, command: ActivateCommand) -> Sequence[Event]:
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionInitiatedEvent(),
