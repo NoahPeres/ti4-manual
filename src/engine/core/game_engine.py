@@ -53,7 +53,7 @@ class GameEngine:
 
         unimplemented = self.get_unimplemented_command_types()
 
-        if unimplemented:
+        if unimplemented and rules_engine.check_all_rules_have_implementations:
             msg = f"Unimplemented command types: {sorted(str(cmd) for cmd in unimplemented)}"
             raise NotImplementedError(msg)
 

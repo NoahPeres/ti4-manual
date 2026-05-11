@@ -7,6 +7,8 @@ from src.engine.core.rules_engine import RulesEngine
 
 
 class TI4RulesEngine(RulesEngine):
+    check_all_rules_have_implementations = True
+
     def __init__(self) -> None:
         self.command_rules: Sequence[CommandRule[Command]] = rules_library.get_command_rules()
         self.event_rules: Sequence[EventRule] = rules_library.get_event_rules()

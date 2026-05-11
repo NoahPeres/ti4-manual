@@ -17,3 +17,4 @@ class RulesEngine(Protocol):
 
     command_rules: Sequence[CommandRule[Command]]
     event_rules: Sequence[EventRule]
+    check_all_rules_have_implementations: bool

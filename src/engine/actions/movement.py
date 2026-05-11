@@ -9,13 +9,7 @@ from src.engine.core.command import (
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import (
-    GameState,
-    HexCoord,
-    Move,
-    System,
-    TacticalActionStep,
-)
+from src.engine.core.game_state import GameState, HexCoord, Move, System, TacticalActionStep, Window
 from src.engine.core.player import Player
 from src.engine.units.units import Ship, Unit
 
@@ -53,6 +47,34 @@ class ResolvePendingMovesEvent(Event):
         )
 
 
+class ResolveSpaceCannonOffenseEvent(Event):
+    payload = "ResolveSpaceCannonOffense"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state
+
+
+class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "ResolveSpaceCannonOffense"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.USE_SPACE_CANNON}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if not state.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only resolve space cannon offense immediately after moving ships during a tactical action",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
+        return [ResolveSpaceCannonOffenseEvent()]
+
+
 class EndMovementCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "EndMovement"
@@ -72,7 +94,31 @@ class EndMovementCommandRule(CommandRule[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        return [ResolvePendingMovesEvent(), AdvanceToSpaceCombatStepEvent()]
+        return [
+            ResolvePendingMovesEvent(),
+            AdvanceToSpaceCombatStepEvent(),
+        ]
+
+
+def open_window(state: GameState, window: Window) -> GameState:
+    return replace(state, active_windows=(*state.active_windows, window))
+
+
+class OpenWindowEvent(Event):
+    def __init__(self, window: Window) -> None:
+        self._window: Window = window
+
+    payload: str = "OpenWindow"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return open_window(state=previous_state, window=self._window)
+
+
+class SpaceCannonAfterMovementEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        if isinstance(event, ResolvePendingMovesEvent):
+            return [OpenWindowEvent(Window.AFTER_MOVE_SHIPS_STEP)]
+        return []
 
 
 class AddMoveToPendingEvent(Event):
@@ -267,8 +313,8 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
 
 
 def get_command_rules() -> list[CommandRule[MoveShipCommand]]:
-    return [EndMovementCommandRule(), MoveShipCommandRule()]
+    return [EndMovementCommandRule(), MoveShipCommandRule(), ResolveSpaceCannonOffenseCommandRule()]
 
 
 def get_event_rules() -> list[EventRule]:
-    return []
+    return [SpaceCannonAfterMovementEventRule()]

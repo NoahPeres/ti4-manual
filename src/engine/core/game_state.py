@@ -56,6 +56,10 @@ class TurnContext:
 Galaxy = frozenset[System]
 
 
+class Window(StrEnum):
+    AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
+
+
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
@@ -66,6 +70,7 @@ class GameState:
         default_factory=lambda: TurnContext(has_initiated_action=False)
     )
     units: frozenset[Unit] = frozenset()
+    active_windows: tuple[Window, ...] = field(default_factory=tuple)
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -119,3 +124,6 @@ class GameState:
 
     def is_active_player(self, player: Player) -> bool:
         return self.active_player == player
+
+    def is_window_active(self, window: Window) -> bool:
+        return window in self.active_windows
