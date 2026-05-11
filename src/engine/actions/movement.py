@@ -66,7 +66,8 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         if not state.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
             return ValidationResult(
                 is_valid=False,
-                info="Can only resolve space cannon offense immediately after moving ships during a tactical action",
+                info="Can only resolve space cannon offense immediately after moving ships during "
+                "a tactical action",
             )
         return ValidationResult(is_valid=True)
 
