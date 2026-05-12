@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 
 from src.engine.core.player import Player
@@ -45,12 +45,51 @@ class Move:
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+class Ability(StrEnum):
+    SPACE_CANNON = "space_cannon"
+
+
+@dataclass(frozen=True)
+class PlayerAbilityTracker:
+    player_name: str
+    abilities_used: frozenset[Ability]
+
+    def use_ability(self, ability: Ability) -> PlayerAbilityTracker:
+        return replace(self, abilities_used=frozenset(self.abilities_used | {ability}))
+
+
 @dataclass(frozen=True)
 class TurnContext:
     has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
+    player_abilities_in_window: frozenset[PlayerAbilityTracker] = field(
+        default_factory=frozenset[PlayerAbilityTracker]
+    )
+
+    def get_or_create_ability_tracker(self, player: Player) -> PlayerAbilityTracker:
+        for tracker in self.player_abilities_in_window:
+            if tracker.player_name == player.name:
+                return tracker
+        return PlayerAbilityTracker(player_name=player.name, abilities_used=frozenset[Ability]())
+
+    def use_ability_for_player(self, player: Player, ability: Ability) -> TurnContext:
+        tracker = self.get_or_create_ability_tracker(player)
+        return replace(
+            self,
+            player_abilities_in_window=frozenset(
+                {
+                    other_tracker
+                    for other_tracker in self.player_abilities_in_window
+                    if other_tracker != tracker
+                }
+                | {tracker.use_ability(ability)}
+            ),
+        )
+
+    def player_has_resolved_ability(self, player: Player, ability: Ability) -> bool:
+        return ability in self.get_or_create_ability_tracker(player).abilities_used
 
 
 Galaxy = frozenset[System]
@@ -127,3 +166,9 @@ class GameState:
 
     def is_window_active(self, window: Window) -> bool:
         return window in self.active_windows
+
+    def player_may_resolve_space_cannon_in_system(self, player: Player, system_id: int) -> bool:
+        return (
+            Ability.SPACE_CANNON
+            not in self.turn_context.get_or_create_ability_tracker(player=player).abilities_used
+        )
