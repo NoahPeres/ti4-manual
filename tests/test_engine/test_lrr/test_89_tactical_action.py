@@ -15,6 +15,7 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     TurnContext,
 )
+from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
     GroundForceKind,
@@ -623,7 +624,7 @@ def test_89_2_c_space_cannon_window_closes_after_all_players_have_acted() -> Non
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
 
 
-def test_89_2_c_one_player_cannot_space_cannon_twice() -> None:
+def test_89_2_c_one_player_cannot_space_cannon_twice_in_same_window() -> None:
     player_a = make_player("A")
     player_b = make_player("B")
 
@@ -655,6 +656,54 @@ def test_89_2_c_one_player_cannot_space_cannon_twice() -> None:
     assert len(session.failure_history) == 0
     assert not session.engine.apply_command(
         state=session.current_state, command=use_space_cannon
+    ).success
+
+
+def test_89_2_c_ability_window_properly_clears_state() -> None:
+    player_a = make_player("A", strategy_cards=(StrategyCard(name="LEADERSHIP", initiative=1),))
+    player_b = make_player("B", strategy_cards=(StrategyCard(name="DIPLOMACY", initiative=2),))
+
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+            phase=Phase.ACTION,
+            galaxy=frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
+            turn_context=TurnContext(
+                has_initiated_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+        ),
+        engine=get_default_game_engine(),
+    )
+    new_state = session.apply_command(
+        Command(actor=player_a, command_type=CommandType.END_MOVEMENT)
+    )
+    assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
+
+    assert new_state.active_system is not None
+    a_use_space_cannon = Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON)
+    b_use_space_cannon = Command(actor=player_b, command_type=CommandType.USE_SPACE_CANNON)
+    new_state = session.apply_command(a_use_space_cannon)
+    new_state = session.apply_command(b_use_space_cannon)
+    new_state = session.apply_command(Command(actor=player_a, command_type=CommandType.END_TURN))
+
+    # B's turn
+    new_state = session.apply_command(
+        ActivateCommand(
+            actor=player_b, command_type=CommandType.INITIATE_TACTICAL_ACTION, system_id=0
+        )
+    )
+    new_state = session.apply_command(
+        Command(actor=player_b, command_type=CommandType.END_MOVEMENT)
+    )
+
+    assert new_state.active_system is not None
+    assert len(session.failure_history) == 0
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON),
     ).success
 
 

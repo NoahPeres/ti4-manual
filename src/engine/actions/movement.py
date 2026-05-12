@@ -124,6 +124,7 @@ class EndMovementCommandRule(CommandRule[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return [
             ResolvePendingMovesEvent(),
         ]

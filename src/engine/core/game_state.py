@@ -168,7 +168,13 @@ class GameState:
         return window in self.active_windows
 
     def player_may_resolve_space_cannon_in_system(self, player: Player, system_id: int) -> bool:
+        # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
+        del system_id
+        return not self.player_has_resolved_ability_this_window(
+            player=player, ability=Ability.SPACE_CANNON
+        )
+
+    def player_has_resolved_ability_this_window(self, player: Player, ability: Ability) -> bool:
         return (
-            Ability.SPACE_CANNON
-            not in self.turn_context.get_or_create_ability_tracker(player=player).abilities_used
+            ability in self.turn_context.get_or_create_ability_tracker(player=player).abilities_used
         )

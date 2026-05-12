@@ -6,13 +6,18 @@ from src.engine.core.game_state import GameState, Window
 
 class OpenWindowEvent(Event):
     def __init__(self, window: Window) -> None:
-        self._window: Window = window
+        self.window: Window = window
         self.payload: str = f"OpenWindow{window}"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return replace(
-            previous_state, active_windows=(*previous_state.active_windows, self._window)
-        )
+        return replace(previous_state, active_windows=(*previous_state.active_windows, self.window))
+
+
+def flush_ability_trackers(game_state: GameState) -> GameState:
+    return replace(
+        game_state,
+        turn_context=replace(game_state.turn_context, player_abilities_in_window=frozenset()),
+    )
 
 
 class CloseWindowEvent(Event):
@@ -27,7 +32,7 @@ class CloseWindowEvent(Event):
             i for i, window in enumerate(previous_state.active_windows) if window == self.window
         )
         return replace(
-            previous_state,
+            flush_ability_trackers(previous_state),
             active_windows=(
                 *previous_state.active_windows[:innermost_window],
                 *previous_state.active_windows[innermost_window + 1 :],
