@@ -132,9 +132,16 @@ class EndMovementCommandRule(CommandRule[Command]):
 
 class SpaceCannonOffenseAfterMovementEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        if isinstance(event, ResolvePendingMovesEvent):
+        if state.active_system is None:
+            raise ValueError("Active system not found")
+        if isinstance(event, ResolvePendingMovesEvent) and any(
+            state.player_may_resolve_space_cannon_in_system(
+                player, system_id=state.active_system.id
+            )
+            for player in state.players
+        ):
             return [OpenWindowEvent(Window.AFTER_MOVE_SHIPS_STEP)]
-        return []
+        return [AdvanceToSpaceCombatStepEvent()]
 
 
 class CloseSpaceCannonOffenseWindowEventRule(EventRule):

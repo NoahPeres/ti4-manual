@@ -70,6 +70,8 @@ def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
                 turn_context=replace(previous_state.turn_context, tactical_action_step=step),
             )
 
+    AdvanceToStepEvent.__name__ = f"AdvanceTo{step.name}StepEvent"
+    AdvanceToStepEvent.__qualname__ = f"AdvanceTo{step.name}StepEvent"
     return AdvanceToStepEvent
 
 
