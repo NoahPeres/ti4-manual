@@ -1,9 +1,12 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
-from src.engine.core.player import Player
-from src.engine.tokens import CommandToken
 from src.engine.units.units import Ship, Unit
+
+if TYPE_CHECKING:
+    from src.engine.core.player import Player
+    from src.engine.tokens import CommandToken
 
 
 class TacticalActionStep(StrEnum):
@@ -45,15 +48,58 @@ class Move:
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+class Ability(StrEnum):
+    SPACE_CANNON = "space_cannon"
+
+
+@dataclass(frozen=True)
+class PlayerAbilityTracker:
+    player_name: str
+    abilities_used: frozenset[Ability]
+
+    def use_ability(self, ability: Ability) -> PlayerAbilityTracker:
+        return replace(self, abilities_used=frozenset(self.abilities_used | {ability}))
+
+
 @dataclass(frozen=True)
 class TurnContext:
     has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
+    player_abilities_in_window: frozenset[PlayerAbilityTracker] = field(
+        default_factory=frozenset[PlayerAbilityTracker],
+    )
+
+    def get_or_create_ability_tracker(self, player: Player) -> PlayerAbilityTracker:
+        for tracker in self.player_abilities_in_window:
+            if tracker.player_name == player.name:
+                return tracker
+        return PlayerAbilityTracker(player_name=player.name, abilities_used=frozenset[Ability]())
+
+    def use_ability_for_player(self, player: Player, ability: Ability) -> TurnContext:
+        tracker = self.get_or_create_ability_tracker(player)
+        return replace(
+            self,
+            player_abilities_in_window=frozenset(
+                {
+                    other_tracker
+                    for other_tracker in self.player_abilities_in_window
+                    if other_tracker != tracker
+                }
+                | {tracker.use_ability(ability)},
+            ),
+        )
+
+    def player_has_resolved_ability(self, player: Player, ability: Ability) -> bool:
+        return ability in self.get_or_create_ability_tracker(player).abilities_used
 
 
 Galaxy = frozenset[System]
+
+
+class Window(StrEnum):
+    AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
 
 
 @dataclass(frozen=True)
@@ -63,9 +109,10 @@ class GameState:
     phase: Phase
     galaxy: Galaxy
     turn_context: TurnContext = field(
-        default_factory=lambda: TurnContext(has_initiated_action=False)
+        default_factory=lambda: TurnContext(has_initiated_action=False),
     )
     units: frozenset[Unit] = frozenset()
+    active_windows: tuple[Window, ...] = field(default_factory=tuple)
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -73,7 +120,7 @@ class GameState:
             sorted(
                 self.players,
                 key=lambda p: p.initiative,
-            )
+            ),
         )
 
     @property
@@ -119,3 +166,19 @@ class GameState:
 
     def is_active_player(self, player: Player) -> bool:
         return self.active_player == player
+
+    def is_window_active(self, window: Window) -> bool:
+        return window in self.active_windows
+
+    def player_may_resolve_space_cannon_in_system(self, player: Player, system_id: int) -> bool:
+        # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
+        del system_id
+        return not self.player_has_resolved_ability_this_window(
+            player=player,
+            ability=Ability.SPACE_CANNON,
+        )
+
+    def player_has_resolved_ability_this_window(self, player: Player, ability: Ability) -> bool:
+        return (
+            ability in self.turn_context.get_or_create_ability_tracker(player=player).abilities_used
+        )

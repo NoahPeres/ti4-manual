@@ -100,7 +100,10 @@ unit_stats_lookup: dict[UnitKind, UnitStats] = {
 
 
 def make_unit_with_id(
-    unit_id: int, owner_name: str, kind: UnitKind, system_id: int | None = None
+    unit_id: int,
+    owner_name: str,
+    kind: UnitKind,
+    system_id: int | None = None,
 ) -> Unit:
     stats = unit_stats_lookup[kind]
     if isinstance(kind, ShipKind):

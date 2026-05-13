@@ -1,18 +1,21 @@
 import dataclasses
-from collections.abc import Sequence
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from src.engine.core.command import (
     Command,
     CommandRule,
-    CommandRuleWhenApplicable,
     CommandType,
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase, TurnContext
-from src.engine.core.player import Player
 from src.engine.turns.end_turn import EndTurnEvent
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.player import Player
 
 
 class PassEvent(Event):
@@ -32,26 +35,29 @@ class PassEvent(Event):
         )
 
 
-class PassCommandRule(CommandRuleWhenApplicable[Command]):
+class PassCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "PassAction"
 
     @staticmethod
-    def is_applicable(command: Command) -> bool:
-        return command.command_type == CommandType.PASS_ACTION
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.PASS_ACTION}
 
-    def is_legal_given_applicable(self, state: GameState, command: Command) -> ValidationResult:
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if not state.is_active_player(command.actor):
             return ValidationResult(
-                is_valid=False, info="Only the active player can pass their turn"
+                is_valid=False,
+                info="Only the active player can pass their turn",
             )
         if not all(card.is_exhausted for card in state.active_player.strategy_cards):
             return ValidationResult(
-                is_valid=False, info="All strategy cards must be exhausted to pass"
+                is_valid=False,
+                info="All strategy cards must be exhausted to pass",
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events_given_applicable(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return [PassEvent(), EndTurnEvent()]
 
 
