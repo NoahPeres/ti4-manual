@@ -1,5 +1,5 @@
-from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from src.engine.core.command import (
     Command,
@@ -10,6 +10,9 @@ from src.engine.core.command import (
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, TacticalActionStep
 from src.engine.tokens import CommandToken
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @dataclass(frozen=True)
@@ -34,13 +37,14 @@ class ActivateSystemEvent(Event):
             ),
         )
         new_galaxy = frozenset(
-            {system for system in previous_state.galaxy if system.id != self.system_id}
+            {system for system in previous_state.galaxy if system.id != self.system_id},
         ) | {new_system}
         old_player = previous_state.get_player(name=self.player_id)
         new_player = replace(
             old_player,
             command_sheet=replace(
-                old_player.command_sheet, tactic=old_player.command_sheet.tactic[1:]
+                old_player.command_sheet,
+                tactic=old_player.command_sheet.tactic[1:],
             ),
         )
         players = tuple(
@@ -70,6 +74,8 @@ def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
                 turn_context=replace(previous_state.turn_context, tactical_action_step=step),
             )
 
+    AdvanceToStepEvent.__name__ = f"AdvanceTo{step.name}StepEvent"
+    AdvanceToStepEvent.__qualname__ = f"AdvanceTo{step.name}StepEvent"
     return AdvanceToStepEvent
 
 
@@ -102,7 +108,8 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
             return ValidationResult(is_valid=False, info="System not found")
         if not state.is_active_player(command.actor):
             return ValidationResult(
-                is_valid=False, info="Only the active player can initiate a tactical action"
+                is_valid=False,
+                info="Only the active player can initiate a tactical action",
             )
         if state.has_taken_turn:
             return ValidationResult(is_valid=False, info="Player has already taken a turn")
@@ -119,6 +126,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: ActivateCommand) -> Sequence[Event]:
+        del state
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionInitiatedEvent(),

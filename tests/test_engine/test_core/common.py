@@ -1,12 +1,17 @@
+from typing import TYPE_CHECKING
+
 from src.engine.core.event import Event
 from src.engine.core.game_engine import GameStateInvariant
-from src.engine.core.game_state import GameState
+
+if TYPE_CHECKING:
+    from src.engine.core.game_state import GameState
 
 
 class FailingInvariant(GameStateInvariant):
     description: str = "Always fails invariant"
 
     def check(self, state: GameState) -> bool:
+        del state
         return False  # Always fails
 
 

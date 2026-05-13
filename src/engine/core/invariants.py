@@ -1,6 +1,10 @@
+from typing import TYPE_CHECKING
+
 from src.engine.core.game_engine import GameStateInvariant
-from src.engine.core.game_state import GameState
 from src.engine.tokens import UNIQUE_TOKENS, TokenType
+
+if TYPE_CHECKING:
+    from src.engine.core.game_state import GameState
 
 
 class UniqueTokenInvariant(GameStateInvariant):

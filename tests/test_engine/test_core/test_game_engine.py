@@ -50,11 +50,13 @@ class TrivialCommandRule(CommandRule[Command]):
         return set(CommandType.all_command_types())
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        del state
         if command.command_type == CommandType.ALWAYS_VALID:
             return ValidationResult(is_valid=True)
         return ValidationResult(is_valid=False, info="Command is not always valid")
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return [TrivialEvent(payload="test")]
 
 
@@ -78,6 +80,8 @@ class EndTurn(CommandRule[Command]):
 
 
 class TrivialRulesEngine(RulesEngine):
+    check_all_rules_have_implementations = False
+
     def __init__(self, command_rules: Sequence[CommandRule[Command]]) -> None:
         self.command_rules: Sequence[CommandRule[Command]] = command_rules
         self.event_rules = []
@@ -92,7 +96,10 @@ def _set_up_session(
 ) -> GameSession:
     if initial_state is None:
         initial_state = GameState(
-            players=players, active_player=initial_player, phase=Phase.ACTION, galaxy=frozenset()
+            players=players,
+            active_player=initial_player,
+            phase=Phase.ACTION,
+            galaxy=frozenset(),
         )
     if game_state_invariants is None:
         game_state_invariants = []

@@ -1,10 +1,13 @@
-from collections.abc import Sequence
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 from src.engine.actions import movement, tactical_action
-from src.engine.core.command import Command, CommandRule
-from src.engine.core.event import EventRule
 from src.engine.turns import end_turn, pass_action
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.command import Command, CommandRule
+    from src.engine.core.event import EventRule
 
 
 class RulesModule(Protocol):
@@ -14,7 +17,7 @@ class RulesModule(Protocol):
 
 
 MODULES_WITH_RULES: Sequence[RulesModule] = [
-    cast(RulesModule, module)
+    cast("RulesModule", module)
     for module in [
         end_turn,
         tactical_action,

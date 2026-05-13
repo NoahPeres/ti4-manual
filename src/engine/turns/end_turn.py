@@ -1,5 +1,5 @@
 import dataclasses
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from src.engine.core.command import (
     Command,
@@ -8,8 +8,12 @@ from src.engine.core.command import (
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState
-from src.engine.core.player import Player
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.game_state import GameState
+    from src.engine.core.player import Player
 
 
 class EndTurnEvent(Event):
@@ -38,7 +42,8 @@ class EndTurnEvent(Event):
             previous_state,
             active_player=next_player,
             turn_context=dataclasses.replace(
-                previous_state.turn_context, has_initiated_action=False
+                previous_state.turn_context,
+                has_initiated_action=False,
             ),
         )
 
@@ -54,15 +59,18 @@ class EndTurn(CommandRule[Command]):
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if not state.is_active_player(command.actor):
             return ValidationResult(
-                is_valid=False, info="Only the active player can end their turn"
+                is_valid=False,
+                info="Only the active player can end their turn",
             )
         if not state.has_taken_turn:
             return ValidationResult(
-                is_valid=False, info="A player must take a turn before ending it"
+                is_valid=False,
+                info="A player must take a turn before ending it",
             )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return [EndTurnEvent()]
 
 

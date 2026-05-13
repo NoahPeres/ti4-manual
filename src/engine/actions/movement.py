@@ -1,5 +1,5 @@
-from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from src.engine.actions.tactical_action import AdvanceToSpaceCombatStepEvent
 from src.engine.core.command import (
@@ -10,14 +10,23 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
+    Ability,
     GameState,
     HexCoord,
     Move,
     System,
     TacticalActionStep,
+    Window,
 )
-from src.engine.core.player import Player
-from src.engine.units.units import Ship, Unit
+from src.engine.core.windows import CloseWindowEvent, OpenWindowEvent
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.player import Player
+    from src.engine.units.units import Ship, Unit
+
+    pass
 
 
 @dataclass(frozen=True)
@@ -43,7 +52,7 @@ class ResolvePendingMovesEvent(Event):
         moved_unit_ids = {unit.unit_id for unit in moved_units}
         new_units = frozenset(
             {unit for unit in previous_state.units if unit.unit_id not in moved_unit_ids}
-            | moved_units
+            | moved_units,
         )
 
         return replace(
@@ -51,6 +60,58 @@ class ResolvePendingMovesEvent(Event):
             units=new_units,
             turn_context=replace(previous_state.turn_context, pending_moves=frozenset()),
         )
+
+
+class ResolveSpaceCannonOffenseEvent(Event):
+    def __init__(self, player: Player, active_system: System) -> None:
+        self.player = player
+        self.active_system = active_system
+        self.payload = f"ResolveSpaceCannonOffense{player.name}"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        # TODO actually implement space cannon here
+        return replace(
+            previous_state,
+            turn_context=previous_state.turn_context.use_ability_for_player(
+                player=self.player,
+                ability=Ability.SPACE_CANNON,
+            ),
+        )
+
+
+class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "ResolveSpaceCannonOffense"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.USE_SPACE_CANNON}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if not state.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only resolve space cannon offense immediately after moving ships during "
+                "a tactical action",
+            )
+        if state.active_system is None:
+            return ValidationResult(is_valid=False, info="Active system not found")
+        if not state.player_may_resolve_space_cannon_in_system(
+            command.actor,
+            system_id=state.active_system.id,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info=f"{command.actor.name} has no units with SPACE CANNON",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        if state.active_system is None:
+            raise ValueError("Invalid active system")
+        return [
+            ResolveSpaceCannonOffenseEvent(player=command.actor, active_system=state.active_system),
+        ]
 
 
 class EndMovementCommandRule(CommandRule[Command]):
@@ -72,12 +133,58 @@ class EndMovementCommandRule(CommandRule[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        return [ResolvePendingMovesEvent(), AdvanceToSpaceCombatStepEvent()]
+        del state, command
+        return [
+            ResolvePendingMovesEvent(),
+        ]
+
+
+class SpaceCannonOffenseAfterMovementEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        if not isinstance(event, ResolvePendingMovesEvent):
+            return []
+        if state.active_system is None:
+            raise ValueError("Active system not found")
+        if any(
+            state.player_may_resolve_space_cannon_in_system(
+                player,
+                system_id=state.active_system.id,
+            )
+            for player in state.players
+        ):
+            return [OpenWindowEvent(Window.AFTER_MOVE_SHIPS_STEP)]
+        return [AdvanceToSpaceCombatStepEvent()]
+
+
+class CloseSpaceCannonOffenseWindowEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        if not isinstance(event, ResolveSpaceCannonOffenseEvent):
+            return []
+        if (state.active_system is None) or all(
+            not state.player_may_resolve_space_cannon_in_system(
+                player=player,
+                system_id=state.active_system.id,
+            )
+            for player in state.players
+        ):
+            return [CloseWindowEvent(window=Window.AFTER_MOVE_SHIPS_STEP)]
+        return []
+
+
+class SpaceCombatAfterSpaceCannonOffenseEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del state
+        if isinstance(event, CloseWindowEvent) and event.window == Window.AFTER_MOVE_SHIPS_STEP:
+            return [AdvanceToSpaceCombatStepEvent()]
+        return []
 
 
 class AddMoveToPendingEvent(Event):
     def __init__(
-        self, ship_id: int, to_system_id: int, transported_unit_ids: frozenset[int] = frozenset()
+        self,
+        ship_id: int,
+        to_system_id: int,
+        transported_unit_ids: frozenset[int] = frozenset(),
     ) -> None:
         self.ship_id = ship_id
         self.to_system_id = to_system_id
@@ -95,7 +202,7 @@ class AddMoveToPendingEvent(Event):
                 from_system_id=active_system.id,
                 to_system_id=self.to_system_id,
                 transported_unit_ids=self.transported_unit_ids,
-            )
+            ),
         }
         return replace(
             previous_state,
@@ -136,7 +243,8 @@ class MoveProperties:
 
 
 def _check_valid_objects(
-    state: GameState, command: MoveShipCommand
+    state: GameState,
+    command: MoveShipCommand,
 ) -> tuple[ValidationResult, MoveProperties | None]:
     try:
         ship = state.get_ship_from_id(ship_id=command.ship_id)
@@ -185,7 +293,8 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
         return ValidationResult(is_valid=False, info="Can only move ships to the active system")
     if move_properties.current_system.has_command_token(state.active_player):
         return ValidationResult(
-            is_valid=False, info="Cannot move ships from a system with your command token"
+            is_valid=False,
+            info="Cannot move ships from a system with your command token",
         )
     if move_properties.ship.stats.move is None or (
         calculate_move_distance(
@@ -196,7 +305,8 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
     ):
         return ValidationResult(is_valid=False, info="Ship does not have sufficient move to move")
     capacity_validation_result = _validate_capacity_for_transport(
-        move_properties.ship, move_properties.transported_units
+        move_properties.ship,
+        move_properties.transported_units,
     )
     if not capacity_validation_result.is_valid:
         return capacity_validation_result
@@ -205,13 +315,15 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
 
 
 def _validate_capacity_for_transport(
-    ship: Ship, transported_units: frozenset[Unit]
+    ship: Ship,
+    transported_units: frozenset[Unit],
 ) -> ValidationResult:
     if len(transported_units) == 0:
         return ValidationResult(is_valid=True)
     if ship.stats.capacity is None:
         return ValidationResult(
-            is_valid=False, info="Cannot transport units with a ship that has no capacity"
+            is_valid=False,
+            info="Cannot transport units with a ship that has no capacity",
         )
     if len(transported_units) > ship.stats.capacity:
         return ValidationResult(
@@ -262,13 +374,17 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
                 ship_id=command.ship_id,
                 to_system_id=command.to_system_id,
                 transported_unit_ids=command.transported_unit_ids,
-            )
+            ),
         ]
 
 
 def get_command_rules() -> list[CommandRule[MoveShipCommand]]:
-    return [EndMovementCommandRule(), MoveShipCommandRule()]
+    return [EndMovementCommandRule(), MoveShipCommandRule(), ResolveSpaceCannonOffenseCommandRule()]
 
 
 def get_event_rules() -> list[EventRule]:
-    return []
+    return [
+        SpaceCannonOffenseAfterMovementEventRule(),
+        SpaceCombatAfterSpaceCannonOffenseEventRule(),
+        CloseSpaceCannonOffenseWindowEventRule(),
+    ]
