@@ -154,9 +154,6 @@ class CloseSpaceCannonOffenseWindowEventRule(EventRule):
             not state.player_may_resolve_space_cannon_in_system(
                 player=player, system_id=state.active_system.id
             )
-            or state.turn_context.player_has_resolved_ability(
-                player=player, ability=Ability.SPACE_CANNON
-            )
             for player in state.players
         ):
             return [CloseWindowEvent(window=Window.AFTER_MOVE_SHIPS_STEP)]
