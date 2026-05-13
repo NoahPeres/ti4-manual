@@ -81,6 +81,15 @@ class GameEngine:
                 info=f"Command type not implemented: {command.command_type}",
             )
 
+        for window in state.active_windows:
+            if command.command_type not in self.rules_engine.allowed_commands_by_window[window]:
+                return CommandResult(
+                    new_state=state,
+                    success=False,
+                    events=[],
+                    info=f"Command {command} may not be made during window {window.value}",
+                )
+
         # Get relevant rules for this command type
         relevant_rules = self._command_type_to_rules.get(command.command_type, [])
 
@@ -104,22 +113,12 @@ class GameEngine:
 
         while events:
             event: Event = events.pop(0)
-            try:
-                new_state: GameState = event.apply(previous_state=new_state)
-            except FrozenInstanceError as e:
-                raise IllegalStateMutationError(
-                    f"Illegal mutation of game state detected when applying event {event}: {e}"
-                ) from e
-            resolved_events.append(event)
-            for rule in self.rules_engine.event_rules:
-                try:
-                    new_events: Sequence[Event] = rule.on_event(state=new_state, event=event)
-                except FrozenInstanceError as e:
-                    raise IllegalStateMutationError(
-                        f"Illegal mutation of game state detected when processing event {event} "
-                        f"with rule {rule}: {e}"
-                    ) from e
-                events: list[Event] = list(new_events) + events
+            new_state, events = self._resolve_single_event(
+                event=event,
+                previous_state=new_state,
+                resolved_events=resolved_events,
+                pending_events=events,
+            )
 
         failed_invariants: list[GameStateInvariant] = [
             inv for inv in self.invariants if not inv.check(state=new_state)
@@ -130,3 +129,28 @@ class GameEngine:
                 + ", ".join(inv.description for inv in failed_invariants),
             )
         return CommandResult(new_state=new_state, success=True, events=resolved_events)
+
+    def _resolve_single_event(
+        self,
+        event: Event,
+        previous_state: GameState,
+        resolved_events: list[Event],
+        pending_events: list[Event],
+    ) -> tuple[GameState, list[Event]]:
+        try:
+            new_state: GameState = event.apply(previous_state=previous_state)
+        except FrozenInstanceError as e:
+            raise IllegalStateMutationError(
+                f"Illegal mutation of game state detected when applying event {event}: {e}"
+            ) from e
+        resolved_events.append(event)
+        for rule in self.rules_engine.event_rules:
+            try:
+                new_events: Sequence[Event] = rule.on_event(state=new_state, event=event)
+            except FrozenInstanceError as e:
+                raise IllegalStateMutationError(
+                    f"Illegal mutation of game state detected when processing event {event} "
+                    f"with rule {rule}: {e}"
+                ) from e
+            pending_events = list(new_events) + pending_events
+        return new_state, pending_events

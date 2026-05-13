@@ -1,13 +1,19 @@
 from collections.abc import Sequence
 
 from src.engine.core import rules_library
-from src.engine.core.command import Command, CommandRule
+from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import EventRule
+from src.engine.core.game_state import Window
 from src.engine.core.rules_engine import RulesEngine
+
+_ALLOWED_COMMANDS_BY_WINDOW: dict[Window, tuple[CommandType, ...]] = {
+    Window.AFTER_MOVE_SHIPS_STEP: (CommandType.USE_SPACE_CANNON,)
+}
 
 
 class TI4RulesEngine(RulesEngine):
     check_all_rules_have_implementations = True
+    allowed_commands_by_window = _ALLOWED_COMMANDS_BY_WINDOW
 
     def __init__(self) -> None:
         self.command_rules: Sequence[CommandRule[Command]] = rules_library.get_command_rules()
