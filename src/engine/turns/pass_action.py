@@ -69,8 +69,13 @@ class AdvanceActionToStatusPhase(Event):
 
 
 class AdvanceToStatusRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {PassEvent}
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        if (event.payload == "PassAction") and (len(state.initiative_order_unpassed) == 0):
+        del event
+        if len(state.initiative_order_unpassed) == 0:
             return [AdvanceActionToStatusPhase()]
         return []
 

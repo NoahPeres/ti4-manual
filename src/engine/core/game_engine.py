@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from src.engine.core.command import CommandRule, CommandType
+from src.engine.core.event import EventRule
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -47,9 +48,13 @@ class GameEngine:
         self.invariants: Sequence[GameStateInvariant] = invariants if invariants is not None else []
 
         self._command_type_to_rules: dict[CommandType, list[CommandRule[Command]]] = {}
+        self._event_type_to_rules: dict[type[Event], list[EventRule]] = {}
         for rule in self.rules_engine.command_rules:
             for cmd_type in rule.handles_command_types():
                 self._command_type_to_rules.setdefault(cmd_type, []).append(rule)
+        for rule in self.rules_engine.event_rules:
+            for event_type in rule.handles_event_types():
+                self._event_type_to_rules.setdefault(event_type, []).append(rule)
 
         unimplemented = self.get_unimplemented_command_types()
 
@@ -156,7 +161,8 @@ class GameEngine:
                 f"Illegal mutation of game state detected when applying event {event}: {e}",
             ) from e
         resolved_events.append(event)
-        for rule in self.rules_engine.event_rules:
+        relevant_event_rules = self._event_type_to_rules.get(type(event), [])
+        for rule in relevant_event_rules:
             try:
                 new_events: Sequence[Event] = rule.on_event(state=new_state, event=event)
             except FrozenInstanceError as e:

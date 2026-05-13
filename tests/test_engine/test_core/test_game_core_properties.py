@@ -22,6 +22,10 @@ DETERMINISTIC_COMMANDS: list[CommandType] = [CommandType.END_TURN]
 
 
 class MutatingEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return set()
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         state.active_player = "EVIL"  # type: ignore
