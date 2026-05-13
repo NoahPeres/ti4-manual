@@ -89,7 +89,9 @@ class GameEngine:
             )
 
         for window in state.active_windows:
-            if command.command_type not in self.rules_engine.allowed_commands_by_window[window]:
+            if command.command_type not in self.rules_engine.allowed_commands_by_window.get(
+                window, ()
+            ):
                 return CommandResult(
                     new_state=state,
                     success=False,
