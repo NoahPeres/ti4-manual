@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class CommandSheet:
-    tactic: list[CommandToken] = field(default_factory=list[CommandToken])
-    fleet: list[CommandToken] = field(default_factory=list[CommandToken])
-    strategy: list[CommandToken] = field(default_factory=list[CommandToken])
+    tactic: tuple[CommandToken, ...] = field(default_factory=tuple[CommandToken, ...])
+    fleet: tuple[CommandToken, ...] = field(default_factory=tuple[CommandToken, ...])
+    strategy: tuple[CommandToken, ...] = field(default_factory=tuple[CommandToken, ...])
 
     @classmethod
     def make_from_int(
@@ -22,9 +22,9 @@ class CommandSheet:
         strategy: int,
     ) -> CommandSheet:
         return cls(
-            tactic=[CommandToken(player_name=player_name)] * tactic,
-            fleet=[CommandToken(player_name=player_name)] * fleet,
-            strategy=[CommandToken(player_name=player_name)] * strategy,
+            tactic=tuple(CommandToken(player_name=player_name) for _ in range(tactic)),
+            fleet=tuple(CommandToken(player_name=player_name) for _ in range(fleet)),
+            strategy=tuple(CommandToken(player_name=player_name) for _ in range(strategy)),
         )
 
 
