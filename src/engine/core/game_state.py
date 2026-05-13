@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
-from src.engine.core.player import Player
-from src.engine.tokens import CommandToken
 from src.engine.units.units import Ship, Unit
+
+if TYPE_CHECKING:
+    from src.engine.core.player import Player
+    from src.engine.tokens import CommandToken
 
 
 class TacticalActionStep(StrEnum):
@@ -65,7 +68,7 @@ class TurnContext:
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
     player_abilities_in_window: frozenset[PlayerAbilityTracker] = field(
-        default_factory=frozenset[PlayerAbilityTracker]
+        default_factory=frozenset[PlayerAbilityTracker],
     )
 
     def get_or_create_ability_tracker(self, player: Player) -> PlayerAbilityTracker:
@@ -84,7 +87,7 @@ class TurnContext:
                     for other_tracker in self.player_abilities_in_window
                     if other_tracker != tracker
                 }
-                | {tracker.use_ability(ability)}
+                | {tracker.use_ability(ability)},
             ),
         )
 
@@ -106,7 +109,7 @@ class GameState:
     phase: Phase
     galaxy: Galaxy
     turn_context: TurnContext = field(
-        default_factory=lambda: TurnContext(has_initiated_action=False)
+        default_factory=lambda: TurnContext(has_initiated_action=False),
     )
     units: frozenset[Unit] = frozenset()
     active_windows: tuple[Window, ...] = field(default_factory=tuple)
@@ -117,7 +120,7 @@ class GameState:
             sorted(
                 self.players,
                 key=lambda p: p.initiative,
-            )
+            ),
         )
 
     @property
@@ -171,7 +174,8 @@ class GameState:
         # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
         del system_id
         return not self.player_has_resolved_ability_this_window(
-            player=player, ability=Ability.SPACE_CANNON
+            player=player,
+            ability=Ability.SPACE_CANNON,
         )
 
     def player_has_resolved_ability_this_window(self, player: Player, ability: Ability) -> bool:

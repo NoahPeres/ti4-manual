@@ -1,7 +1,10 @@
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from src.engine.core.event import Event
-from src.engine.core.game_state import GameState, Window
+
+if TYPE_CHECKING:
+    from src.engine.core.game_state import GameState, Window
 
 
 class OpenWindowEvent(Event):

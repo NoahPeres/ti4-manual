@@ -1,9 +1,11 @@
-from collections.abc import Mapping, Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from src.engine.core.command import Command, CommandRule, CommandType
-from src.engine.core.event import EventRule
-from src.engine.core.game_state import Window
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from src.engine.core.command import Command, CommandRule, CommandType
+    from src.engine.core.event import EventRule
+    from src.engine.core.game_state import Window
 
 
 class RulesEngine(Protocol):

@@ -1,7 +1,10 @@
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken, TokenType
+
+if TYPE_CHECKING:
+    from src.engine.strategy_cards import StrategyCard
 
 
 @dataclass(frozen=True)
@@ -12,7 +15,11 @@ class CommandSheet:
 
     @classmethod
     def make_from_int(
-        cls, player_name: str, tactic: int, fleet: int, strategy: int
+        cls,
+        player_name: str,
+        tactic: int,
+        fleet: int,
+        strategy: int,
     ) -> CommandSheet:
         return cls(
             tactic=[CommandToken(player_name=player_name)] * tactic,

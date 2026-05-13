@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 import pytest
@@ -59,10 +58,10 @@ def test_48_1_a_player_with_naalu_token_has_initiative_0(initiative: int) -> Non
             PlayerInitiative("PlayerA", "LEADERSHIP", 1),
             PlayerInitiative("PlayerB", "DIPLOMACY", 2),
             PlayerInitiative("PlayerC", "POLITICS", 3),
-        ]
-    )
+        ],
+    ),
 )
-def test_48_2_turn_respects_initiative_order(player_shuffle: Sequence[PlayerInitiative]) -> None:
+def test_48_2_turn_respects_initiative_order(player_shuffle: list[PlayerInitiative]) -> None:
     players: tuple[Player, ...] = tuple(
         _make_player_with_strategy_card(
             name=pi.name,

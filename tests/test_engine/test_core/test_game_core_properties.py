@@ -1,6 +1,5 @@
-from collections.abc import Sequence
 from copy import deepcopy
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import hypothesis.strategies as st
 import pytest
@@ -15,12 +14,16 @@ from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
 from .common import TrivialEvent
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 PLAYERS = (Player(name="Player1"), Player(name="Player2"), Player(name="Player3"))
 DETERMINISTIC_COMMANDS: list[CommandType] = [CommandType.END_TURN]
 
 
 class MutatingEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
         state.active_player = "EVIL"  # type: ignore
         return []
 
@@ -43,9 +46,11 @@ class MutatingCommandRule(CommandRule[Command]):
         return set(CommandType.all_command_types())
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        del state, command
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return [TrivialEvent(payload="Does nothing"), MutatingEvent()]
 
 
@@ -54,7 +59,10 @@ def simple_game_state(draw: Callable[[st.SearchStrategy[Player]], Player]) -> Ga
     players: tuple[Player, ...] = PLAYERS
     active_player: Player = draw(st.sampled_from(players))
     return GameState(
-        players=players, active_player=active_player, phase=Phase.ACTION, galaxy=frozenset()
+        players=players,
+        active_player=active_player,
+        phase=Phase.ACTION,
+        galaxy=frozenset(),
     )
 
 
@@ -68,15 +76,19 @@ class CommandAlwaysFails(CommandRule[Command]):
         return set(CommandType.all_command_types())
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        del state, command
         return ValidationResult(is_valid=False, info="This command always fails")
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return []
 
 
 class CustomRulesEngine(TI4RulesEngine):
     def __init__(
-        self, command_rules: Sequence[CommandRule[Command]], event_rules: Sequence[EventRule]
+        self,
+        command_rules: Sequence[CommandRule[Command]],
+        event_rules: Sequence[EventRule],
     ) -> None:
         super().__init__()
         self.command_rules: Sequence[CommandRule[Command]] = command_rules
@@ -112,14 +124,17 @@ def test_engine_determinism(state: GameState, actor: Player, command_type: Comma
     command_type=st.sampled_from(DETERMINISTIC_COMMANDS),
 )
 def test_state_is_immutable_during_apply(
-    state: GameState, actor: Player, command_type: CommandType
+    state: GameState,
+    actor: Player,
+    command_type: CommandType,
 ):
     initial_state: GameState = deepcopy(x=state)
     snapshot: GameState = deepcopy(x=initial_state)
 
     engine = GameEngine(rules_engine=TI4RulesEngine())
     engine.apply_command(
-        state=initial_state, command=Command(actor=actor, command_type=command_type)
+        state=initial_state,
+        command=Command(actor=actor, command_type=command_type),
     )
 
     assert initial_state == snapshot
@@ -136,12 +151,14 @@ def test_rules_cannot_mutate_state(state: GameState, actor: Player, command_type
 
     engine = GameEngine(
         rules_engine=CustomRulesEngine(
-            command_rules=[MutatingCommandRule()], event_rules=[MutatingEventRule()]
-        )
+            command_rules=[MutatingCommandRule()],
+            event_rules=[MutatingEventRule()],
+        ),
     )
 
     with pytest.raises(expected_exception=IllegalStateMutationError):
         _: CommandResult = engine.apply_command(
-            state=initial_state, command=Command(actor=actor, command_type=command_type)
+            state=initial_state,
+            command=Command(actor=actor, command_type=command_type),
         )
     assert initial_state == snapshot

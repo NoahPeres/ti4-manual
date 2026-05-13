@@ -90,7 +90,8 @@ class GameEngine:
 
         for window in state.active_windows:
             if command.command_type not in self.rules_engine.allowed_commands_by_window.get(
-                window, ()
+                window,
+                (),
             ):
                 return CommandResult(
                     new_state=state,
@@ -152,7 +153,7 @@ class GameEngine:
             new_state: GameState = event.apply(previous_state=previous_state)
         except FrozenInstanceError as e:
             raise IllegalStateMutationError(
-                f"Illegal mutation of game state detected when applying event {event}: {e}"
+                f"Illegal mutation of game state detected when applying event {event}: {e}",
             ) from e
         resolved_events.append(event)
         for rule in self.rules_engine.event_rules:
@@ -161,7 +162,7 @@ class GameEngine:
             except FrozenInstanceError as e:
                 raise IllegalStateMutationError(
                     f"Illegal mutation of game state detected when processing event {event} "
-                    f"with rule {rule}: {e}"
+                    f"with rule {rule}: {e}",
                 ) from e
             pending_events = list(new_events) + pending_events
         return new_state, pending_events

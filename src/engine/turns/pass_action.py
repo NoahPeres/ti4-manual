@@ -1,6 +1,6 @@
 import dataclasses
-from collections.abc import Sequence
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from src.engine.core.command import (
     Command,
@@ -10,8 +10,12 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase, TurnContext
-from src.engine.core.player import Player
 from src.engine.turns.end_turn import EndTurnEvent
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from src.engine.core.player import Player
 
 
 class PassEvent(Event):
@@ -42,15 +46,18 @@ class PassCommandRule(CommandRule[Command]):
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if not state.is_active_player(command.actor):
             return ValidationResult(
-                is_valid=False, info="Only the active player can pass their turn"
+                is_valid=False,
+                info="Only the active player can pass their turn",
             )
         if not all(card.is_exhausted for card in state.active_player.strategy_cards):
             return ValidationResult(
-                is_valid=False, info="All strategy cards must be exhausted to pass"
+                is_valid=False,
+                info="All strategy cards must be exhausted to pass",
             )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
         return [PassEvent(), EndTurnEvent()]
 
 
