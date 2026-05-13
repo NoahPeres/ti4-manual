@@ -122,6 +122,8 @@ class GameEngine:
 
         while events:
             event: Event = events.pop(0)
+            # NOTE: Events are resolved Depth-first by convention:
+            # newly spawned events are prepended to the container.
             new_state, events = self._resolve_single_event(
                 event=event,
                 previous_state=new_state,
