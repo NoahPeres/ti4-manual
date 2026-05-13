@@ -72,6 +72,13 @@ class GameEngine:
         return all_types - self.get_implemented_command_types()
 
     def apply_command(self, state: GameState, command: Command) -> CommandResult:
+        if command.command_type == CommandType.ALWAYS_INVALID:
+            return CommandResult(
+                new_state=state,
+                success=False,
+                events=[],
+                info="Command invalid: ALWAYS_INVALID",
+            )
         # Check if command type is implemented
         if command.command_type not in self.get_implemented_command_types():
             return CommandResult(
