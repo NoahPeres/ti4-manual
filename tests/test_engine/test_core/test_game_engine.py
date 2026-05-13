@@ -81,6 +81,7 @@ class EndTurn(CommandRule[Command]):
 
 class TrivialRulesEngine(RulesEngine):
     check_all_rules_have_implementations = False
+    allowed_commands_by_window = {}
 
     def __init__(self, command_rules: Sequence[CommandRule[Command]]) -> None:
         self.command_rules: Sequence[CommandRule[Command]] = command_rules
