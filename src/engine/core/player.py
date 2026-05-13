@@ -46,3 +46,6 @@ class Player:
         if not isinstance(other, Player):
             return NotImplemented
         return self.name == other.name
+
+    def __hash__(self) -> int:
+        return self.name.__hash__()
