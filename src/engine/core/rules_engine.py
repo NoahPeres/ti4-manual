@@ -1,5 +1,5 @@
-from collections.abc import Sequence
-from typing import Mapping, Protocol
+from collections.abc import Mapping, Sequence
+from typing import Protocol
 
 from src.engine.core.command import Command, CommandRule, CommandType
 from src.engine.core.event import EventRule
