@@ -134,7 +134,9 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         if state.active_system is None:
             raise ValueError("Active system not found")
-        if isinstance(event, ResolvePendingMovesEvent) and any(
+        if not isinstance(event, ResolvePendingMovesEvent):
+            return []
+        if any(
             state.player_may_resolve_space_cannon_in_system(
                 player, system_id=state.active_system.id
             )
