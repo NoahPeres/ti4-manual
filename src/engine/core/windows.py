@@ -12,7 +12,7 @@ class OpenWindowEvent(Event):
         self.window: Window = window
 
     def __repr__(self) -> str:
-        return f"OpenWindowEvent:{self.window.value}"
+        return f"OpenWindowEvent:{self.window}"
 
     def apply(self, previous_state: GameState) -> GameState:
         return replace(
