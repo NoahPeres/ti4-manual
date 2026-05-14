@@ -17,7 +17,10 @@ class FailingInvariant(GameStateInvariant):
 
 class TrivialEvent(Event):
     def __init__(self, payload: str) -> None:
-        self.payload: str = payload
+        self._payload: str = payload
+
+    def __repr__(self) -> str:
+        return self._payload
 
     def apply(self, previous_state: GameState) -> GameState:
         # For testing purposes, we just return the previous state unchanged

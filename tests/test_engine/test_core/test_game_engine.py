@@ -24,10 +24,12 @@ PLAYER_1 = Player("Player1")
 PLAYER_2 = Player("Player2")
 
 
-class ChangePlayer(Event):
+class ChangePlayerEvent(Event):
     def __init__(self, players: tuple[Player, ...]) -> None:
-        self.payload: str = "change_player"
         self.players: tuple[Player, ...] = players
+
+    def __repr__(self) -> str:
+        return f"ChangePlayerEvent:{self.players}"
 
     def apply(self, previous_state: GameState) -> GameState:
         current_player: Player = previous_state.active_player
@@ -75,7 +77,7 @@ class EndTurn(CommandRule[Command]):
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         if command.command_type == CommandType.END_TURN:
-            return [ChangePlayer(players=state.players)]
+            return [ChangePlayerEvent(players=state.players)]
         return []
 
 

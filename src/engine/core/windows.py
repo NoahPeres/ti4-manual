@@ -10,7 +10,9 @@ if TYPE_CHECKING:
 class OpenWindowEvent(Event):
     def __init__(self, window: Window) -> None:
         self.window: Window = window
-        self.payload: str = f"OpenWindow{window}"
+
+    def __repr__(self) -> str:
+        return f"OpenWindowEvent:{self.window.value}"
 
     def apply(self, previous_state: GameState) -> GameState:
         return replace(
@@ -32,7 +34,9 @@ def flush_ability_trackers(game_state: GameState) -> GameState:
 class CloseWindowEvent(Event):
     def __init__(self, window: Window) -> None:
         self.window = window
-        self.payload: str = f"CloseWindow{window}"
+
+    def __repr__(self) -> str:
+        return f"CloseWindowEvent:{self.window}"
 
     def apply(self, previous_state: GameState) -> GameState:
         if self.window not in previous_state.window_context.active_windows:

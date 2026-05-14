@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 
 
 class PassEvent(Event):
-    payload = "PassAction"
+    def __repr__(self) -> str:
+        return "PassAction"
 
     def apply(self, previous_state: GameState) -> GameState:
         passed_player: Player = dataclasses.replace(previous_state.active_player, has_passed=True)
@@ -62,7 +63,8 @@ class PassCommandRule(CommandRule[Command]):
 
 
 class AdvanceActionToStatusPhase(Event):
-    payload = "AdvanceActionToStatusPhase"
+    def __repr__(self) -> str:
+        return "AdvanceActionToStatusPhase"
 
     def apply(self, previous_state: GameState) -> GameState:
         return dataclasses.replace(previous_state, phase=Phase.STATUS)

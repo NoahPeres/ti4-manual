@@ -62,7 +62,8 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     class OnEndTurnEvent(Event):
-        payload = "EndTurnTriggeredAbility"
+        def __repr__(self) -> str:
+            return "EndTurnTriggeredAbility"
 
         def apply(self, previous_state: GameState) -> GameState:
             return previous_state

@@ -37,7 +37,8 @@ class MoveShipCommand(Command):
 
 
 class ResolvePendingMovesEvent(Event):
-    payload = "ResolvePendingMoves"
+    def __repr__(self) -> str:
+        return "ResolvePendingMovesEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         moved_units: set[Unit] = set()
@@ -66,7 +67,9 @@ class ResolveSpaceCannonOffenseEvent(Event):
     def __init__(self, player: Player, active_system: System) -> None:
         self.player = player
         self.active_system = active_system
-        self.payload = f"ResolveSpaceCannonOffense{player.name}"
+
+    def __repr__(self) -> str:
+        return f"ResolveSpaceCannonOffenseEvent:{self.player}:{self.active_system}"
 
     def apply(self, previous_state: GameState) -> GameState:
         # TODO actually implement space cannon here
@@ -197,7 +200,10 @@ class AddMoveToPendingEvent(Event):
         self.to_system_id = to_system_id
         self.transported_unit_ids = transported_unit_ids
 
-    payload = "AddMoveToPending"
+    def __repr__(self) -> str:
+        return (
+            f"AddMoveToPendingEvent:{self.ship_id}:{self.to_system_id}:{self.transported_unit_ids}"
+        )
 
     def apply(self, previous_state: GameState) -> GameState:
         active_system = previous_state.active_system
