@@ -187,7 +187,9 @@ class GameState:
         )
 
     def player_has_resolved_ability_is_current_window(
-        self, player: Player, ability: Ability
+        self,
+        player: Player,
+        ability: Ability,
     ) -> bool:
         return (
             ability
