@@ -286,7 +286,9 @@ def _check_valid_objects(
 
 
 def _check_basic_ownership(
-    command: MoveShipCommand, state: GameState, move_properties: MoveProperties
+    command: MoveShipCommand,
+    state: GameState,
+    move_properties: MoveProperties,
 ) -> ValidationResult:
     if not state.is_active_player(command.actor):
         return ValidationResult(is_valid=False, info="Only the active player can move ships")
@@ -301,7 +303,9 @@ def _check_basic_ownership(
 
 
 def _check_basic_spatial_properties(
-    command: MoveShipCommand, state: GameState, move_properties: MoveProperties
+    command: MoveShipCommand,
+    state: GameState,
+    move_properties: MoveProperties,
 ):
     if command.to_system_id != move_properties.active_system.id:
         return ValidationResult(is_valid=False, info="Can only move ships to the active system")
@@ -328,13 +332,17 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
     assert move_properties is not None
 
     basic_ownership_result = _check_basic_ownership(
-        command=command, state=state, move_properties=move_properties
+        command=command,
+        state=state,
+        move_properties=move_properties,
     )
     if not basic_ownership_result.is_valid:
         return basic_ownership_result
 
     basic_spatial_result = _check_basic_spatial_properties(
-        command=command, state=state, move_properties=move_properties
+        command=command,
+        state=state,
+        move_properties=move_properties,
     )
     if not basic_spatial_result.is_valid:
         return basic_spatial_result
@@ -376,7 +384,8 @@ def _validate_capacity_for_transport(
     if len(transported_units) == 0:
         return ValidationResult(is_valid=True)
     basic_capacity_checks = _check_single_ship_capacity(
-        ship=ship, transported_units=transported_units
+        ship=ship,
+        transported_units=transported_units,
     )
     if not basic_capacity_checks.is_valid:
         return basic_capacity_checks

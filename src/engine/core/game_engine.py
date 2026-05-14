@@ -3,13 +3,12 @@ from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from src.engine.core.command import CommandRule, CommandType
-from src.engine.core.event import EventRule
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from src.engine.core.command import Command
-    from src.engine.core.event import Event
+    from src.engine.core.event import Event, EventRule
     from src.engine.core.game_state import GameState
     from src.engine.core.rules_engine import RulesEngine
 
