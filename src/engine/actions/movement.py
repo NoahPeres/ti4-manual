@@ -70,12 +70,9 @@ class ResolveSpaceCannonOffenseEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         # TODO actually implement space cannon here
-        return replace(
-            previous_state,
-            turn_context=previous_state.turn_context.use_ability_for_player(
-                player=self.player,
-                ability=Ability.SPACE_CANNON,
-            ),
+        return previous_state.use_ability_for_player(
+            player=self.player,
+            ability=Ability.SPACE_CANNON,
         )
 
 
@@ -88,7 +85,7 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         return {CommandType.USE_SPACE_CANNON}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if not state.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
+        if not state.window_context.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
             return ValidationResult(
                 is_valid=False,
                 info="Can only resolve space cannon offense immediately after moving ships during "

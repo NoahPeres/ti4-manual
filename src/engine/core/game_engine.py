@@ -92,7 +92,7 @@ class GameEngine:
                 info=f"Command type not implemented: {command.command_type}",
             )
 
-        for window in state.active_windows:
+        for window in state.window_context.active_windows:
             if command.command_type not in self.rules_engine.allowed_commands_by_window.get(
                 window,
                 (),
