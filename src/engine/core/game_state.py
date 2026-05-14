@@ -119,9 +119,6 @@ class GameState:
     units: frozenset[Unit] = frozenset()
     window_context: WindowContext = field(default_factory=WindowContext)
 
-    def player_has_resolved_ability(self, player: Player, ability: Ability) -> bool:
-        return ability in self.window_context.get_or_create_ability_tracker(player).abilities_used
-
     @property
     def initiative_order(self) -> tuple[Player, ...]:
         return tuple(

@@ -310,7 +310,7 @@ def _check_basic_spatial_properties(
     command: MoveShipCommand,
     state: GameState,
     move_properties: MoveProperties,
-):
+) -> ValidationResult:
     if command.to_system_id != move_properties.active_system.id:
         return ValidationResult(is_valid=False, info="Can only move ships to the active system")
     if move_properties.current_system.has_command_token(state.active_player):
