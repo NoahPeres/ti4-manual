@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 class PassEvent(Event):
     def __repr__(self) -> str:
-        return "PassAction"
+        return "PassEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         passed_player: Player = dataclasses.replace(previous_state.active_player, has_passed=True)

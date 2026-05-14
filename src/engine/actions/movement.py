@@ -184,6 +184,7 @@ class SpaceCombatAfterSpaceCannonOffenseEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del state
+        # isinstance check required to access event.window attribute
         if isinstance(event, CloseWindowEvent) and event.window == Window.AFTER_MOVE_SHIPS_STEP:
             return [AdvanceToSpaceCombatStepEvent()]
         return []
