@@ -25,7 +25,8 @@ class ActivateSystemEvent(Event):
         self.system_id: int = system_id
         self.player_id: str = player_id
 
-    payload: str = "ActivateSystemEvent"
+    def __repr__(self) -> str:
+        return f"ActivateSystemEvent:{self.system_id}:{self.player_id}"
 
     def apply(self, previous_state: GameState) -> GameState:
         active_system = previous_state.get_system(system_id=self.system_id)
@@ -66,7 +67,8 @@ class ActivateSystemEvent(Event):
 
 def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
     class AdvanceToStepEvent(Event):
-        payload = f"AdvanceTo{step.name}Step"
+        def __repr__(self) -> str:
+            return f"AdvanceTo{step.name}Step"
 
         def apply(self, previous_state: GameState) -> GameState:
             return replace(
@@ -84,7 +86,8 @@ AdvanceToSpaceCombatStepEvent = _make_advance_to_step_event(TacticalActionStep.S
 
 
 class TacticalActionInitiatedEvent(Event):
-    payload: str = "TacticalActionInitiatedEvent"
+    def __repr__(self) -> str:
+        return "TacticalActionInitiatedEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         return replace(

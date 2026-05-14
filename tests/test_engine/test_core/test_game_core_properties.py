@@ -22,6 +22,10 @@ DETERMINISTIC_COMMANDS: list[CommandType] = [CommandType.END_TURN]
 
 
 class MutatingEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return set()
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         state.active_player = "EVIL"  # type: ignore
@@ -29,7 +33,8 @@ class MutatingEventRule(EventRule):
 
 
 class MutatingEvent(Event):
-    payload = "mutating_event"
+    def __repr__(self) -> str:
+        return "MutatingEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         previous_state.active_player = "EVIL"  # type: ignore
@@ -111,8 +116,7 @@ def test_engine_determinism(state: GameState, actor: Player, command_type: Comma
     r2: CommandResult = engine.apply_command(state=state2, command=command)
 
     assert all(
-        event1.payload == event2.payload
-        for event1, event2 in zip(r1.events, r2.events, strict=True)
+        type(event1) is type(event2) for event1, event2 in zip(r1.events, r2.events, strict=True)
     )
     assert r1.new_state == r2.new_state
     assert r1.success == r2.success

@@ -7,10 +7,11 @@ if TYPE_CHECKING:
 
 
 class Event(Protocol):
-    payload: str
-
     def apply(self, previous_state: GameState) -> GameState: ...
+    def __repr__(self) -> str: ...
 
 
 class EventRule(Protocol):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]: ...
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]: ...

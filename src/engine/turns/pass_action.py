@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 
 
 class PassEvent(Event):
-    payload = "PassAction"
+    def __repr__(self) -> str:
+        return "PassEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         passed_player: Player = dataclasses.replace(previous_state.active_player, has_passed=True)
@@ -62,15 +63,21 @@ class PassCommandRule(CommandRule[Command]):
 
 
 class AdvanceActionToStatusPhase(Event):
-    payload = "AdvanceActionToStatusPhase"
+    def __repr__(self) -> str:
+        return "AdvanceActionToStatusPhase"
 
     def apply(self, previous_state: GameState) -> GameState:
         return dataclasses.replace(previous_state, phase=Phase.STATUS)
 
 
 class AdvanceToStatusRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {PassEvent}
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        if (event.payload == "PassAction") and (len(state.initiative_order_unpassed) == 0):
+        del event
+        if len(state.initiative_order_unpassed) == 0:
             return [AdvanceActionToStatusPhase()]
         return []
 

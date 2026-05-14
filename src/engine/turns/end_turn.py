@@ -17,7 +17,8 @@ if TYPE_CHECKING:
 
 
 class EndTurnEvent(Event):
-    payload: str = "EndTurnEvent"
+    def __repr__(self) -> str:
+        return "EndTurnEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         current_initiative = previous_state.active_player.initiative

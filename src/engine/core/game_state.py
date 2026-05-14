@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from src.engine.units.units import Ship, Unit
 
@@ -67,6 +67,11 @@ class TurnContext:
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
+
+
+@dataclass(frozen=True)
+class WindowContext:
+    active_windows: tuple[Window, ...] = field(default_factory=tuple)
     player_abilities_in_window: frozenset[PlayerAbilityTracker] = field(
         default_factory=frozenset[PlayerAbilityTracker],
     )
@@ -77,7 +82,7 @@ class TurnContext:
                 return tracker
         return PlayerAbilityTracker(player_name=player.name, abilities_used=frozenset[Ability]())
 
-    def use_ability_for_player(self, player: Player, ability: Ability) -> TurnContext:
+    def use_ability_for_player(self, player: Player, ability: Ability) -> Self:
         tracker = self.get_or_create_ability_tracker(player)
         return replace(
             self,
@@ -91,8 +96,8 @@ class TurnContext:
             ),
         )
 
-    def player_has_resolved_ability(self, player: Player, ability: Ability) -> bool:
-        return ability in self.get_or_create_ability_tracker(player).abilities_used
+    def is_window_active(self, window: Window) -> bool:
+        return window in self.active_windows
 
 
 Galaxy = frozenset[System]
@@ -112,7 +117,7 @@ class GameState:
         default_factory=lambda: TurnContext(has_initiated_action=False),
     )
     units: frozenset[Unit] = frozenset()
-    active_windows: tuple[Window, ...] = field(default_factory=tuple)
+    window_context: WindowContext = field(default_factory=WindowContext)
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
@@ -167,18 +172,26 @@ class GameState:
     def is_active_player(self, player: Player) -> bool:
         return self.active_player == player
 
-    def is_window_active(self, window: Window) -> bool:
-        return window in self.active_windows
+    def use_ability_for_player(self, player: Player, ability: Ability) -> Self:
+        return replace(
+            self,
+            window_context=self.window_context.use_ability_for_player(player, ability),
+        )
 
     def player_may_resolve_space_cannon_in_system(self, player: Player, system_id: int) -> bool:
         # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
         del system_id
-        return not self.player_has_resolved_ability_this_window(
+        return not self.player_has_resolved_ability_is_current_window(
             player=player,
             ability=Ability.SPACE_CANNON,
         )
 
-    def player_has_resolved_ability_this_window(self, player: Player, ability: Ability) -> bool:
+    def player_has_resolved_ability_is_current_window(
+        self,
+        player: Player,
+        ability: Ability,
+    ) -> bool:
         return (
-            ability in self.turn_context.get_or_create_ability_tracker(player=player).abilities_used
+            ability
+            in self.window_context.get_or_create_ability_tracker(player=player).abilities_used
         )

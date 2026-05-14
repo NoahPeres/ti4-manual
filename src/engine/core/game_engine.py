@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from src.engine.core.command import Command
-    from src.engine.core.event import Event
+    from src.engine.core.event import Event, EventRule
     from src.engine.core.game_state import GameState
     from src.engine.core.rules_engine import RulesEngine
 
@@ -47,15 +47,27 @@ class GameEngine:
         self.invariants: Sequence[GameStateInvariant] = invariants if invariants is not None else []
 
         self._command_type_to_rules: dict[CommandType, list[CommandRule[Command]]] = {}
+        self._event_type_to_rules: dict[type[Event], list[EventRule]] = {}
         for rule in self.rules_engine.command_rules:
-            for cmd_type in rule.handles_command_types():
-                self._command_type_to_rules.setdefault(cmd_type, []).append(rule)
+            self.register_new_command_rule(rule)
+        for rule in self.rules_engine.event_rules:
+            self.register_new_event_rule(rule)
 
         unimplemented = self.get_unimplemented_command_types()
 
         if unimplemented and rules_engine.check_all_rules_have_implementations:
             msg = f"Unimplemented command types: {sorted(str(cmd) for cmd in unimplemented)}"
             raise NotImplementedError(msg)
+
+    def register_new_command_rule(self, rule: CommandRule[Command]) -> None:
+        self.rules_engine.command_rules = [*self.rules_engine.command_rules, rule]
+        for cmd_type in rule.handles_command_types():
+            self._command_type_to_rules.setdefault(cmd_type, []).append(rule)
+
+    def register_new_event_rule(self, rule: EventRule) -> None:
+        self.rules_engine.event_rules = [*self.rules_engine.event_rules, rule]
+        for event_type in rule.handles_event_types():
+            self._event_type_to_rules.setdefault(event_type, []).append(rule)
 
     def get_implemented_command_types(self) -> set[CommandType]:
         """Return the set of CommandTypes that have at least one rule."""
@@ -88,7 +100,7 @@ class GameEngine:
                 info=f"Command type not implemented: {command.command_type}",
             )
 
-        for window in state.active_windows:
+        for window in state.window_context.active_windows:
             if command.command_type not in self.rules_engine.allowed_commands_by_window.get(
                 window,
                 (),
@@ -156,7 +168,8 @@ class GameEngine:
                 f"Illegal mutation of game state detected when applying event {event}: {e}",
             ) from e
         resolved_events.append(event)
-        for rule in self.rules_engine.event_rules:
+        relevant_event_rules = self._event_type_to_rules.get(type(event), [])
+        for rule in relevant_event_rules:
             try:
                 new_events: Sequence[Event] = rule.on_event(state=new_state, event=event)
             except FrozenInstanceError as e:

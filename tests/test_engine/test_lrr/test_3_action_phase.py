@@ -8,6 +8,7 @@ from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, Phase
 from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
+from src.engine.turns.end_turn import EndTurnEvent
 
 from .common import make_basic_session_from_players
 
@@ -60,29 +61,32 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     class OnEndTurnEvent(Event):
-        payload = "EndTurnTriggeredAbility"
+        def __repr__(self) -> str:
+            return "EndTurnTriggeredAbility"
 
         def apply(self, previous_state: GameState) -> GameState:
             return previous_state
 
     class EndTurnTrigger(EventRule):
-        def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-            del state
-            if event.payload == "PassAction":
-                return [OnEndTurnEvent()]
-            return []
+        @staticmethod
+        def handles_event_types() -> set[type[Event]]:
+            return {EndTurnEvent}
 
-    session.engine.rules_engine.event_rules = [
-        *session.engine.rules_engine.event_rules,
-        EndTurnTrigger(),
-    ]
+        def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+            del state, event
+            return [OnEndTurnEvent()]
+
+    session.engine.register_new_event_rule(EndTurnTrigger())
 
     new_state: GameState = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
     )
     new_player_a: Player = next(player for player in new_state.players if player.name == "A")
     assert new_player_a.has_passed
-    assert any(event.payload == "EndTurnTriggeredAbility" for event in session.history[-1].events)
+    assert (
+        any(type(event) is OnEndTurnEvent for event in session.history[-1].events)
+        and len(session.history[-1].events) >= 0
+    )
     assert new_state.active_player == player_b
 
 

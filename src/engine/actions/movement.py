@@ -37,7 +37,8 @@ class MoveShipCommand(Command):
 
 
 class ResolvePendingMovesEvent(Event):
-    payload = "ResolvePendingMoves"
+    def __repr__(self) -> str:
+        return "ResolvePendingMovesEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
         moved_units: set[Unit] = set()
@@ -66,16 +67,15 @@ class ResolveSpaceCannonOffenseEvent(Event):
     def __init__(self, player: Player, active_system: System) -> None:
         self.player = player
         self.active_system = active_system
-        self.payload = f"ResolveSpaceCannonOffense{player.name}"
+
+    def __repr__(self) -> str:
+        return f"ResolveSpaceCannonOffenseEvent:{self.player}:{self.active_system}"
 
     def apply(self, previous_state: GameState) -> GameState:
         # TODO actually implement space cannon here
-        return replace(
-            previous_state,
-            turn_context=previous_state.turn_context.use_ability_for_player(
-                player=self.player,
-                ability=Ability.SPACE_CANNON,
-            ),
+        return previous_state.use_ability_for_player(
+            player=self.player,
+            ability=Ability.SPACE_CANNON,
         )
 
 
@@ -88,7 +88,7 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         return {CommandType.USE_SPACE_CANNON}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if not state.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
+        if not state.window_context.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
             return ValidationResult(
                 is_valid=False,
                 info="Can only resolve space cannon offense immediately after moving ships during "
@@ -140,9 +140,12 @@ class EndMovementCommandRule(CommandRule[Command]):
 
 
 class SpaceCannonOffenseAfterMovementEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {ResolvePendingMovesEvent}
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        if not isinstance(event, ResolvePendingMovesEvent):
-            return []
+        del event
         if state.active_system is None:
             raise ValueError("Active system not found")
         if any(
@@ -157,9 +160,12 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
 
 
 class CloseSpaceCannonOffenseWindowEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {ResolveSpaceCannonOffenseEvent}
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        if not isinstance(event, ResolveSpaceCannonOffenseEvent):
-            return []
+        del event
         if (state.active_system is None) or all(
             not state.player_may_resolve_space_cannon_in_system(
                 player=player,
@@ -172,8 +178,13 @@ class CloseSpaceCannonOffenseWindowEventRule(EventRule):
 
 
 class SpaceCombatAfterSpaceCannonOffenseEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {CloseWindowEvent}
+
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del state
+        # isinstance check required to access event.window attribute
         if isinstance(event, CloseWindowEvent) and event.window == Window.AFTER_MOVE_SHIPS_STEP:
             return [AdvanceToSpaceCombatStepEvent()]
         return []
@@ -190,7 +201,10 @@ class AddMoveToPendingEvent(Event):
         self.to_system_id = to_system_id
         self.transported_unit_ids = transported_unit_ids
 
-    payload = "AddMoveToPending"
+    def __repr__(self) -> str:
+        return (
+            f"AddMoveToPendingEvent:{self.ship_id}:{self.to_system_id}:{self.transported_unit_ids}"
+        )
 
     def apply(self, previous_state: GameState) -> GameState:
         active_system = previous_state.active_system
@@ -275,11 +289,11 @@ def _check_valid_objects(
     )
 
 
-def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -> ValidationResult:
-    object_validation_result, move_properties = _check_valid_objects(state, command)
-    if not object_validation_result.is_valid:
-        return object_validation_result
-    assert move_properties is not None
+def _check_basic_ownership(
+    command: MoveShipCommand,
+    state: GameState,
+    move_properties: MoveProperties,
+) -> ValidationResult:
     if not state.is_active_player(command.actor):
         return ValidationResult(is_valid=False, info="Only the active player can move ships")
     if state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT:
@@ -289,6 +303,14 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
         )
     if command.actor != move_properties.owner:
         return ValidationResult(is_valid=False, info="Player can only move their own ships")
+    return ValidationResult(is_valid=True)
+
+
+def _check_basic_spatial_properties(
+    command: MoveShipCommand,
+    state: GameState,
+    move_properties: MoveProperties,
+) -> ValidationResult:
     if command.to_system_id != move_properties.active_system.id:
         return ValidationResult(is_valid=False, info="Can only move ships to the active system")
     if move_properties.current_system.has_command_token(state.active_player):
@@ -304,6 +326,31 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
         > move_properties.ship.stats.move
     ):
         return ValidationResult(is_valid=False, info="Ship does not have sufficient move to move")
+    return ValidationResult(is_valid=True)
+
+
+def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -> ValidationResult:
+    object_validation_result, move_properties = _check_valid_objects(state, command)
+    if not object_validation_result.is_valid:
+        return object_validation_result
+    assert move_properties is not None
+
+    basic_ownership_result = _check_basic_ownership(
+        command=command,
+        state=state,
+        move_properties=move_properties,
+    )
+    if not basic_ownership_result.is_valid:
+        return basic_ownership_result
+
+    basic_spatial_result = _check_basic_spatial_properties(
+        command=command,
+        state=state,
+        move_properties=move_properties,
+    )
+    if not basic_spatial_result.is_valid:
+        return basic_spatial_result
+
     capacity_validation_result = _validate_capacity_for_transport(
         move_properties.ship,
         move_properties.transported_units,
@@ -314,12 +361,7 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
     return ValidationResult(is_valid=True)
 
 
-def _validate_capacity_for_transport(
-    ship: Ship,
-    transported_units: frozenset[Unit],
-) -> ValidationResult:
-    if len(transported_units) == 0:
-        return ValidationResult(is_valid=True)
+def _check_single_ship_capacity(ship: Ship, transported_units: frozenset[Unit]) -> ValidationResult:
     if ship.stats.capacity is None:
         return ValidationResult(
             is_valid=False,
@@ -331,6 +373,27 @@ def _validate_capacity_for_transport(
             info=f"Cannot transport {len(transported_units)} units with"
             f" capacity {ship.stats.capacity}",
         )
+    if any(unit.owner_name != ship.owner_name for unit in transported_units):
+        return ValidationResult(
+            is_valid=False,
+            info="Cannot transport units that do not belong to the same player as the ship",
+        )
+    return ValidationResult(is_valid=True)
+
+
+def _validate_capacity_for_transport(
+    ship: Ship,
+    transported_units: frozenset[Unit],
+) -> ValidationResult:
+    if len(transported_units) == 0:
+        return ValidationResult(is_valid=True)
+    basic_capacity_checks = _check_single_ship_capacity(
+        ship=ship,
+        transported_units=transported_units,
+    )
+    if not basic_capacity_checks.is_valid:
+        return basic_capacity_checks
+
     not_transportable_units = frozenset(
         unit for unit in transported_units if not unit.is_transportable
     )
@@ -339,11 +402,6 @@ def _validate_capacity_for_transport(
             is_valid=False,
             info="Cannot transport non-transportable units: "
             f"{[unit.kind for unit in not_transportable_units]}",
-        )
-    if any(unit.owner_name != ship.owner_name for unit in transported_units):
-        return ValidationResult(
-            is_valid=False,
-            info="Cannot transport units that do not belong to the same player as the ship",
         )
     if any(unit.system_id != ship.system_id for unit in transported_units):
         # NOTE: This is a simplification — once multi-step movement / path-finding is
