@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class CommandSheet:
-    tactic: tuple[CommandToken, ...] = field(default_factory=tuple[CommandToken, ...])
-    fleet: tuple[CommandToken, ...] = field(default_factory=tuple[CommandToken, ...])
-    strategy: tuple[CommandToken, ...] = field(default_factory=tuple[CommandToken, ...])
+    tactic: tuple[CommandToken, ...] = field(default_factory=tuple)
+    fleet: tuple[CommandToken, ...] = field(default_factory=tuple)
+    strategy: tuple[CommandToken, ...] = field(default_factory=tuple)
 
     @classmethod
     def make_from_int(
