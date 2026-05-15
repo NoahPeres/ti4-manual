@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 from src.engine.actions.movement import MoveShipCommand
 from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
+from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
     GameState,
@@ -703,9 +704,16 @@ def test_89_2_c_ability_window_properly_clears_state() -> None:
     assert new_state.active_system is not None
     a_use_space_cannon = Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON)
     b_use_space_cannon = Command(actor=player_b, command_type=CommandType.USE_SPACE_CANNON)
-    new_state = session.apply_command(a_use_space_cannon)
+    _ = session.apply_command(a_use_space_cannon)
     new_state = session.apply_command(b_use_space_cannon)
-    new_state = session.apply_command(Command(actor=player_a, command_type=CommandType.END_TURN))
+    _ = session.apply_command_result(
+        command_result=CommandResult(
+            success=True,
+            new_state=new_state.close_all_windows(),
+            events=[],
+        ),
+    )
+    _ = session.apply_command(Command(actor=player_a, command_type=CommandType.END_TURN))
 
     # B's turn
     new_state = session.apply_command(
@@ -922,3 +930,57 @@ def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None
     # NOTE: actual resolution will be deferred and tested later, this is showing that it's properly
     # orchestrated only.
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+
+
+def test_89_4_active_player_may_use_their_bombardment_during_invasion() -> None:
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
+    ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="B",
+        kind=GroundForceKind.INFANTRY,
+        system_id=0,
+    )
+    session = GameSession(
+        initial_state=GameState(
+            players=(make_player("A"), make_player("B")),
+            active_player=make_player("A"),
+            phase=Phase.ACTION,
+            galaxy=frozenset({System(id=0, command_tokens=())}),
+            turn_context=TurnContext(
+                has_initiated_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+            units=frozenset({ship, ground_force}),
+        ),
+        engine=get_default_game_engine(),
+    )
+    new_state = session.apply_command(
+        command=Command(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.END_MOVEMENT,
+        ),
+    )
+    for player in new_state.players:
+        new_state = session.apply_command(
+            command=Command(actor=player, command_type=CommandType.USE_SPACE_CANNON),
+        )
+    assert (
+        new_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
+    )  # No enemy ships, so should advance to invasion immediately.
+
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.USE_BOMBARDMENT,
+        ),
+    ).success
+
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(
+            actor=session.current_state.get_player("B"),
+            command_type=CommandType.USE_BOMBARDMENT,
+        ),
+    ).success
