@@ -245,13 +245,13 @@ def distance(coordinates_a: HexCoord, coordinates_b: HexCoord) -> int:
 
 
 class InvalidCoordinatesError(ValueError):
-    def __init__(self, message: str = "Invalid coordinates") -> None:
-        super().__init__(message)
+    def __init__(self, systems: tuple[System, ...]) -> None:
+        super().__init__(f"Invalid coordinates for systems: {systems}")
 
 
 def calculate_move_distance(system_a: System, system_b: System) -> int:
     if system_a.coordinates is None or system_b.coordinates is None:
-        raise InvalidCoordinatesError
+        raise InvalidCoordinatesError(systems=(system_a, system_b))
     return distance(system_a.coordinates, system_b.coordinates)
 
 
