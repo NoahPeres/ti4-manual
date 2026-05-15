@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, cast
 
-from src.engine.units.units import Ship, Unit
+from src.engine.units.units import Ship, ShipKind, Unit
 
 if TYPE_CHECKING:
     from src.engine.core.player import Player
@@ -198,3 +198,6 @@ class GameState:
 
     def get_units_in_system(self, system_id: int) -> set[Unit]:
         return {unit for unit in self.units if unit.system_id == system_id}
+
+    def get_ships_in_system(self, system_id: int) -> set[Ship]:
+        return {unit for unit in self.units if unit.system_id == system_id and unit.is_ship}

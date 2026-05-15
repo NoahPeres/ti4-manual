@@ -1,5 +1,6 @@
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from multiprocessing import Value
 from typing import Protocol, runtime_checkable
 
 
@@ -51,8 +52,12 @@ class Unit(Protocol):
 
     @property
     def is_transportable(self) -> bool: ...
+    @property
+    def is_ship(self) -> bool: ...
 
     def set_system_id(self, new_system_id: int | None) -> Unit: ...
+
+    def cast_to_ship(self) -> Ship: ...
 
 
 @dataclass(frozen=True)
@@ -67,8 +72,15 @@ class Ship:
     def is_transportable(self) -> bool:
         return self.kind == ShipKind.FIGHTER
 
+    @property
+    def is_ship(self) -> bool:
+        return True
+
     def set_system_id(self, new_system_id: int | None) -> Ship:
         return replace(self, system_id=new_system_id)
+
+    def cast_to_ship(self) -> Ship:
+        return self
 
 
 @dataclass(frozen=True)
@@ -83,8 +95,17 @@ class GroundForce:
     def is_transportable(self) -> bool:
         return True
 
+    @property
+    def is_ship(self) -> bool:
+        return False
+
     def set_system_id(self, new_system_id: int | None) -> GroundForce:
         return replace(self, system_id=new_system_id)
+
+    def cast_to_ship(self) -> Ship:
+        if not self.is_ship:
+            raise TypeError("This unit is not a Ship.")
+        raise NotImplementedError()
 
 
 unit_stats_lookup: dict[UnitKind, UnitStats] = {

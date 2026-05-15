@@ -22,8 +22,8 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
         del event
         if state.active_system is None:
             raise ValueError("Cannot find active system.")
-        units_in_active_system_system = state.get_units_in_system(state.active_system.id)
-        if len({unit.owner_name for unit in units_in_active_system_system}) <= 1:
+        units_in_active_system = state.get_ships_in_system(state.active_system.id)
+        if len({unit.owner_name for unit in units_in_active_system}) <= 1:
             return [AdvanceToInvasionStepEvent()]
         return []
 

@@ -840,13 +840,19 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
     assert new_state.turn_context.pending_moves == frozenset()
 
 
-def test_89_3_if_one_player_has_ships_skip_space_combat() -> None:
+@given(opponent_has_ground_force=st.booleans())
+def test_89_3_if_one_player_has_ships_skip_space_combat(opponent_has_ground_force: bool) -> None:
     ship_a = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=0)
+    ground_forces = (
+        {make_unit_with_id(unit_id=1, owner_name="B", kind=GroundForceKind.INFANTRY, system_id=1)}
+        if opponent_has_ground_force
+        else set[Unit]()
+    )
 
     session = GameSession(
         initial_state=make_tactical_action_movement_state(
             active_system_id=1,
-            units=frozenset({ship_a}),
+            units=frozenset({ship_a} | ground_forces),
             player_names=["A", "B"],
             systems=CENTRE_RING_OF_SYSTEMS,
         ),
@@ -865,7 +871,7 @@ def test_89_3_if_one_player_has_ships_skip_space_combat() -> None:
         command=Command(actor=new_state.active_player, command_type=CommandType.END_MOVEMENT),
     )
 
-    assert new_state.get_units_in_system(system_id=1) == frozenset(
+    assert new_state.get_ships_in_system(system_id=1) == frozenset(
         {new_state.get_ship_from_id(ship_id=0)},
     )
 
