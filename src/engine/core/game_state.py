@@ -50,6 +50,7 @@ class Move:
 
 class Ability(StrEnum):
     SPACE_CANNON = "space_cannon"
+    BOMBARDMENT = "bombardment"
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,7 @@ Galaxy = frozenset[System]
 
 class Window(StrEnum):
     AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
+    TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
 
 
 class ComponentNotFoundError(ValueError):
@@ -191,6 +193,14 @@ class GameState:
             ability=Ability.SPACE_CANNON,
         )
 
+    def player_may_resolve_bombardment_in_system(self, player: Player, system_id: int) -> bool:
+        # TODO: deferred - return to this when we properly implement BOMBARDMENT unit ability
+        del system_id
+        return not self.player_has_resolved_ability_is_current_window(
+            player=player,
+            ability=Ability.BOMBARDMENT,
+        )
+
     def player_has_resolved_ability_is_current_window(
         self,
         player: Player,
@@ -210,3 +220,9 @@ class GameState:
             for unit in self.units
             if unit.system_id == system_id and unit.is_ship
         }
+
+    def close_all_windows(self) -> Self:
+        return replace(
+            self,
+            window_context=replace(self.window_context, active_windows=()),
+        )

@@ -22,10 +22,12 @@ class GameSession:
             state=self.current_state,
             command=command,
         )
+        return self.apply_command_result(command_result)
+
+    def apply_command_result(self, command_result: CommandResult) -> GameState:
         if command_result.success:
-            new_state: GameState = command_result.new_state
             self.history.append(command_result)
-            return new_state
+            return command_result.new_state
         self.failure_history.append(command_result)
         return self.current_state
 

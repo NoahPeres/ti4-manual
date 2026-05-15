@@ -17,8 +17,10 @@ class CommandType(enum.StrEnum):
     INITIATE_TACTICAL_ACTION = "initiate_tactical_action"
     PASS_ACTION = "pass_action"
     END_MOVEMENT = "end_movement"
+    END_SPACE_COMBAT = "end_space_combat"
     MOVE_SHIP = "move_ship"
     USE_SPACE_CANNON = "use_space_cannon"
+    USE_BOMBARDMENT = "use_bombardment"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:

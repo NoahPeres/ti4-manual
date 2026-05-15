@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 _ALLOWED_COMMANDS_BY_WINDOW: dict[Window, tuple[CommandType, ...]] = {
     Window.AFTER_MOVE_SHIPS_STEP: (CommandType.USE_SPACE_CANNON,),
+    Window.TACTICAL_ACTION_BOMBARDMENT: (CommandType.USE_BOMBARDMENT,),
 }
 
 
