@@ -66,7 +66,9 @@ class CloseBombardmentWindowEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        if (state.active_system is None) or not state.player_may_resolve_bombardment_in_system(
+        if state.active_system is None:
+            raise InvalidActiveSystemError
+        if not state.player_may_resolve_bombardment_in_system(
             player=state.active_player,
             system_id=state.active_system.id,
         ):
