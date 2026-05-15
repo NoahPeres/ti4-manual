@@ -637,7 +637,7 @@ def test_89_2_c_space_cannon_window_closes_after_all_players_have_acted() -> Non
             new_state = session.apply_command(
                 Command(actor=player, command_type=CommandType.USE_SPACE_CANNON),
             )
-    assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+    assert new_state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT
 
 
 def test_89_2_c_one_player_cannot_space_cannon_twice_in_same_window() -> None:
@@ -840,24 +840,79 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
     assert new_state.turn_context.pending_moves == frozenset()
 
 
-"""STEP 2—MOVEMENT: The active player may move any
-number of ships that have a sufficient move value from any
-number of systems that do not contain one of their command
-tokens into the active system, following the rules for
-movement.
-a Ships that have capacity values can transport ground forces
-and fighters when moving.
-b The player may choose to not move any ships.
-c After the “Move Ships” step, all players can use the “Space
-Cannon” abilities of their units in the active system.
+def test_89_3_if_one_player_has_ships_skip_space_combat() -> None:
+    ship_a = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=0)
 
-- Active player may move ships
-- May move any number of ships
-- Every ship must have sufficient move value
-- Ships may only move from systems that do not contain command tokens
-- Ships move into the active system
+    session = GameSession(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=1,
+            units=frozenset({ship_a}),
+            player_names=["A", "B"],
+            systems=CENTRE_RING_OF_SYSTEMS,
+        ),
+        engine=get_default_game_engine(),
+    )
 
-- Ships that have capacity can transport ground forces and fighters
-- Player may choose to not move any ships
-- After move ships step, all players can use space cannon abilities of units in active system
-"""
+    new_state = session.apply_command(
+        command=MoveShipCommand(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+        ),
+    )
+    new_state = session.apply_command(
+        command=Command(actor=new_state.active_player, command_type=CommandType.END_MOVEMENT),
+    )
+
+    assert new_state.get_units_in_system(system_id=1) == frozenset(
+        {new_state.get_ship_from_id(ship_id=0)},
+    )
+
+    for player in new_state.players:
+        new_state = session.apply_command(
+            command=Command(actor=player, command_type=CommandType.USE_SPACE_CANNON),
+        )
+
+    assert new_state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT
+
+
+def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None:
+    ship_a = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=0)
+    ship_b = make_unit_with_id(unit_id=1, owner_name="B", kind=ShipKind.DESTROYER, system_id=1)
+
+    session = GameSession(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=1,
+            units=frozenset({ship_a, ship_b}),
+            player_names=["A", "B"],
+            systems=CENTRE_RING_OF_SYSTEMS,
+        ),
+        engine=get_default_game_engine(),
+    )
+
+    new_state = session.apply_command(
+        command=MoveShipCommand(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=0,
+            to_system_id=1,
+        ),
+    )
+    new_state = session.apply_command(
+        command=Command(actor=new_state.active_player, command_type=CommandType.END_MOVEMENT),
+    )
+
+    assert (
+        new_state.get_ship_from_id(ship_id=0).system_id
+        == new_state.get_ship_from_id(ship_id=1).system_id
+    )
+
+    for player in new_state.players:
+        new_state = session.apply_command(
+            command=Command(actor=player, command_type=CommandType.USE_SPACE_CANNON),
+        )
+
+    # NOTE: actual resolution will be deferred and tested later, this is showing that it's properly
+    # orchestrated only.
+    assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT

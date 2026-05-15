@@ -50,30 +50,31 @@ def make_player(
 def make_tactical_action_movement_state(
     active_system_id: int,
     units: frozenset[Unit] | None = None,
-    player_name: str = "A",
+    player_names: list[str] | None = None,
     systems: frozenset[System] | None = None,
 ) -> GameState:
+    if player_names is None:
+        player_names = ["A"]
+    players = [
+        make_player(name=name, strategy_cards=(StrategyCard(name="A", initiative=i),))
+        for i, name in enumerate(player_names)
+    ]
     if units is None:
         # Create default ship at system 0
         default_ship = make_unit_with_id(
             unit_id=0,
-            owner_name=player_name,
+            owner_name=players[0].name,
             kind=ShipKind.DREADNOUGHT,
             system_id=0,
         )
         units = frozenset({default_ship})
-
-    player = make_player(
-        name=player_name,
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),),
-    )
 
     if systems is None:
         # Create systems with coordinates in a line
         systems = frozenset(
             System(
                 id=system_id,
-                command_tokens=(CommandToken(player_name),)
+                command_tokens=(CommandToken(players[0].name),)
                 if system_id == active_system_id
                 else (),
                 coordinates=HexCoord(0, system_id),
@@ -82,8 +83,8 @@ def make_tactical_action_movement_state(
         )
 
     return GameState(
-        players=(player,),
-        active_player=player,
+        players=tuple(players),
+        active_player=players[0],
         phase=Phase.ACTION,
         galaxy=systems,
         turn_context=TurnContext(

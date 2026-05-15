@@ -195,3 +195,6 @@ class GameState:
             ability
             in self.window_context.get_or_create_ability_tracker(player=player).abilities_used
         )
+
+    def get_units_in_system(self, system_id: int) -> set[Unit]:
+        return {unit for unit in self.units if unit.system_id == system_id}

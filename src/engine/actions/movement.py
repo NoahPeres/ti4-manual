@@ -1,7 +1,9 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from src.engine.actions.tactical_action import AdvanceToSpaceCombatStepEvent
+from src.engine.actions.tactical_action import (
+    AdvanceToSpaceCombatStepEvent,
+)
 from src.engine.core.command import (
     Command,
     CommandRule,

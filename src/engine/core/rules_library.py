@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Protocol, cast
 
-from src.engine.actions import movement, tactical_action
+from src.engine.actions import movement, space_combat, tactical_action
 from src.engine.turns import end_turn, pass_action
 
 if TYPE_CHECKING:
@@ -18,12 +18,7 @@ class RulesModule(Protocol):
 
 MODULES_WITH_RULES: Sequence[RulesModule] = [
     cast("RulesModule", module)
-    for module in [
-        end_turn,
-        tactical_action,
-        pass_action,
-        movement,
-    ]
+    for module in [end_turn, tactical_action, pass_action, movement, space_combat]
 ]
 
 
