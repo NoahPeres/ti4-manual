@@ -933,6 +933,8 @@ def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None
 
 
 def test_89_4_active_player_may_use_their_bombardment_during_invasion() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
     ground_force = make_unit_with_id(
         unit_id=1,
@@ -942,8 +944,8 @@ def test_89_4_active_player_may_use_their_bombardment_during_invasion() -> None:
     )
     session = GameSession(
         initial_state=GameState(
-            players=(make_player("A"), make_player("B")),
-            active_player=make_player("A"),
+            players=(player_a, player_b),
+            active_player=player_a,
             phase=Phase.ACTION,
             galaxy=frozenset({System(id=0, command_tokens=())}),
             turn_context=TurnContext(
