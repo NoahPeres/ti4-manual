@@ -841,7 +841,7 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
 
 
 @given(opponent_has_ground_force=st.booleans())
-def test_89_3_if_one_player_has_ships_skip_space_combat(opponent_has_ground_force: bool) -> None:
+def test_89_3_if_one_player_has_ships_skip_space_combat(*, opponent_has_ground_force: bool) -> None:
     ship_a = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=0)
     ground_forces = (
         {make_unit_with_id(unit_id=1, owner_name="B", kind=GroundForceKind.INFANTRY, system_id=1)}

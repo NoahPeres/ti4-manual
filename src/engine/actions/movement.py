@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from src.engine.actions.tactical_action import (
     AdvanceToSpaceCombatStepEvent,
+    InvalidActiveSystemError,
 )
 from src.engine.core.command import (
     Command,
@@ -110,7 +111,7 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         if state.active_system is None:
-            raise ValueError("Invalid active system")
+            raise InvalidActiveSystemError
         return [
             ResolveSpaceCannonOffenseEvent(player=command.actor, active_system=state.active_system),
         ]
@@ -149,7 +150,7 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         if state.active_system is None:
-            raise ValueError("Active system not found")
+            raise InvalidActiveSystemError
         if any(
             state.player_may_resolve_space_cannon_in_system(
                 player,
@@ -211,7 +212,7 @@ class AddMoveToPendingEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
         active_system = previous_state.active_system
         if active_system is None:
-            raise ValueError("No active system in state when applying AddMoveToPendingEvent")
+            raise InvalidActiveSystemError
         move_set = previous_state.turn_context.pending_moves | {
             Move(
                 ship_id=self.ship_id,
@@ -243,9 +244,14 @@ def distance(coordinates_a: HexCoord, coordinates_b: HexCoord) -> int:
     return abs(dx) + abs(dy)
 
 
+class InvalidCoordinatesError(ValueError):
+    def __init__(self, message: str = "Invalid coordinates") -> None:
+        super().__init__(message)
+
+
 def calculate_move_distance(system_a: System, system_b: System) -> int:
     if system_a.coordinates is None or system_b.coordinates is None:
-        raise ValueError("Cannot calculate move distance between systems without coordinates")
+        raise InvalidCoordinatesError
     return distance(system_a.coordinates, system_b.coordinates)
 
 

@@ -26,7 +26,8 @@ class InvariantViolationError(RuntimeError):
 
 
 class IllegalStateMutationError(RuntimeError):
-    pass
+    def __init__(self, cause: str) -> None:
+        super().__init__(f"Illegal state mutation: {cause}")
 
 
 @dataclass(frozen=True)
@@ -164,18 +165,13 @@ class GameEngine:
         try:
             new_state: GameState = event.apply(previous_state=previous_state)
         except FrozenInstanceError as e:
-            raise IllegalStateMutationError(
-                f"Illegal mutation of game state detected when applying event {event}: {e}",
-            ) from e
+            raise IllegalStateMutationError(repr(event)) from e
         resolved_events.append(event)
         relevant_event_rules = self._event_type_to_rules.get(type(event), [])
         for rule in relevant_event_rules:
             try:
                 new_events: Sequence[Event] = rule.on_event(state=new_state, event=event)
             except FrozenInstanceError as e:
-                raise IllegalStateMutationError(
-                    f"Illegal mutation of game state detected when processing event {event} "
-                    f"with rule {rule}: {e}",
-                ) from e
+                raise IllegalStateMutationError(repr(event)) from e
             pending_events = list(new_events) + pending_events
         return new_state, pending_events

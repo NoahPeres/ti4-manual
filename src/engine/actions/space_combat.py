@@ -3,13 +3,14 @@ from typing import TYPE_CHECKING
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
+    InvalidActiveSystemError,
 )
-from src.engine.core.command import Command, CommandRule
 from src.engine.core.event import Event, EventRule
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from src.engine.core.command import Command, CommandRule
     from src.engine.core.game_state import GameState
 
 
@@ -21,7 +22,7 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         if state.active_system is None:
-            raise ValueError("Cannot find active system.")
+            raise InvalidActiveSystemError
         units_in_active_system = state.get_ships_in_system(state.active_system.id)
         if len({unit.owner_name for unit in units_in_active_system}) <= 1:
             return [AdvanceToInvasionStepEvent()]

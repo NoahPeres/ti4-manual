@@ -16,6 +16,10 @@ from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 
 
+class InvalidPlayerCountError(ValueError):
+    pass
+
+
 def get_default_game_engine() -> GameEngine:
     return GameEngine(rules_engine=TI4RulesEngine(), invariants=make_all_invariants())
 
@@ -23,7 +27,7 @@ def get_default_game_engine() -> GameEngine:
 def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
     engine = get_default_game_engine()
     if len(players) == 0:
-        raise ValueError("Require non zero number of players to generate valid session.")
+        raise InvalidPlayerCountError
     return GameSession(
         initial_state=GameState(
             players=players,
