@@ -49,10 +49,10 @@ class GameEngine:
 
         self._command_type_to_rules: dict[CommandType, list[CommandRule[Command]]] = {}
         self._event_type_to_rules: dict[type[Event], list[EventRule]] = {}
-        for rule in self.rules_engine.command_rules:
-            self.register_new_command_rule(rule)
-        for rule in self.rules_engine.event_rules:
-            self.register_new_event_rule(rule)
+        for command_rule in self.rules_engine.command_rules:
+            self.register_new_command_rule(command_rule)
+        for event_rule in self.rules_engine.event_rules:
+            self.register_new_event_rule(event_rule)
 
         unimplemented = self.get_unimplemented_command_types()
 

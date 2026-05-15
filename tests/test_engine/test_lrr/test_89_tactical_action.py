@@ -47,7 +47,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token() -
     )
     session = make_basic_session_from_players(players=(player_a, player_b))
     assert session.engine.apply_command(
-        state=replace(session.current_state, galaxy={fresh_system}),
+        state=replace(session.current_state, galaxy=frozenset({fresh_system})),
         command=ActivateCommand(
             actor=player_a,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
@@ -55,7 +55,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token() -
         ),
     ).success
     assert not session.engine.apply_command(
-        state=replace(session.current_state, galaxy={previously_activated_system}),
+        state=replace(session.current_state, galaxy=frozenset({previously_activated_system})),
         command=ActivateCommand(
             actor=player_a,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
@@ -63,7 +63,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token() -
         ),
     ).success
     assert session.engine.apply_command(
-        state=replace(session.current_state, galaxy={previously_activated_by_b}),
+        state=replace(session.current_state, galaxy=frozenset({previously_activated_by_b})),
         command=ActivateCommand(
             actor=player_a,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
@@ -105,7 +105,7 @@ def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
     system_with_b_token = System(id=0, command_tokens=(CommandToken(player_name=player_b.name),))
     session = make_basic_session_from_players(players=(player_a, player_b))
     assert session.engine.apply_command(
-        state=replace(session.current_state, galaxy={system_with_b_token}),
+        state=replace(session.current_state, galaxy=frozenset({system_with_b_token})),
         command=ActivateCommand(
             actor=player_a,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
