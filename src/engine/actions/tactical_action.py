@@ -15,6 +15,11 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
+class InvalidActiveSystemError(ValueError):
+    def __init__(self, message: str = "Active system not found") -> None:
+        super().__init__(message)
+
+
 @dataclass(frozen=True)
 class ActivateCommand(Command):
     system_id: int
@@ -83,6 +88,7 @@ def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
 
 AdvanceToMovementStepEvent = _make_advance_to_step_event(TacticalActionStep.MOVEMENT)
 AdvanceToSpaceCombatStepEvent = _make_advance_to_step_event(TacticalActionStep.SPACE_COMBAT)
+AdvanceToInvasionStepEvent = _make_advance_to_step_event(TacticalActionStep.INVASION)
 
 
 class TacticalActionInitiatedEvent(Event):

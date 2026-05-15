@@ -7,6 +7,11 @@ if TYPE_CHECKING:
     from src.engine.core.game_state import GameState, Window
 
 
+class IllegalWindowOperationError(RuntimeError):
+    def __init__(self, operation: str) -> None:
+        super().__init__(f"Illegal window operation: {operation}")
+
+
 class OpenWindowEvent(Event):
     def __init__(self, window: Window) -> None:
         self.window: Window = window
@@ -40,7 +45,7 @@ class CloseWindowEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         if self.window not in previous_state.window_context.active_windows:
-            raise ValueError("You cannot close a window which is not open.")
+            raise IllegalWindowOperationError(type(self).__name__)
         innermost_window = max(
             i
             for i, window in enumerate(previous_state.window_context.active_windows)

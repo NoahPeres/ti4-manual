@@ -16,6 +16,10 @@ from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 
 
+class InvalidPlayerCountError(ValueError):
+    pass
+
+
 def get_default_game_engine() -> GameEngine:
     return GameEngine(rules_engine=TI4RulesEngine(), invariants=make_all_invariants())
 
@@ -23,7 +27,7 @@ def get_default_game_engine() -> GameEngine:
 def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
     engine = get_default_game_engine()
     if len(players) == 0:
-        raise ValueError("Require non zero number of players to generate valid session.")
+        raise InvalidPlayerCountError
     return GameSession(
         initial_state=GameState(
             players=players,
@@ -50,30 +54,31 @@ def make_player(
 def make_tactical_action_movement_state(
     active_system_id: int,
     units: frozenset[Unit] | None = None,
-    player_name: str = "A",
+    player_names: list[str] | None = None,
     systems: frozenset[System] | None = None,
 ) -> GameState:
+    if player_names is None:
+        player_names = ["A"]
+    players = [
+        make_player(name=name, strategy_cards=(StrategyCard(name="A", initiative=i),))
+        for i, name in enumerate(player_names)
+    ]
     if units is None:
         # Create default ship at system 0
         default_ship = make_unit_with_id(
             unit_id=0,
-            owner_name=player_name,
+            owner_name=players[0].name,
             kind=ShipKind.DREADNOUGHT,
             system_id=0,
         )
         units = frozenset({default_ship})
-
-    player = make_player(
-        name=player_name,
-        strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=True),),
-    )
 
     if systems is None:
         # Create systems with coordinates in a line
         systems = frozenset(
             System(
                 id=system_id,
-                command_tokens=(CommandToken(player_name),)
+                command_tokens=(CommandToken(players[0].name),)
                 if system_id == active_system_id
                 else (),
                 coordinates=HexCoord(0, system_id),
@@ -82,8 +87,8 @@ def make_tactical_action_movement_state(
         )
 
     return GameState(
-        players=(player,),
-        active_player=player,
+        players=tuple(players),
+        active_player=players[0],
         phase=Phase.ACTION,
         galaxy=systems,
         turn_context=TurnContext(

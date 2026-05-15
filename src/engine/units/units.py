@@ -17,12 +17,17 @@ class GroundForceKind(StrEnum):
     MECH = "mech"
 
 
+class InvalidUnitKindError(ValueError):
+    def __init__(self, kind: str) -> None:
+        super().__init__(f"Invalid unit kind: {kind}")
+
+
 def kind_from_str(unit_kind_str: str) -> ShipKind | GroundForceKind:
     for enum_class in (ShipKind, GroundForceKind):
         for member in enum_class:
             if member.value == unit_kind_str:
                 return member
-    raise ValueError(f"Invalid unit kind string: {unit_kind_str}")
+    raise InvalidUnitKindError(unit_kind_str)
 
 
 UnitKind = ShipKind | GroundForceKind
@@ -51,8 +56,17 @@ class Unit(Protocol):
 
     @property
     def is_transportable(self) -> bool: ...
+    @property
+    def is_ship(self) -> bool: ...
 
     def set_system_id(self, new_system_id: int | None) -> Unit: ...
+
+    def cast_to_ship(self) -> Ship: ...
+
+
+class NotAShipError(TypeError):
+    def __init__(self, data: str = "Unit") -> None:
+        super().__init__(f"{data} is not a ship and cannot be cast to a ship")
 
 
 @dataclass(frozen=True)
@@ -67,8 +81,15 @@ class Ship:
     def is_transportable(self) -> bool:
         return self.kind == ShipKind.FIGHTER
 
+    @property
+    def is_ship(self) -> bool:
+        return True
+
     def set_system_id(self, new_system_id: int | None) -> Ship:
         return replace(self, system_id=new_system_id)
+
+    def cast_to_ship(self) -> Ship:
+        return self
 
 
 @dataclass(frozen=True)
@@ -83,8 +104,17 @@ class GroundForce:
     def is_transportable(self) -> bool:
         return True
 
+    @property
+    def is_ship(self) -> bool:
+        return False
+
     def set_system_id(self, new_system_id: int | None) -> GroundForce:
         return replace(self, system_id=new_system_id)
+
+    def cast_to_ship(self) -> Ship:
+        if not self.is_ship:
+            raise NotAShipError(self.__repr__())
+        raise NotImplementedError
 
 
 unit_stats_lookup: dict[UnitKind, UnitStats] = {

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Self
 
-from src.engine.units.units import Ship, Unit
+from src.engine.units.units import NotAShipError, Ship, Unit
 
 if TYPE_CHECKING:
     from src.engine.core.player import Player
@@ -107,6 +107,11 @@ class Window(StrEnum):
     AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
 
 
+class ComponentNotFoundError(ValueError):
+    def __init__(self, component_name: str) -> None:
+        super().__init__(f"Component not found: {component_name}")
+
+
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
@@ -146,13 +151,13 @@ class GameState:
         try:
             return next(system for system in self.galaxy if system.id == system_id)
         except StopIteration:
-            raise ValueError(f"System with id {system_id} not found in galaxy") from None
+            raise ComponentNotFoundError(f"system:{system_id}") from None
 
     def get_player(self, name: str) -> Player:
         try:
             return next(player for player in self.players if player.name == name)
         except StopIteration:
-            raise ValueError(f"Player with name {name} not found in game state") from None
+            raise ComponentNotFoundError(f"player:{name}") from None
 
     def get_current_system(self, unit: Unit) -> System | None:
         return self.get_system(unit.system_id) if unit.system_id is not None else None
@@ -161,12 +166,12 @@ class GameState:
         try:
             return next(unit for unit in self.units if unit.unit_id == unit_id)
         except StopIteration:
-            raise ValueError(f"Unit with id {unit_id} not found in game state") from None
+            raise ComponentNotFoundError(f"unit:{unit_id}") from None
 
     def get_ship_from_id(self, ship_id: int) -> Ship:
-        unit = self.get_unit_from_id(ship_id)
+        unit = self.get_unit_from_id(unit_id=ship_id)
         if not isinstance(unit, Ship):
-            raise ValueError(f"Unit with id {ship_id} is not a ship")
+            raise NotAShipError(repr(unit))
         return unit
 
     def is_active_player(self, player: Player) -> bool:
@@ -195,3 +200,13 @@ class GameState:
             ability
             in self.window_context.get_or_create_ability_tracker(player=player).abilities_used
         )
+
+    def get_units_in_system(self, system_id: int) -> set[Unit]:
+        return {unit for unit in self.units if unit.system_id == system_id}
+
+    def get_ships_in_system(self, system_id: int) -> set[Ship]:
+        return {
+            unit.cast_to_ship()
+            for unit in self.units
+            if unit.system_id == system_id and unit.is_ship
+        }
