@@ -77,6 +77,11 @@ class TurnContext:
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
 
 
+class IllegalWindowOperationError(RuntimeError):
+    def __init__(self, operation: str) -> None:
+        super().__init__(f"Illegal window operation: {operation}")
+
+
 @dataclass(frozen=True)
 class WindowContext:
     active_windows: tuple[Window, ...] = field(default_factory=tuple)
@@ -109,7 +114,7 @@ class WindowContext:
 
     def pass_on_window_for_player(self, player: Player, window: Window) -> Self:
         if not self.is_window_active(window):
-            raise ValueError(f"Cannot pass on window {window} that is not active.")
+            raise IllegalWindowOperationError("pass_on_window_for_player")
         tracker = self.get_or_create_ability_tracker(player)
         return replace(
             self,

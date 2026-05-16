@@ -1075,7 +1075,8 @@ def test_89_4_player_may_skip_bombardment() -> None:
 
     new_state = session.apply_command(
         Command(
-            actor=session.current_state.get_player("A"), command_type=CommandType.PASS_BOMBARDMENT
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.PASS_BOMBARDMENT,
         ),
     )
     assert session.last_command_result.success

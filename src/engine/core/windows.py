@@ -2,14 +2,10 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from src.engine.core.event import Event
+from src.engine.core.game_state import IllegalWindowOperationError
 
 if TYPE_CHECKING:
     from src.engine.core.game_state import GameState, Window
-
-
-class IllegalWindowOperationError(RuntimeError):
-    def __init__(self, operation: str) -> None:
-        super().__init__(f"Illegal window operation: {operation}")
 
 
 class OpenWindowEvent(Event):

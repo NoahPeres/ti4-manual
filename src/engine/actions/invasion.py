@@ -88,7 +88,8 @@ class PassBombardmentEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.pass_on_window_for_player(
-            player=previous_state.active_player, window=Window.TACTICAL_ACTION_BOMBARDMENT
+            player=previous_state.active_player,
+            window=Window.TACTICAL_ACTION_BOMBARDMENT,
         )
 
 
