@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
 
+from src.engine.core.game_engine import CommandResult, GameEngine
+
 if TYPE_CHECKING:
     from src.engine.core.command import Command
-    from src.engine.core.game_engine import CommandResult, GameEngine
     from src.engine.core.game_state import GameState
 
 
@@ -12,6 +13,12 @@ class GameSession:
         self.engine: GameEngine = engine
         self.history: list[CommandResult] = []
         self.failure_history: list[CommandResult] = []
+        self.last_command_result: CommandResult = CommandResult(
+            new_state=initial_state,
+            success=True,
+            events=[],
+            info="Initial state",
+        )
 
     @property
     def current_state(self) -> GameState:
@@ -25,6 +32,7 @@ class GameSession:
         return self.apply_command_result(command_result)
 
     def apply_command_result(self, command_result: CommandResult) -> GameState:
+        self.last_command_result = command_result
         if command_result.success:
             self.history.append(command_result)
             return command_result.new_state
