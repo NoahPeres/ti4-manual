@@ -57,9 +57,16 @@ class Ability(StrEnum):
 class PlayerAbilityTracker:
     player_name: str
     abilities_used: frozenset[Ability]
+    passed_windows: frozenset[Window] = field(default_factory=frozenset)
 
     def use_ability(self, ability: Ability) -> PlayerAbilityTracker:
         return replace(self, abilities_used=frozenset(self.abilities_used | {ability}))
+
+    def pass_on_window(self, window: Window) -> PlayerAbilityTracker:
+        return replace(self, passed_windows=frozenset(self.passed_windows | {window}))
+
+    def has_passed_on_window(self, window: Window) -> bool:
+        return window in self.passed_windows
 
 
 @dataclass(frozen=True)
@@ -68,6 +75,11 @@ class TurnContext:
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
+
+
+class IllegalWindowOperationError(RuntimeError):
+    def __init__(self, operation: str) -> None:
+        super().__init__(f"Illegal window operation: {operation}")
 
 
 @dataclass(frozen=True)
@@ -99,6 +111,26 @@ class WindowContext:
 
     def is_window_active(self, window: Window) -> bool:
         return window in self.active_windows
+
+    def pass_on_window_for_player(self, player: Player, window: Window) -> Self:
+        if not self.is_window_active(window):
+            raise IllegalWindowOperationError("pass_on_window_for_player")
+        tracker = self.get_or_create_ability_tracker(player)
+        return replace(
+            self,
+            player_abilities_in_window=frozenset(
+                {
+                    other_tracker
+                    for other_tracker in self.player_abilities_in_window
+                    if other_tracker != tracker
+                }
+                | {tracker.pass_on_window(window=window)},
+            ),
+        )
+
+    def player_has_passed_on_window(self, player: Player, window: Window) -> bool:
+        tracker = self.get_or_create_ability_tracker(player)
+        return tracker.has_passed_on_window(window=window)
 
 
 Galaxy = frozenset[System]
@@ -185,12 +217,21 @@ class GameState:
             window_context=self.window_context.use_ability_for_player(player, ability),
         )
 
+    def pass_on_window_for_player(self, player: Player, window: Window) -> Self:
+        return replace(
+            self,
+            window_context=self.window_context.pass_on_window_for_player(player, window),
+        )
+
     def player_may_resolve_space_cannon_in_system(self, player: Player, system_id: int) -> bool:
         # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
         del system_id
         return not self.player_has_resolved_ability_is_current_window(
             player=player,
             ability=Ability.SPACE_CANNON,
+        ) and not self.window_context.player_has_passed_on_window(
+            player=player,
+            window=Window.AFTER_MOVE_SHIPS_STEP,
         )
 
     def player_may_resolve_bombardment_in_system(self, player: Player, system_id: int) -> bool:
@@ -199,6 +240,9 @@ class GameState:
         return not self.player_has_resolved_ability_is_current_window(
             player=player,
             ability=Ability.BOMBARDMENT,
+        ) and not self.window_context.player_has_passed_on_window(
+            player=player,
+            window=Window.TACTICAL_ACTION_BOMBARDMENT,
         )
 
     def player_has_resolved_ability_is_current_window(

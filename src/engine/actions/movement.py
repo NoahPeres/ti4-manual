@@ -117,6 +117,57 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         ]
 
 
+class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "PassSpaceCannonOffense"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.PASS_SPACE_CANNON}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if not state.window_context.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass on space cannon offense immediately after moving ships during "
+                "a tactical action",
+            )
+        if state.active_system is None:
+            return ValidationResult(is_valid=False, info="Active system not found")
+        if state.window_context.player_has_passed_on_window(
+            command.actor,
+            Window.AFTER_MOVE_SHIPS_STEP,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info=f"{command.actor.name} has already passed on space cannon.",
+            )
+        if state.player_has_resolved_ability_is_current_window(command.actor, Ability.SPACE_CANNON):
+            return ValidationResult(
+                is_valid=False,
+                info=f"{command.actor.name} has already used space cannon.",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state
+        return [PassSpaceCannonEvent(player=command.actor)]
+
+
+class PassSpaceCannonEvent(Event):
+    def __init__(self, player: Player) -> None:
+        self.player = player
+
+    def __repr__(self) -> str:
+        return f"PassSpaceCannonEvent:{self.player}"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.pass_on_window_for_player(
+            player=self.player,
+            window=Window.AFTER_MOVE_SHIPS_STEP,
+        )  # No state change needed to pass on space cannon offense.
+
+
 class EndMovementCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "EndMovement"
@@ -165,7 +216,7 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
 class CloseSpaceCannonOffenseWindowEventRule(EventRule):
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {ResolveSpaceCannonOffenseEvent}
+        return {ResolveSpaceCannonOffenseEvent, PassSpaceCannonEvent}
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
@@ -445,7 +496,12 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
 
 
 def get_command_rules() -> list[CommandRule[MoveShipCommand]]:
-    return [EndMovementCommandRule(), MoveShipCommandRule(), ResolveSpaceCannonOffenseCommandRule()]
+    return [
+        EndMovementCommandRule(),
+        MoveShipCommandRule(),
+        ResolveSpaceCannonOffenseCommandRule(),
+        PassSpaceCannonOffenseCommandRule(),
+    ]
 
 
 def get_event_rules() -> list[EventRule]:

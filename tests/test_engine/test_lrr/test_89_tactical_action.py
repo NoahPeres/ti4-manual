@@ -15,6 +15,7 @@ from src.engine.core.game_state import (
     System,
     TacticalActionStep,
     TurnContext,
+    Window,
 )
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
@@ -678,6 +679,52 @@ def test_89_2_c_one_player_cannot_space_cannon_twice_in_same_window() -> None:
     ).success
 
 
+def test_89_2_c_players_may_choose_to_skip_space_cannon() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+            phase=Phase.ACTION,
+            galaxy=frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
+            turn_context=TurnContext(
+                has_initiated_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+        ),
+        engine=get_default_game_engine(),
+    )
+    new_state = session.apply_command(
+        Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+    )
+    assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
+
+    assert new_state.active_system is not None
+    assert new_state.player_may_resolve_space_cannon_in_system(
+        player=player_a,
+        system_id=new_state.active_system.id,
+    )
+    skip_space_cannon = Command(actor=player_a, command_type=CommandType.PASS_SPACE_CANNON)
+    new_state = session.apply_command(skip_space_cannon)
+    assert session.last_command_result.success
+    assert new_state.window_context.player_has_passed_on_window(
+        player=player_a,
+        window=Window.AFTER_MOVE_SHIPS_STEP,
+    )
+    assert not session.engine.apply_command(
+        new_state,
+        Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON),
+    ).success
+    new_state = session.apply_command(
+        Command(actor=player_b, command_type=CommandType.PASS_SPACE_CANNON),
+    )
+    assert len(session.failure_history) == 0
+    assert new_state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT
+
+
 def test_89_2_c_ability_window_properly_clears_state() -> None:
     player_a = make_player("A", strategy_cards=(StrategyCard(name="LEADERSHIP", initiative=1),))
     player_b = make_player("B", strategy_cards=(StrategyCard(name="DIPLOMACY", initiative=2),))
@@ -986,3 +1033,52 @@ def test_89_4_active_player_may_use_their_bombardment_during_invasion() -> None:
             command_type=CommandType.USE_BOMBARDMENT,
         ),
     ).success
+
+
+def test_89_4_player_may_skip_bombardment() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
+    ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="B",
+        kind=GroundForceKind.INFANTRY,
+        system_id=0,
+    )
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+            phase=Phase.ACTION,
+            galaxy=frozenset({System(id=0, command_tokens=())}),
+            turn_context=TurnContext(
+                has_initiated_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+            units=frozenset({ship, ground_force}),
+        ),
+        engine=get_default_game_engine(),
+    )
+    new_state = session.apply_command(
+        command=Command(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.END_MOVEMENT,
+        ),
+    )
+    for player in new_state.players:
+        new_state = session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_SPACE_CANNON),
+        )
+    assert (
+        new_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
+    )  # No enemy ships, so should advance to invasion immediately.
+
+    new_state = session.apply_command(
+        Command(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.PASS_BOMBARDMENT,
+        ),
+    )
+    assert session.last_command_result.success
+    assert Window.TACTICAL_ACTION_BOMBARDMENT not in new_state.window_context.active_windows
