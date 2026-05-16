@@ -126,7 +126,6 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
         return {CommandType.PASS_SPACE_CANNON}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del command
         if not state.window_context.is_window_active(Window.AFTER_MOVE_SHIPS_STEP):
             return ValidationResult(
                 is_valid=False,
@@ -135,6 +134,19 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
             )
         if state.active_system is None:
             return ValidationResult(is_valid=False, info="Active system not found")
+        if state.window_context.player_has_passed_on_window(
+            command.actor,
+            Window.AFTER_MOVE_SHIPS_STEP,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info=f"{command.actor.name} has already passed on space cannon.",
+            )
+        if state.player_has_resolved_ability_is_current_window(command.actor, Ability.SPACE_CANNON):
+            return ValidationResult(
+                is_valid=False,
+                info=f"{command.actor.name} has already used space cannon.",
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
