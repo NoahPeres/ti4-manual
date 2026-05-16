@@ -9,7 +9,6 @@ from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
-    Ability,
     GameState,
     HexCoord,
     Phase,
@@ -718,7 +717,8 @@ def test_89_2_c_players_may_choose_to_skip_space_cannon() -> None:
         ).passed_windows
     )
     assert not session.engine.apply_command(
-        new_state, Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON)
+        new_state,
+        Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON),
     ).success
     new_state = session.apply_command(
         Command(actor=player_b, command_type=CommandType.PASS_SPACE_CANNON),
