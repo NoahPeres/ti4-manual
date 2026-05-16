@@ -712,11 +712,14 @@ def test_89_2_c_players_may_choose_to_skip_space_cannon() -> None:
     new_state = session.apply_command(skip_space_cannon)
     assert session.last_command_result.success
     assert (
-        Ability.SPACE_CANNON
-        not in new_state.window_context.get_or_create_ability_tracker(
+        Window.AFTER_MOVE_SHIPS_STEP
+        in new_state.window_context.get_or_create_ability_tracker(
             player=player_a,
-        ).abilities_used
+        ).passed_windows
     )
+    assert not session.engine.apply_command(
+        new_state, Command(actor=player_a, command_type=CommandType.USE_SPACE_CANNON)
+    ).success
     new_state = session.apply_command(
         Command(actor=player_b, command_type=CommandType.PASS_SPACE_CANNON),
     )
