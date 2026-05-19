@@ -1,8 +1,9 @@
+from hypothesis.strategies import data
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Self
 
-from src.engine.units.units import NotAShipError, Ship, Unit
+from src.engine.units.units import NotAShipError, Ship, Unit, NotAGroundForceError, GroundForce
 
 if TYPE_CHECKING:
     from src.engine.core.player import Player
@@ -48,6 +49,12 @@ class Move:
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+@dataclass(frozen=True)
+class InvasionCommit:
+    ground_force_id: int
+    to_planet_id: int
+
+
 class Ability(StrEnum):
     SPACE_CANNON = "space_cannon"
     BOMBARDMENT = "bombardment"
@@ -75,6 +82,9 @@ class TurnContext:
     tactical_action_step: TacticalActionStep | None = None
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
+    pending_invasion_commits: frozenset[InvasionCommit] = field(
+        default_factory=frozenset[InvasionCommit]
+    )
 
 
 class IllegalWindowOperationError(RuntimeError):
@@ -203,10 +213,10 @@ class GameState:
             raise ComponentNotFoundError(f"unit:{unit_id}") from None
 
     def get_ship_from_id(self, ship_id: int) -> Ship:
-        unit = self.get_unit_from_id(unit_id=ship_id)
-        if not isinstance(unit, Ship):
-            raise NotAShipError(repr(unit))
-        return unit
+        return self.get_unit_from_id(unit_id=ship_id).cast_to_ship()
+
+    def get_ground_force_from_id(self, ground_force_id: int) -> GroundForce:
+        return self.get_unit_from_id(unit_id=ground_force_id).cast_to_ground_force()
 
     def is_active_player(self, player: Player) -> bool:
         return self.active_player == player

@@ -5,6 +5,7 @@ from hypothesis import strategies as st
 
 from src.engine.actions.movement import MoveShipCommand
 from src.engine.actions.tactical_action import ActivateCommand
+from src.engine.actions.invasion import CommitGroundForceCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_session import GameSession
@@ -1082,3 +1083,67 @@ def test_89_4_player_may_skip_bombardment() -> None:
     )
     assert session.last_command_result.success
     assert Window.TACTICAL_ACTION_BOMBARDMENT not in new_state.window_context.active_windows
+
+
+def test_89_4_player_may_commit_ground_forces() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
+    ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="B",
+        kind=GroundForceKind.INFANTRY,
+        system_id=0,
+    )
+    session = GameSession(
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player=player_a,
+            phase=Phase.ACTION,
+            galaxy=frozenset({System(id=0, command_tokens=())}),
+            turn_context=TurnContext(
+                has_initiated_action=True,
+                tactical_action_step=TacticalActionStep.MOVEMENT,
+                active_system_id=0,
+            ),
+            units=frozenset({ship, ground_force}),
+        ),
+        engine=get_default_game_engine(),
+    )
+    new_state = session.apply_command(
+        command=Command(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.END_MOVEMENT,
+        ),
+    )
+    for player in new_state.players:
+        new_state = session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_SPACE_CANNON),
+        )
+    assert (
+        new_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
+    )  # No enemy ships, so should advance to invasion immediately.
+
+    new_state = session.apply_command(
+        Command(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.PASS_BOMBARDMENT,
+        ),
+    )
+    assert session.last_command_result.success
+    new_state = session.apply_command(
+        command=CommitGroundForceCommand(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.COMMIT_GROUND_FORCE,
+            ground_force_id=ground_force.unit_id,
+            to_planet_id=0,
+        )
+    )
+    new_state = session.apply_command(
+        command=Command(
+            actor=session.current_state.get_player("A"), command_type=CommandType.END_INVASION
+        )
+    )
+    ground_force = new_state.get_ground_force_from_id(ground_force.unit_id)
+    assert ground_force.system_id == 0
+    assert ground_force.planet_id == 0

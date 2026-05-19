@@ -89,6 +89,7 @@ def _make_advance_to_step_event(step: TacticalActionStep) -> type[Event]:
 AdvanceToMovementStepEvent = _make_advance_to_step_event(TacticalActionStep.MOVEMENT)
 AdvanceToSpaceCombatStepEvent = _make_advance_to_step_event(TacticalActionStep.SPACE_COMBAT)
 AdvanceToInvasionStepEvent = _make_advance_to_step_event(TacticalActionStep.INVASION)
+AdvanceToProductionStepEvent = _make_advance_to_step_event(TacticalActionStep.PRODUCTION)
 
 
 class TacticalActionInitiatedEvent(Event):
