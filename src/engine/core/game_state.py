@@ -1,13 +1,11 @@
-from hypothesis.strategies import data
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Self
 
-from src.engine.units.units import NotAShipError, Ship, Unit, NotAGroundForceError, GroundForce
-
 if TYPE_CHECKING:
     from src.engine.core.player import Player
     from src.engine.tokens import CommandToken
+    from src.engine.units.units import GroundForce, Ship, Unit
 
 
 class TacticalActionStep(StrEnum):
@@ -83,7 +81,7 @@ class TurnContext:
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
     pending_invasion_commits: frozenset[InvasionCommit] = field(
-        default_factory=frozenset[InvasionCommit]
+        default_factory=frozenset[InvasionCommit],
     )
 
 

@@ -1,4 +1,4 @@
-from ast import Add
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from src.engine.actions.tactical_action import (
@@ -10,12 +10,11 @@ from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
     GameState,
-    Window,
     InvasionCommit,
     TacticalActionStep,
+    Window,
 )
 from src.engine.core.windows import CloseWindowEvent, OpenWindowEvent
-from dataclasses import dataclass, replace
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -134,12 +133,13 @@ class AddInvasionCommitToPendingEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         invasion_set = previous_state.turn_context.pending_invasion_commits | {
-            InvasionCommit(ground_force_id=self.ground_force_id, to_planet_id=self.to_planet_id)
+            InvasionCommit(ground_force_id=self.ground_force_id, to_planet_id=self.to_planet_id),
         }
         return replace(
             previous_state,
             turn_context=replace(
-                previous_state.turn_context, pending_invasion_commits=invasion_set
+                previous_state.turn_context,
+                pending_invasion_commits=invasion_set,
             ),
         )
 
@@ -153,16 +153,29 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
         return {CommandType.COMMIT_GROUND_FORCE}
 
     def validate_legality(
-        self, state: GameState, command: CommitGroundForceCommand
+        self,
+        state: GameState,
+        command: CommitGroundForceCommand,
     ) -> ValidationResult:
+        if state.active_player != command.actor:
+            return ValidationResult(
+                is_valid=False,
+                info="Only active player can commit ground forces.",
+            )
+        if state.turn_context.tactical_action_step != TacticalActionStep.INVASION:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only commit ground forces during invasion step of tactical action.",
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: CommitGroundForceCommand) -> Sequence[Event]:
         del state
         return [
             AddInvasionCommitToPendingEvent(
-                ground_force_id=command.ground_force_id, to_planet_id=command.to_planet_id
-            )
+                ground_force_id=command.ground_force_id,
+                to_planet_id=command.to_planet_id,
+            ),
         ]
 
 
@@ -182,7 +195,7 @@ class ResolvePendingInvasionCommitsEvent(Event):
             new_state,
             units=frozenset(
                 {unit for unit in previous_state.units if unit.unit_id not in committed_unit_ids}
-                | committed_units
+                | committed_units,
             ),
             turn_context=replace(new_state.turn_context, pending_invasion_commits=frozenset()),
         )
