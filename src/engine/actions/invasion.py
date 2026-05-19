@@ -124,12 +124,12 @@ class CommitGroundForceCommand(Command):
 
 
 class AddInvasionCommitToPendingEvent(Event):
-    def __init__(self, ground_force_id: int, to_planet_id: int):
+    def __init__(self, ground_force_id: int, to_planet_id: int) -> None:
         self.ground_force_id: int = ground_force_id
         self.to_planet_id: int = to_planet_id
 
     def __repr__(self) -> str:
-        return f"AddInvasionCommitToPendingEvent:{self.ground_force_id}:{self.to_planet_id})"
+        return f"AddInvasionCommitToPendingEvent:{self.ground_force_id}:{self.to_planet_id}"
 
     def apply(self, previous_state: GameState) -> GameState:
         invasion_set = previous_state.turn_context.pending_invasion_commits | {
@@ -166,6 +166,11 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
             return ValidationResult(
                 is_valid=False,
                 info="Can only commit ground forces during invasion step of tactical action.",
+            )
+        if state.get_ground_force_from_id(command.ground_force_id).owner_name != command.actor.name:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only commit ground forces you control.",
             )
         return ValidationResult(is_valid=True)
 

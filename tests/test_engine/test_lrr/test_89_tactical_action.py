@@ -139,6 +139,13 @@ def begin_invasion(session: GameSession, state: GameState) -> GameState:
     return pass_space_cannon_window(session, end_movement(session, state))
 
 
+def pass_bombardment_window(session: GameSession, state: GameState) -> GameState:
+    assert state.active_system is not None
+    return session.apply_command(
+        command=action_command(state.active_player, CommandType.PASS_BOMBARDMENT),
+    )
+
+
 @pytest.mark.parametrize(
     "tokens, expected_success",
     [
@@ -929,7 +936,7 @@ def test_89_4_player_may_commit_ground_forces() -> None:
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
     ground_force = make_unit_with_id(
         unit_id=1,
-        owner_name="B",
+        owner_name="A",
         kind=GroundForceKind.INFANTRY,
         system_id=0,
     )
@@ -973,7 +980,7 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
         system_id=0,
     )
     ground_force_b = make_unit_with_id(
-        unit_id=1,
+        unit_id=2,
         owner_name="B",
         kind=GroundForceKind.INFANTRY,
         system_id=0,
@@ -984,8 +991,9 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
         units=frozenset({ship, ground_force_a, ground_force_b}),
     )
 
-    invaded_state = begin_invasion(session, session.current_state)
-    assert invaded_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
+    _ = begin_invasion(session, session.current_state)
+    commit_state = pass_bombardment_window(session, session.current_state)
+    assert commit_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
 
     for bad_command in (
         CommitGroundForceCommand(
@@ -998,6 +1006,12 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
             actor=session.current_state.get_player("B"),
             command_type=CommandType.COMMIT_GROUND_FORCE,
             ground_force_id=ground_force_a.unit_id,
+            to_planet_id=0,
+        ),
+        CommitGroundForceCommand(
+            actor=session.current_state.get_player("B"),
+            command_type=CommandType.COMMIT_GROUND_FORCE,
+            ground_force_id=ground_force_b.unit_id,
             to_planet_id=0,
         ),
     ):
