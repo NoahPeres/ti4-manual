@@ -34,7 +34,7 @@ def flush_ability_trackers(game_state: GameState) -> GameState:
 
 class CloseWindowEvent(Event):
     def __init__(self, window: Window) -> None:
-        self.window = window
+        self.window: Window = window
 
     def __repr__(self) -> str:
         return f"CloseWindowEvent:{self.window}"

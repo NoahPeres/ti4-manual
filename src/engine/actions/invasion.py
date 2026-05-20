@@ -15,6 +15,7 @@ from src.engine.core.game_state import (
     Window,
 )
 from src.engine.core.windows import CloseWindowEvent, OpenWindowEvent
+from src.engine.units.units import GroundForce
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -190,7 +191,7 @@ class ResolvePendingInvasionCommitsEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         new_state = previous_state
-        committed_units = set()
+        committed_units = set[GroundForce]()
         for commit in previous_state.turn_context.pending_invasion_commits:
             ground_force = new_state.get_ground_force_from_id(commit.ground_force_id)
             ground_force = ground_force.set_planet_id(commit.to_planet_id)

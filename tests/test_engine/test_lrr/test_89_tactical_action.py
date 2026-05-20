@@ -1,4 +1,5 @@
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import pytest
 from hypothesis import given
@@ -11,6 +12,7 @@ from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
+    Galaxy,
     GameState,
     HexCoord,
     Phase,
@@ -36,13 +38,16 @@ from tests.test_engine.test_lrr.common import (
     make_tactical_action_movement_state,
 )
 
+if TYPE_CHECKING:
+    from src.engine.core.player import Player
+
 
 def build_game_state(
-    players,
-    active_player=None,
-    galaxy=None,
-    turn_context=None,
-    units=None,
+    players: tuple[Player, ...],
+    active_player: Player | None = None,
+    galaxy: Galaxy | None = None,
+    turn_context: TurnContext | None = None,
+    units: frozenset[Unit] | None = None,
 ) -> GameState:
     active_player = active_player or players[0]
     galaxy = galaxy or frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())})
@@ -62,11 +67,11 @@ def build_game_state(
 
 
 def make_session(
-    players,
-    active_player=None,
-    galaxy=None,
-    turn_context=None,
-    units=None,
+    players: tuple[Player, ...],
+    active_player: Player | None = None,
+    galaxy: Galaxy | None = None,
+    turn_context: TurnContext | None = None,
+    units: frozenset[Unit] | None = None,
 ) -> GameSession:
     return GameSession(
         initial_state=build_game_state(
@@ -80,7 +85,7 @@ def make_session(
     )
 
 
-def activate_command(actor, system_id: int) -> ActivateCommand:
+def activate_command(actor: Player, system_id: int) -> ActivateCommand:
     return ActivateCommand(
         actor=actor,
         command_type=CommandType.INITIATE_TACTICAL_ACTION,
@@ -89,7 +94,7 @@ def activate_command(actor, system_id: int) -> ActivateCommand:
 
 
 def move_command(
-    actor,
+    actor: Player,
     ship_id: int,
     to_system_id: int,
     transported_unit_ids: frozenset[int] = frozenset(),
@@ -103,7 +108,7 @@ def move_command(
     )
 
 
-def action_command(actor, command_type: CommandType) -> Command:
+def action_command(actor: Player, command_type: CommandType) -> Command:
     return Command(actor=actor, command_type=command_type)
 
 
@@ -114,8 +119,8 @@ def end_movement(session: GameSession, state: GameState) -> GameState:
 
 
 def resolve_space_cannon(session: GameSession, state: GameState) -> GameState:
-    assert state.active_system is not None
     for player in state.players:
+        assert state.active_system is not None
         if state.player_may_resolve_space_cannon_in_system(
             player=player,
             system_id=state.active_system.id,
@@ -155,8 +160,9 @@ def pass_bombardment_window(session: GameSession, state: GameState) -> GameState
     ],
 )
 def test_89_1_active_player_must_activate_system_without_their_command_token(
-    tokens,
-    expected_success,
+    *,
+    tokens: tuple[CommandToken, ...],
+    expected_success: bool,
 ) -> None:
     player_a = make_player("A")
     player_b = make_player("B")

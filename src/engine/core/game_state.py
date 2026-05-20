@@ -58,11 +58,16 @@ class Ability(StrEnum):
     BOMBARDMENT = "bombardment"
 
 
+class Window(StrEnum):
+    AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
+    TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
+
+
 @dataclass(frozen=True)
 class PlayerAbilityTracker:
     player_name: str
     abilities_used: frozenset[Ability]
-    passed_windows: frozenset[Window] = field(default_factory=frozenset)
+    passed_windows: frozenset[Window] = field(default_factory=frozenset[Window])
 
     def use_ability(self, ability: Ability) -> PlayerAbilityTracker:
         return replace(self, abilities_used=frozenset(self.abilities_used | {ability}))
@@ -142,11 +147,6 @@ class WindowContext:
 
 
 Galaxy = frozenset[System]
-
-
-class Window(StrEnum):
-    AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
-    TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
 
 
 class ComponentNotFoundError(ValueError):
