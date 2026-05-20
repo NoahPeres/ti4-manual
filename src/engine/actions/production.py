@@ -1,3 +1,4 @@
+from src.engine.actions.movement import InvalidActiveSystemError
 from src.engine.core.command import CommandRule, Command, CommandType, ValidationResult
 from src.engine.core.game_state import GameState, TacticalActionStep
 from collections.abc import Sequence
@@ -25,6 +26,16 @@ class ResolveProductionCommandRule(CommandRule[Command]):
             return ValidationResult(
                 is_valid=False,
                 info="Cannot use production outside of production window.",
+            )
+        if state.active_system is None:
+            raise InvalidActiveSystemError
+        if not state.player_may_resolve_production_in_system(
+            player=state.active_player,
+            system_id=state.active_system.id,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="No valid targets for production in active system.",
             )
         if state.active_player != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can use production.")

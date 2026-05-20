@@ -59,6 +59,16 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Cannot use bombardment outside of bombardment window.",
             )
+        if state.active_system is None:
+            raise InvalidActiveSystemError
+        if not state.player_may_resolve_bombardment_in_system(
+            player=state.active_player,
+            system_id=state.active_system.id,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="No valid targets for bombardment in active system.",
+            )
         if state.active_player != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can use bombardment.")
         return ValidationResult(is_valid=True)
