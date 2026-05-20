@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
+    AdvanceToProductionStepEvent,
     InvalidActiveSystemError,
 )
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
@@ -230,6 +231,17 @@ class EndInvasionCommandRule(CommandRule[Command]):
         return [ResolvePendingInvasionCommitsEvent()]
 
 
+class AdvanceToProductionStepEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {ResolvePendingInvasionCommitsEvent}
+
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        # TODO: Space cannon defense, ground combat, etc.
+        del state, event
+        return [AdvanceToProductionStepEvent()]
+
+
 def get_command_rules() -> list[CommandRule[CommitGroundForceCommand]]:
     return [
         ResolveBombardmentCommandRule(),
@@ -240,4 +252,8 @@ def get_command_rules() -> list[CommandRule[CommitGroundForceCommand]]:
 
 
 def get_event_rules() -> list[EventRule]:
-    return [OpenBombardmentWindowEventRule(), CloseBombardmentWindowEventRule()]
+    return [
+        OpenBombardmentWindowEventRule(),
+        CloseBombardmentWindowEventRule(),
+        AdvanceToProductionStepEventRule(),
+    ]

@@ -25,6 +25,8 @@ class CommandType(enum.StrEnum):
     USE_BOMBARDMENT = "use_bombardment"
     PASS_BOMBARDMENT = "pass_bombardment"
     END_INVASION = "end_invasion"
+    USE_PRODUCTION = "use_production"
+    PASS_PRODUCTION = "pass_production"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:
