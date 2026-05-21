@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
+
 from src.engine.actions.movement import InvalidActiveSystemError
 from src.engine.actions.tactical_action import replace
-from src.engine.core.command import CommandRule, Command, CommandType, ValidationResult
-from src.engine.core.game_state import GameState, TacticalActionStep
-from collections.abc import Sequence
+from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
+from src.engine.core.game_state import GameState, TacticalActionStep
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class TacticalActionCompletedEvent(Event):

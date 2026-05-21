@@ -29,8 +29,6 @@ if TYPE_CHECKING:
     from src.engine.core.player import Player
     from src.engine.units.units import Ship, Unit
 
-    pass
-
 
 @dataclass(frozen=True)
 class MoveShipCommand(Command):

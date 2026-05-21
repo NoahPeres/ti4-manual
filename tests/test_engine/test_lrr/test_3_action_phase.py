@@ -83,10 +83,8 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     )
     new_player_a: Player = next(player for player in new_state.players if player.name == "A")
     assert new_player_a.has_passed
-    assert (
-        any(type(event) is OnEndTurnEvent for event in session.history[-1].events)
-        and len(session.history[-1].events) >= 0
-    )
+    assert any(type(event) is OnEndTurnEvent for event in session.history[-1].events)
+    assert len(session.history[-1].events) >= 0
     assert new_state.active_player == player_b
 
 
