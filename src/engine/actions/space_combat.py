@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from src.engine.actions.movement import OpenWindowEvent
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
@@ -7,10 +8,30 @@ from src.engine.actions.tactical_action import (
 )
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, TacticalActionStep
+from src.engine.core.game_state import (
+    GameState,
+    SpaceCombatContext,
+    SpaceCombatStep,
+    TacticalActionStep,
+    Window,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+
+class OpenStartOfSpaceCombatWindowEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {StartSpaceCombatEvent}
+
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del state, event
+        return [
+            OpenWindowEvent(window=Window.START_OF_SPACE_COMBAT),
+            OpenWindowEvent(window=Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT),
+            OpenWindowEvent(window=Window.START_OF_A_ROUND_OF_SPACE_COMBAT),
+        ]
 
 
 class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
@@ -27,7 +48,7 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
             <= 1
         ):
             return [AdvanceToInvasionStepEvent()]
-        return [ResolveSpaceCombatEvent()]
+        return [StartSpaceCombatEvent()]
 
 
 class EndSpaceCombatCommandRule(CommandRule[Command]):
@@ -53,13 +74,17 @@ class EndSpaceCombatCommandRule(CommandRule[Command]):
         return [AdvanceToInvasionStepEvent()]
 
 
-class ResolveSpaceCombatEvent(Event):
+class StartSpaceCombatEvent(Event):
     def __repr__(self) -> str:
-        return "ResolveSpaceCombatEvent"
+        return "StartSpaceCombatEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        # Placeholder implementation - replace with actual space combat resolution logic
-        return previous_state
+        return previous_state.set_space_combat_context(
+            space_combat_context=SpaceCombatContext(
+                step=SpaceCombatStep.ANTI_FIGHTER_BARRAGE,
+                round_number=1,
+            ),
+        )
 
 
 def get_command_rules() -> list[CommandRule[Command]]:
@@ -67,4 +92,4 @@ def get_command_rules() -> list[CommandRule[Command]]:
 
 
 def get_event_rules() -> list[EventRule]:
-    return [SkipSpaceCombatIfOnlyOnePlayerHasShips()]
+    return [OpenStartOfSpaceCombatWindowEventRule(), SkipSpaceCombatIfOnlyOnePlayerHasShips()]

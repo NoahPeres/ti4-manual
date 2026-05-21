@@ -1,6 +1,10 @@
-from src.engine.core.game_engine import GameEngine
+from src.engine.actions.movement import MoveShipCommand
+from src.engine.actions.tactical_action import ActivateCommand
+from src.engine.core.command import Command
+from src.engine.core.game_engine import CommandType, GameEngine
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
+    Galaxy,
     GameState,
     HexCoord,
     Phase,
@@ -24,12 +28,16 @@ def get_default_game_engine() -> GameEngine:
     return GameEngine(rules_engine=TI4RulesEngine(), invariants=make_all_invariants())
 
 
-def make_basic_session_from_players(players: tuple[Player, ...]) -> GameSession:
+def make_basic_session_from_players(
+    players: tuple[Player, ...],
+    initial_state: GameState | None = None,
+) -> GameSession:
     engine = get_default_game_engine()
     if len(players) == 0:
         raise InvalidPlayerCountError
     return GameSession(
-        initial_state=GameState(
+        initial_state=initial_state
+        or GameState(
             players=players,
             active_player=players[0],
             phase=Phase.ACTION,
@@ -110,4 +118,113 @@ def grant_all_units_unique_ids(units: frozenset[Unit]) -> frozenset[Unit]:
             system_id=unit.system_id,
         )
         for i, unit in enumerate(units)
+    )
+
+
+def build_game_state(
+    players: tuple[Player, ...],
+    active_player: Player | None = None,
+    galaxy: Galaxy | None = None,
+    turn_context: TurnContext | None = None,
+    units: frozenset[Unit] | None = None,
+) -> GameState:
+    active_player = active_player or players[0]
+    galaxy = galaxy or frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())})
+    turn_context = turn_context or TurnContext(
+        has_initiated_action=True,
+        tactical_action_step=TacticalActionStep.MOVEMENT,
+        active_system_id=0,
+    )
+    return GameState(
+        players=players,
+        active_player=active_player,
+        phase=Phase.ACTION,
+        galaxy=galaxy,
+        turn_context=turn_context,
+        units=units or frozenset(),
+    )
+
+
+def make_session(
+    players: tuple[Player, ...],
+    active_player: Player | None = None,
+    galaxy: Galaxy | None = None,
+    turn_context: TurnContext | None = None,
+    units: frozenset[Unit] | None = None,
+) -> GameSession:
+    return GameSession(
+        initial_state=build_game_state(
+            players=players,
+            active_player=active_player,
+            galaxy=galaxy,
+            turn_context=turn_context,
+            units=units,
+        ),
+        engine=get_default_game_engine(),
+    )
+
+
+def activate_command(actor: Player, system_id: int) -> ActivateCommand:
+    return ActivateCommand(
+        actor=actor,
+        command_type=CommandType.INITIATE_TACTICAL_ACTION,
+        system_id=system_id,
+    )
+
+
+def move_command(
+    actor: Player,
+    ship_id: int,
+    to_system_id: int,
+    transported_unit_ids: frozenset[int] = frozenset(),
+) -> MoveShipCommand:
+    return MoveShipCommand(
+        actor=actor,
+        command_type=CommandType.MOVE_SHIP,
+        ship_id=ship_id,
+        to_system_id=to_system_id,
+        transported_unit_ids=transported_unit_ids,
+    )
+
+
+def action_command(actor: Player, command_type: CommandType) -> Command:
+    return Command(actor=actor, command_type=command_type)
+
+
+def end_movement(session: GameSession, state: GameState) -> GameState:
+    return session.apply_command(
+        command=action_command(state.active_player, CommandType.END_MOVEMENT),
+    )
+
+
+def resolve_space_cannon(session: GameSession, state: GameState) -> GameState:
+    for player in state.players:
+        assert state.active_system is not None
+        if state.player_may_resolve_space_cannon_in_system(
+            player=player,
+            system_id=state.active_system.id,
+        ):
+            state = session.apply_command(
+                command=action_command(player, CommandType.USE_SPACE_CANNON),
+            )
+    return state
+
+
+def pass_space_cannon_window(session: GameSession, state: GameState) -> GameState:
+    assert state.active_system is not None
+    for player in state.players:
+        state = session.apply_command(
+            command=action_command(player, CommandType.PASS_SPACE_CANNON),
+        )
+    return state
+
+
+def begin_invasion(session: GameSession, state: GameState) -> GameState:
+    return pass_space_cannon_window(session, end_movement(session, state))
+
+
+def pass_bombardment_window(session: GameSession, state: GameState) -> GameState:
+    assert state.active_system is not None
+    return session.apply_command(
+        command=action_command(state.active_player, CommandType.PASS_BOMBARDMENT),
     )

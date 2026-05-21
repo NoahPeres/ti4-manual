@@ -16,6 +16,20 @@ class TacticalActionStep(StrEnum):
     PRODUCTION = "production"
 
 
+class SpaceCombatStep(StrEnum):
+    ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
+    ANNOUNCE_RETREATS = "announce_retreats"
+    ROLL_DICE = "roll_dice"
+    ASSIGN_HITS = "assign_hits"
+    RETREAT = "retreat"
+
+
+@dataclass(frozen=True)
+class SpaceCombatContext:
+    step: SpaceCombatStep
+    round_number: int
+
+
 class Phase(StrEnum):
     STRATEGY = "strategy"
     ACTION = "action"
@@ -61,6 +75,9 @@ class Ability(StrEnum):
 class Window(StrEnum):
     AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
     TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
+    START_OF_SPACE_COMBAT = "start_of_space_combat"
+    START_OF_FIRST_ROUND_OF_SPACE_COMBAT = "start_of_first_round_of_space_combat"
+    START_OF_A_ROUND_OF_SPACE_COMBAT = "start_of_a_round_of_space_combat"
 
 
 @dataclass(frozen=True)
@@ -83,6 +100,7 @@ class PlayerAbilityTracker:
 class TurnContext:
     has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
+    space_combat_context: SpaceCombatContext | None = None
     active_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
     pending_invasion_commits: frozenset[InvasionCommit] = field(
@@ -282,4 +300,10 @@ class GameState:
         return replace(
             self,
             window_context=replace(self.window_context, active_windows=()),
+        )
+
+    def set_space_combat_context(self, space_combat_context: SpaceCombatContext) -> Self:
+        return replace(
+            self,
+            turn_context=replace(self.turn_context, space_combat_context=space_combat_context),
         )

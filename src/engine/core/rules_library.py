@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Protocol, cast
 
-from src.engine.actions import invasion, movement, space_combat, tactical_action, production
+from src.engine.actions import invasion, movement, production, space_combat, tactical_action
 from src.engine.turns import end_turn, pass_action
 
 if TYPE_CHECKING:
