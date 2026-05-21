@@ -1023,3 +1023,57 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
     ):
         result = session.engine.apply_command(state=session.current_state, command=bad_command)
         assert not result.success
+
+
+def test_89_5_player_may_resolve_production_abilities() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    session = make_session(players=(player_a, player_b))
+    _ = begin_invasion(session, session.current_state)
+    _ = pass_bombardment_window(session, session.current_state)
+    premature_production = action_command(player_a, CommandType.USE_PRODUCTION)
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=premature_production,
+    ).success
+    invaded_state = session.apply_command(
+        command=action_command(session.current_state.get_player("A"), CommandType.END_INVASION),
+    )
+    assert invaded_state.turn_context.tactical_action_step == TacticalActionStep.PRODUCTION
+    legal_commands = [
+        Command(actor=player_a, command_type=CommandType.USE_PRODUCTION),
+        Command(actor=player_a, command_type=CommandType.PASS_PRODUCTION),
+    ]
+    illegal_commands = [
+        Command(actor=player_b, command_type=CommandType.USE_PRODUCTION),
+        Command(actor=player_b, command_type=CommandType.PASS_PRODUCTION),
+    ]
+    for legal_command in legal_commands:
+        result = session.engine.apply_command(state=session.current_state, command=legal_command)
+        assert result.success
+    for illegal_command in illegal_commands:
+        result = session.engine.apply_command(state=session.current_state, command=illegal_command)
+        assert not result.success
+
+
+def test_89_after_production_game_context_is_clear() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    session = make_session(players=(player_a, player_b))
+    _ = begin_invasion(session, session.current_state)
+    _ = pass_bombardment_window(session, session.current_state)
+    _ = session.apply_command(
+        command=action_command(session.current_state.get_player("A"), CommandType.END_INVASION),
+    )
+    end_production_state = session.apply_command(
+        command=action_command(session.current_state.get_player("A"), CommandType.PASS_PRODUCTION),
+    )
+    assert end_production_state.turn_context.tactical_action_step is None
+    assert session.engine.apply_command(
+        state=end_production_state,
+        command=Command(actor=player_a, command_type=CommandType.END_TURN),
+    ).success
+    assert not session.engine.apply_command(
+        state=end_production_state,
+        command=Command(actor=player_b, command_type=CommandType.END_TURN),
+    ).success

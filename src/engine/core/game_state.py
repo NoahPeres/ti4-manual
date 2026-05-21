@@ -253,6 +253,11 @@ class GameState:
             window=Window.TACTICAL_ACTION_BOMBARDMENT,
         )
 
+    def player_may_resolve_production_in_system(self, player: Player, system_id: int) -> bool:
+        # TODO: deferred - return to this when we properly implement PRODUCTION unit ability
+        del player, system_id
+        return True
+
     def player_has_resolved_ability_is_current_window(
         self,
         player: Player,
