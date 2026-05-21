@@ -24,11 +24,9 @@ from tests.test_engine.test_lrr.common import (
 if TYPE_CHECKING:
     from src.engine.core.event import Event
 
-    pass
-
 
 @pytest.mark.parametrize(
-    "units,expected_tactical_action_step",
+    ("units", "expected_tactical_action_step"),
     [
         (frozenset[Unit](), TacticalActionStep.INVASION),
         (

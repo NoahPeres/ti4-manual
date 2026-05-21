@@ -43,7 +43,7 @@ from tests.test_engine.test_lrr.common import (
 
 
 @pytest.mark.parametrize(
-    "tokens, expected_success",
+    ("tokens", "expected_success"),
     [
         ((), True),
         ((CommandToken(player_name="A"),), False),
