@@ -1026,7 +1026,7 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
 
 
 def test_89_5_player_may_resolve_production_abilities() -> None:
-    player_a = make_player("A", strategy_cards=(StrategyCard(name="PRODUCTION", initiative=1),))
+    player_a = make_player("A")
     player_b = make_player("B")
     session = make_session(players=(player_a, player_b))
     _ = begin_invasion(session, session.current_state)
