@@ -1,4 +1,5 @@
 from src.engine.actions.movement import InvalidActiveSystemError
+from src.engine.actions.tactical_action import replace
 from src.engine.core.command import CommandRule, Command, CommandType, ValidationResult
 from src.engine.core.game_state import GameState, TacticalActionStep
 from collections.abc import Sequence
@@ -7,7 +8,10 @@ from src.engine.core.event import Event, EventRule
 
 class TacticalActionCompletedEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state
+        return replace(
+            previous_state,
+            turn_context=replace(previous_state.turn_context, tactical_action_step=None),
+        )
 
     def __repr__(self) -> str:
         return "TacticalActionCompletedEvent"

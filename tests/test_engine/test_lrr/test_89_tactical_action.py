@@ -1054,3 +1054,26 @@ def test_89_5_player_may_resolve_production_abilities() -> None:
     for illegal_command in illegal_commands:
         result = session.engine.apply_command(state=session.current_state, command=illegal_command)
         assert not result.success
+
+
+def test_89_after_production_game_context_is_clear() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    session = make_session(players=(player_a, player_b))
+    _ = begin_invasion(session, session.current_state)
+    _ = pass_bombardment_window(session, session.current_state)
+    _ = session.apply_command(
+        command=action_command(session.current_state.get_player("A"), CommandType.END_INVASION),
+    )
+    end_production_state = session.apply_command(
+        command=action_command(session.current_state.get_player("A"), CommandType.PASS_PRODUCTION),
+    )
+    assert end_production_state.turn_context.tactical_action_step is None
+    assert session.engine.apply_command(
+        state=end_production_state,
+        command=Command(actor=player_a, command_type=CommandType.END_TURN),
+    ).success
+    assert not session.engine.apply_command(
+        state=end_production_state,
+        command=Command(actor=player_b, command_type=CommandType.END_TURN),
+    ).success
