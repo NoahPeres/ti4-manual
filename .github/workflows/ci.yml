@@ -22,7 +22,7 @@ jobs:
         run: pip install uv
 
       - name: Setup uv
-        run: uv venv
+        run: make venv
       
       - name: Install dependencies
         run: make install
