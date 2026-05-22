@@ -215,7 +215,19 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
         return {CommandType.USE_ANTI_FIGHTER_BARRAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        del command
+        if state.turn_context.space_combat_context is None:
+            return ValidationResult(
+                is_valid=False, info="Anti-fighter barrage only valid during space combat."
+            )
+        if (
+            state.turn_context.space_combat_context.step != SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+            or state.turn_context.space_combat_context.round_number > 1
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="AFB is only usable during AFB step of first round of combat.",
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:

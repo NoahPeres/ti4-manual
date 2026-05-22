@@ -1,5 +1,6 @@
 from dataclasses import replace
 from itertools import product
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -12,7 +13,6 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     Window,
 )
-from src.engine.core.game_session import GameSession
 from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
@@ -21,6 +21,9 @@ from tests.test_engine.test_lrr.common import (
     make_tactical_action_movement_state,
     pass_space_cannon_window,
 )
+
+if TYPE_CHECKING:
+    from src.engine.core.game_session import GameSession
 
 
 @pytest.mark.parametrize(
@@ -287,4 +290,21 @@ def test_78_3_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
         assert session.engine.apply_command(
             state=session.current_state,
             command=Command(actor=player, command_type=command_type),
+        ).success
+
+    second_round = replace(
+        session.current_state,
+        turn_context=replace(
+            session.current_state.turn_context,
+            space_combat_context=replace(
+                session.current_state.turn_context.space_combat_context,
+                round_number=2,
+            ),
+        ),
+    )
+
+    for player in (player_a, player_b):
+        assert not session.engine.apply_command(
+            state=second_round,
+            command=Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         ).success
