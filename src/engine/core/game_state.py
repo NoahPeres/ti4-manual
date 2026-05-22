@@ -334,7 +334,7 @@ class GameState:
             | {self.get_unit_from_id(unit_id=unit_id).set_system_id(None)},
         )
 
-    def assign_hit(self, unit_id: int) -> Self:
+    def resolve_assigned_hit(self, unit_id: int) -> Self:
         if self.turn_context.space_combat_context is None:
             raise ContextNotFoundError("space_combat")
         if unit_id not in self.turn_context.space_combat_context.assigned_hits:

@@ -103,7 +103,7 @@ class DestroyUnitEvent(Event):
         return f"DestroyUnitEvent(unit_id={self.unit_id})"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.assign_hit(unit_id=self.unit_id)
+        return previous_state.resolve_assigned_hit(unit_id=self.unit_id)
 
 
 class EndAssignHitsCommandRule(CommandRule[Command]):
