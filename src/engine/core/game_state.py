@@ -28,6 +28,7 @@ class SpaceCombatStep(StrEnum):
 class SpaceCombatContext:
     step: SpaceCombatStep
     round_number: int
+    assigned_hits: frozenset[int] = field(default_factory=frozenset[int])
 
 
 class Phase(StrEnum):
@@ -77,7 +78,9 @@ class Window(StrEnum):
     TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
     START_OF_SPACE_COMBAT = "start_of_space_combat"
     START_OF_FIRST_ROUND_OF_SPACE_COMBAT = "start_of_first_round_of_space_combat"
-    START_OF_A_ROUND_OF_SPACE_COMBAT = "start_of_a_round_of_space_combat"
+    START_OF_SPACE_COMBAT_ROUND = "start_of_space_combat_round"
+    END_OF_SPACE_COMBAT = "end_of_space_combat"
+    END_OF_SPACE_COMBAT_ROUND = "end_of_space_combat_round"
 
 
 @dataclass(frozen=True)
@@ -306,4 +309,16 @@ class GameState:
         return replace(
             self,
             turn_context=replace(self.turn_context, space_combat_context=space_combat_context),
+        )
+
+    def get_pending_assigned_hits(self) -> frozenset[int]:
+        if self.turn_context.space_combat_context is None:
+            return frozenset()
+        return self.turn_context.space_combat_context.assigned_hits
+
+    def destroy_unit(self, unit_id: int) -> Self:
+        return replace(
+            self,
+            units=frozenset(unit for unit in self.units if unit.unit_id != unit_id)
+            | {self.get_unit_from_id(unit_id=unit_id).set_system_id(None)},
         )

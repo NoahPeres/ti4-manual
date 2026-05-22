@@ -27,6 +27,10 @@ class CommandType(enum.StrEnum):
     END_INVASION = "end_invasion"
     USE_PRODUCTION = "use_production"
     PASS_PRODUCTION = "pass_production"
+    END_ASSIGN_HITS = "end_assign_hits"
+    USE_ANTI_FIGHTER_BARRAGE = "use_anti_fighter_barrage"
+    PASS_ANTI_FIGHTER_BARRAGE = "pass_anti_fighter_barrage"
+    PASS_START_OF_COMBAT_ROUND = "pass_start_of_combat_round"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:

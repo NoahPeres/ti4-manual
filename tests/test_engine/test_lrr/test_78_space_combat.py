@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING
+from dataclasses import replace
+from itertools import product
 
 import pytest
 
-from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
+from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
-    GameState,
     HexCoord,
     SpaceCombatStep,
     System,
@@ -20,9 +20,6 @@ from tests.test_engine.test_lrr.common import (
     make_tactical_action_movement_state,
     pass_space_cannon_window,
 )
-
-if TYPE_CHECKING:
-    from src.engine.core.event import Event
 
 
 @pytest.mark.parametrize(
@@ -99,32 +96,6 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
     assert session.current_state.turn_context.tactical_action_step == expected_tactical_action_step
 
 
-class AbilityAtStartOfSpaceCombat(CommandRule[Command]):
-    def __repr__(self) -> str:
-        return "AbilityAtStartOfSpaceCombat"
-
-    @staticmethod
-    def handles_command_types() -> set[CommandType]:
-        return {CommandType.ALWAYS_VALID}
-
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
-        return ValidationResult(is_valid=True)
-
-    def derive_events(self, state: GameState, command: Command) -> list[Event]:
-        del command
-        if state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT):
-            assert state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
-            assert state.window_context.is_window_active(
-                Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT,
-            )
-            assert state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT)
-            assert not state.window_context.is_window_active(
-                Window.START_OF_A_ROUND_OF_SPACE_COMBAT,
-            )
-        return []
-
-
 def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
     player_a = make_player(
         name="A",
@@ -165,19 +136,177 @@ def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
             ),
         ),
     )
-    session.engine.register_new_command_rule(AbilityAtStartOfSpaceCombat())
     session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
     )
     pass_space_cannon_window(session=session, state=session.current_state)
-    session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.ALWAYS_VALID),
-    )
-    session.apply_command_result(
-        CommandResult(new_state=session.current_state.close_all_windows(), success=True, events=[]),
-    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
     assert session.current_state.turn_context.space_combat_context is not None
     assert (
         session.current_state.turn_context.space_combat_context.step
         == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
     )
+
+
+def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_window() -> None:
+    player_a = make_player(
+        name="A",
+    )
+    player_b = make_player(
+        name="B",
+    )
+
+    session = make_basic_session_from_players(
+        players=(player_a, player_b),
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0,
+            units=frozenset(
+                {
+                    make_unit_with_id(
+                        unit_id=1,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                    make_unit_with_id(
+                        unit_id=2,
+                        owner_name="B",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                },
+            ),
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+    )
+    pass_space_cannon_window(session=session, state=session.current_state)
+    assert session.current_state.window_context.is_window_active(
+        Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT,
+    )
+    assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT)
+
+
+def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window() -> None:
+    player_a = make_player(
+        name="A",
+    )
+    player_b = make_player(
+        name="B",
+    )
+
+    session = make_basic_session_from_players(
+        players=(player_a, player_b),
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0,
+            units=frozenset(
+                {
+                    make_unit_with_id(
+                        unit_id=1,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                    make_unit_with_id(
+                        unit_id=2,
+                        owner_name="B",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                },
+            ),
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+    )
+    pass_space_cannon_window(session=session, state=session.current_state)
+    assert session.current_state.turn_context.space_combat_context is not None
+    assigned_hits = replace(
+        session.current_state.turn_context.space_combat_context,
+        assigned_hits={2},
+        step=SpaceCombatStep.ASSIGN_HITS,
+    )
+    session.apply_command_result(
+        CommandResult(
+            new_state=replace(
+                session.current_state.close_all_windows(),
+                turn_context=replace(
+                    session.current_state.turn_context,
+                    space_combat_context=assigned_hits,
+                ),
+            ),
+            success=True,
+            events=[],
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.END_ASSIGN_HITS),
+    )
+    assert len(session.current_state.get_ships_in_system(0)) == 1
+    assert session.current_state.window_context.is_window_active(
+        Window.END_OF_SPACE_COMBAT_ROUND,
+    )
+    assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
+
+
+def test_78_3_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
+    player_a = make_player(
+        name="A",
+    )
+    player_b = make_player(
+        name="B",
+    )
+
+    session = make_basic_session_from_players(
+        players=(player_a, player_b),
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0,
+            units=frozenset(
+                {
+                    make_unit_with_id(
+                        unit_id=1,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                    make_unit_with_id(
+                        unit_id=2,
+                        owner_name="B",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                },
+            ),
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+    )
+    pass_space_cannon_window(session=session, state=session.current_state)
+    assert (
+        session.current_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+    )
+    assert session.current_state.turn_context.space_combat_context is not None
+    assert session.current_state.turn_context.space_combat_context.round_number == 1
+    assert (
+        session.current_state.turn_context.space_combat_context.step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+
+    for player, command_type in product(
+        (player_a, player_b),
+        (CommandType.USE_ANTI_FIGHTER_BARRAGE, CommandType.PASS_ANTI_FIGHTER_BARRAGE),
+    ):
+        assert session.engine.apply_command(
+            state=session.current_state,
+            command=Command(actor=player, command_type=command_type),
+        ).success
