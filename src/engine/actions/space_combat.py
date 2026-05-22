@@ -9,12 +9,12 @@ from src.engine.actions.tactical_action import (
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
+    ContextNotFoundError,
     GameState,
     SpaceCombatContext,
     SpaceCombatStep,
     TacticalActionStep,
     Window,
-    ContextNotFoundError,
 )
 from src.engine.core.windows import CloseWindowEvent
 
@@ -217,7 +217,8 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
         del command
         if state.turn_context.space_combat_context is None:
             return ValidationResult(
-                is_valid=False, info="Anti-fighter barrage only valid during space combat."
+                is_valid=False,
+                info="Anti-fighter barrage only valid during space combat.",
             )
         if (
             state.turn_context.space_combat_context.step != SpaceCombatStep.ANTI_FIGHTER_BARRAGE
