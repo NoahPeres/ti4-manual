@@ -30,6 +30,12 @@ class SpaceCombatContext:
     round_number: int
     assigned_hits: frozenset[int] = field(default_factory=frozenset[int])
 
+    def resolve_assigned_hit(self, unit_id: int) -> Self:
+        return replace(
+            self,
+            assigned_hits=frozenset({x for x in self.assigned_hits if x != unit_id}),
+        )
+
 
 class Phase(StrEnum):
     STRATEGY = "strategy"
@@ -173,6 +179,11 @@ Galaxy = frozenset[System]
 class ComponentNotFoundError(ValueError):
     def __init__(self, component_name: str) -> None:
         super().__init__(f"Component not found: {component_name}")
+
+
+class ContextNotFoundError(ValueError):
+    def __init__(self, context_name: str) -> None:
+        super().__init__(f"Context not found: {context_name}")
 
 
 @dataclass(frozen=True)
@@ -322,3 +333,12 @@ class GameState:
             units=frozenset(unit for unit in self.units if unit.unit_id != unit_id)
             | {self.get_unit_from_id(unit_id=unit_id).set_system_id(None)},
         )
+
+    def assign_hit(self, unit_id: int) -> Self:
+        if self.turn_context.space_combat_context is None:
+            raise ContextNotFoundError("space_combat")
+        if unit_id not in self.turn_context.space_combat_context.assigned_hits:
+            raise ComponentNotFoundError(str(unit_id))
+        return self.set_space_combat_context(
+            self.turn_context.space_combat_context.resolve_assigned_hit(unit_id),
+        ).destroy_unit(unit_id)

@@ -14,6 +14,7 @@ from src.engine.core.game_state import (
     SpaceCombatStep,
     TacticalActionStep,
     Window,
+    ContextNotFoundError,
 )
 from src.engine.core.windows import CloseWindowEvent
 
@@ -99,7 +100,7 @@ class DestroyUnitEvent(Event):
         return f"DestroyUnitEvent(unit_id={self.unit_id})"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.destroy_unit(unit_id=self.unit_id)
+        return previous_state.assign_hit(unit_id=self.unit_id)
 
 
 class EndAssignHitsCommandRule(CommandRule[Command]):
@@ -127,12 +128,16 @@ class EndSpaceCombatEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
+        if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
+            return []
         if state.active_system is None:
             raise InvalidActiveSystemError
+        if state.turn_context.space_combat_context is None:
+            raise ContextNotFoundError("space_combat")
         if (
             len({ship.owner_name for ship in state.get_ships_in_system(state.active_system.id)})
             == 1
-        ):
+        ) and (len(state.turn_context.space_combat_context.assigned_hits) == 0):
             return [
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT_ROUND),
