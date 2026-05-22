@@ -2,7 +2,6 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from src.engine.actions.tactical_action import (
-    AdvanceToSpaceCombatStepEvent,
     InvalidActiveSystemError,
 )
 from src.engine.core.command import (
@@ -208,7 +207,7 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
             for player in state.players
         ):
             return [OpenWindowEvent(Window.AFTER_MOVE_SHIPS_STEP)]
-        return [AdvanceToSpaceCombatStepEvent()]
+        return [EndMovementStepEvent()]
 
 
 class CloseSpaceCannonOffenseWindowEventRule(EventRule):
@@ -229,6 +228,14 @@ class CloseSpaceCannonOffenseWindowEventRule(EventRule):
         return []
 
 
+class EndMovementStepEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state
+
+    def __repr__(self) -> str:
+        return "EndMovementStepEvent"
+
+
 class SpaceCombatAfterSpaceCannonOffenseEventRule(EventRule):
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
@@ -238,7 +245,7 @@ class SpaceCombatAfterSpaceCannonOffenseEventRule(EventRule):
         del state
         # isinstance check required to access event.window attribute
         if isinstance(event, CloseWindowEvent) and event.window == Window.AFTER_MOVE_SHIPS_STEP:
-            return [AdvanceToSpaceCombatStepEvent()]
+            return [EndMovementStepEvent()]
         return []
 
 
