@@ -23,6 +23,12 @@ if TYPE_CHECKING:
 
     from src.engine.core.player import Player
 
+START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
+    Window.START_OF_SPACE_COMBAT,
+    Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT,
+    Window.START_OF_SPACE_COMBAT_ROUND,
+]
+
 
 class StartSpaceCombatEvent(Event):
     def __repr__(self) -> str:
@@ -46,10 +52,7 @@ class OpenStartOfSpaceCombatWindowEventRule(EventRule):
         del event, state
         return [
             StartSpaceCombatEvent(),
-            OpenWindowEvent(window=Window.START_OF_SPACE_COMBAT),
-            OpenWindowEvent(window=Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT),
-            OpenWindowEvent(window=Window.START_OF_SPACE_COMBAT_ROUND),
-        ]
+        ] + [OpenWindowEvent(window=window) for window in START_OF_COMBAT_ROUND_WINDOWS]
 
 
 class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
@@ -172,11 +175,7 @@ class PassStartOfCombatWindowEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
         active_state = previous_state
         for window in previous_state.window_context.active_windows:
-            if window in (
-                Window.START_OF_SPACE_COMBAT,
-                Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT,
-                Window.START_OF_SPACE_COMBAT_ROUND,
-            ):
+            if window in START_OF_COMBAT_ROUND_WINDOWS:
                 active_state = active_state.pass_on_window_for_player(
                     player=self.player,
                     window=window,
@@ -201,12 +200,7 @@ class CloseStartOfSpaceCombatRoundWindowsEventRule(EventRule):
             return [
                 CloseWindowEvent(window=window)
                 for window in state.window_context.active_windows
-                if window
-                in (
-                    Window.START_OF_SPACE_COMBAT,
-                    Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT,
-                    Window.START_OF_SPACE_COMBAT_ROUND,
-                )
+                if window in START_OF_COMBAT_ROUND_WINDOWS
             ]
         return []
 
