@@ -139,7 +139,7 @@ class EndSpaceCombatEventRule(EventRule):
             raise ContextNotFoundError("space_combat")
         if (
             len({ship.owner_name for ship in state.get_ships_in_system(state.active_system.id)})
-            == 1
+            <= 1
         ) and (len(state.turn_context.space_combat_context.assigned_hits) == 0):
             return [
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
