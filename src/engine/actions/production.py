@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
 
-from src.engine.actions.movement import InvalidActiveSystemError
 from src.engine.actions.tactical_action import replace
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
@@ -35,11 +34,9 @@ class ResolveProductionCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Cannot use production outside of production window.",
             )
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         if not state.player_may_resolve_production_in_system(
             player=state.active_player,
-            system_id=state.active_system.id,
+            system_id=state.get_active_system().id,
         ):
             return ValidationResult(
                 is_valid=False,

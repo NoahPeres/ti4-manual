@@ -4,7 +4,6 @@ from src.engine.actions.movement import EndMovementStepEvent, OpenWindowEvent
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
-    InvalidActiveSystemError,
 )
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
@@ -62,10 +61,13 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         if (
-            len({unit.owner_name for unit in state.get_ships_in_system(state.active_system.id)})
+            len(
+                {
+                    unit.owner_name
+                    for unit in state.get_ships_in_system(state.get_active_system().id)
+                },
+            )
             <= 1
         ):
             return [AdvanceToInvasionStepEvent()]
@@ -133,14 +135,15 @@ class EndSpaceCombatEventRule(EventRule):
         del event
         if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
             return []
-        if state.active_system is None:
-            raise InvalidActiveSystemError
-        if state.turn_context.space_combat_context is None:
-            raise ContextNotFoundError("space_combat")
         if (
-            len({ship.owner_name for ship in state.get_ships_in_system(state.active_system.id)})
+            len(
+                {
+                    ship.owner_name
+                    for ship in state.get_ships_in_system(state.get_active_system().id)
+                },
+            )
             <= 1
-        ) and (len(state.turn_context.space_combat_context.assigned_hits) == 0):
+        ) and (len(state.turn_context.get_space_combat_context().assigned_hits) == 0):
             return [
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT_ROUND),

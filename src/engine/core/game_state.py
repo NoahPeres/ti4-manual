@@ -116,6 +116,11 @@ class TurnContext:
         default_factory=frozenset[InvasionCommit],
     )
 
+    def get_space_combat_context(self) -> SpaceCombatContext:
+        if self.space_combat_context is None:
+            raise ContextNotFoundError("space_combat")
+        return self.space_combat_context
+
 
 class IllegalWindowOperationError(RuntimeError):
     def __init__(self, operation: str) -> None:
@@ -186,6 +191,11 @@ class ContextNotFoundError(ValueError):
         super().__init__(f"Context not found: {context_name}")
 
 
+class InvalidActiveSystemError(ValueError):
+    def __init__(self, message: str = "Active system not found") -> None:
+        super().__init__(message)
+
+
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
@@ -220,6 +230,11 @@ class GameState:
         if self.turn_context.active_system_id is None:
             return None
         return self.get_system(system_id=self.turn_context.active_system_id)
+
+    def get_active_system(self) -> System:
+        if self.active_system is None:
+            raise InvalidActiveSystemError
+        return self.active_system
 
     def get_system(self, system_id: int) -> System:
         try:

@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToProductionStepEvent,
-    InvalidActiveSystemError,
 )
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
     GameState,
+    InvalidActiveSystemError,
     InvasionCommit,
     TacticalActionStep,
     Window,
@@ -59,11 +59,9 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Cannot use bombardment outside of bombardment window.",
             )
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         if not state.player_may_resolve_bombardment_in_system(
             player=state.active_player,
-            system_id=state.active_system.id,
+            system_id=state.get_active_system().id,
         ):
             return ValidationResult(
                 is_valid=False,
@@ -119,11 +117,9 @@ class CloseBombardmentWindowEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         if not state.player_may_resolve_bombardment_in_system(
             player=state.active_player,
-            system_id=state.active_system.id,
+            system_id=state.get_active_system().id,
         ):
             return [CloseWindowEvent(window=Window.TACTICAL_ACTION_BOMBARDMENT)]
         return []
