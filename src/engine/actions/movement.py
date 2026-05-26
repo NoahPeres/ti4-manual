@@ -137,7 +137,7 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info=f"{command.actor.name} has already passed on space cannon.",
             )
-        if state.player_has_resolved_ability_is_current_window(command.actor, Ability.SPACE_CANNON):
+        if state.player_has_resolved_ability_in_current_window(command.actor, Ability.SPACE_CANNON):
             return ValidationResult(
                 is_valid=False,
                 info=f"{command.actor.name} has already used space cannon.",

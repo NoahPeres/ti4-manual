@@ -28,6 +28,8 @@ class SpaceCombatStep(StrEnum):
 class SpaceCombatContext:
     step: SpaceCombatStep
     round_number: int
+    attacker: Player
+    defender: Player
     assigned_hits: frozenset[int] = field(default_factory=frozenset[int])
 
     def resolve_assigned_hit(self, unit_id: int) -> Self:
@@ -77,6 +79,7 @@ class InvasionCommit:
 class Ability(StrEnum):
     SPACE_CANNON = "space_cannon"
     BOMBARDMENT = "bombardment"
+    ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
 
 
 class Window(StrEnum):
@@ -87,6 +90,7 @@ class Window(StrEnum):
     START_OF_SPACE_COMBAT_ROUND = "start_of_space_combat_round"
     END_OF_SPACE_COMBAT = "end_of_space_combat"
     END_OF_SPACE_COMBAT_ROUND = "end_of_space_combat_round"
+    ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
 
 
 @dataclass(frozen=True)
@@ -196,6 +200,11 @@ class InvalidActiveSystemError(ValueError):
         super().__init__(message)
 
 
+class CannotInferDefenderError(ValueError):
+    def __init__(self, number_of_eligible_players: int) -> None:
+        super().__init__(f"Number of eligible players={number_of_eligible_players}")
+
+
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
@@ -281,7 +290,7 @@ class GameState:
     def player_may_resolve_space_cannon_in_system(self, player: Player, system_id: int) -> bool:
         # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
         del system_id
-        return not self.player_has_resolved_ability_is_current_window(
+        return not self.player_has_resolved_ability_in_current_window(
             player=player,
             ability=Ability.SPACE_CANNON,
         ) and not self.window_context.player_has_passed_on_window(
@@ -292,7 +301,7 @@ class GameState:
     def player_may_resolve_bombardment_in_system(self, player: Player, system_id: int) -> bool:
         # TODO: deferred - return to this when we properly implement BOMBARDMENT unit ability
         del system_id
-        return not self.player_has_resolved_ability_is_current_window(
+        return not self.player_has_resolved_ability_in_current_window(
             player=player,
             ability=Ability.BOMBARDMENT,
         ) and not self.window_context.player_has_passed_on_window(
@@ -305,7 +314,7 @@ class GameState:
         del player, system_id
         return True
 
-    def player_has_resolved_ability_is_current_window(
+    def player_has_resolved_ability_in_current_window(
         self,
         player: Player,
         ability: Ability,
@@ -357,3 +366,24 @@ class GameState:
         return self.set_space_combat_context(
             self.turn_context.space_combat_context.resolve_assigned_hit(unit_id),
         ).destroy_unit(unit_id)
+
+    def player_may_resolve_afb_in_system(self, player: Player, system_id: int) -> bool:
+        # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
+        del system_id
+        return not self.player_has_resolved_ability_in_current_window(
+            player=player,
+            ability=Ability.ANTI_FIGHTER_BARRAGE,
+        ) and not self.window_context.player_has_passed_on_window(
+            player=player,
+            window=Window.ANTI_FIGHTER_BARRAGE,
+        )
+
+    def get_defender_in_system(self, system_id: int) -> Player:
+        units = self.get_ships_in_system(system_id)
+        non_active_players = {
+            ship.owner_name for ship in units if ship.owner_name != self.active_player.name
+        }
+        num_eligible_players = len(non_active_players)
+        if num_eligible_players != 1:
+            raise CannotInferDefenderError(num_eligible_players)
+        return self.get_player(non_active_players.pop())

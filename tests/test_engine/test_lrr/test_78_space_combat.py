@@ -185,6 +185,7 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
                     ),
                 },
             ),
+            player_names=["A", "B"],
         ),
     )
     session.apply_command(
