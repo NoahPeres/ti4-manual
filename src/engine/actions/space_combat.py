@@ -4,12 +4,11 @@ from src.engine.actions.movement import EndMovementStepEvent, OpenWindowEvent
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
-    InvalidActiveSystemError,
 )
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
-    ContextNotFoundError,
+    Ability,
     GameState,
     SpaceCombatContext,
     SpaceCombatStep,
@@ -17,6 +16,7 @@ from src.engine.core.game_state import (
     Window,
 )
 from src.engine.core.windows import CloseWindowEvent
+from dataclasses import replace
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -39,6 +39,10 @@ class StartSpaceCombatEvent(Event):
             space_combat_context=SpaceCombatContext(
                 step=SpaceCombatStep.ANTI_FIGHTER_BARRAGE,
                 round_number=1,
+                attacker=previous_state.active_player,
+                defender=previous_state.get_defender_in_system(
+                    system_id=previous_state.get_active_system().id,
+                ),
             ),
         )
 
@@ -62,10 +66,13 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         if (
-            len({unit.owner_name for unit in state.get_ships_in_system(state.active_system.id)})
+            len(
+                {
+                    unit.owner_name
+                    for unit in state.get_ships_in_system(state.get_active_system().id)
+                },
+            )
             <= 1
         ):
             return [AdvanceToInvasionStepEvent()]
@@ -127,20 +134,21 @@ class EndAssignHitsCommandRule(CommandRule[Command]):
 class EndSpaceCombatEventRule(EventRule):
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent}
+        return {DestroyUnitEvent, EndAntiFighterBarrageStepEvent}
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
             return []
-        if state.active_system is None:
-            raise InvalidActiveSystemError
-        if state.turn_context.space_combat_context is None:
-            raise ContextNotFoundError("space_combat")
         if (
-            len({ship.owner_name for ship in state.get_ships_in_system(state.active_system.id)})
+            len(
+                {
+                    ship.owner_name
+                    for ship in state.get_ships_in_system(state.get_active_system().id)
+                },
+            )
             <= 1
-        ) and (len(state.turn_context.space_combat_context.assigned_hits) == 0):
+        ) and (len(state.turn_context.get_space_combat_context().assigned_hits) == 0):
             return [
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT_ROUND),
@@ -201,8 +209,36 @@ class CloseStartOfSpaceCombatRoundWindowsEventRule(EventRule):
                 CloseWindowEvent(window=window)
                 for window in state.window_context.active_windows
                 if window in START_OF_COMBAT_ROUND_WINDOWS
-            ]
+            ] + [OpenWindowEvent(window=Window.ANTI_FIGHTER_BARRAGE)]
         return []
+
+
+class ResolveAntiFighterBarrageEvent(Event):
+    def __init__(self, player: Player) -> None:
+        self.player = player
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.use_ability_for_player(
+            player=self.player,
+            ability=Ability.ANTI_FIGHTER_BARRAGE,
+        )
+
+    def __repr__(self) -> str:
+        return f"ResolveAntiFighterBarrageEvent:{self.player}"
+
+
+class PassAntiFighterBarrageEvent(Event):
+    def __init__(self, player: Player) -> None:
+        self.player = player
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.pass_on_window_for_player(
+            player=self.player,
+            window=Window.ANTI_FIGHTER_BARRAGE,
+        )
+
+    def __repr__(self) -> str:
+        return f"PassAntiFighterBarrageEvent:{self.player}"
 
 
 class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
@@ -214,7 +250,6 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
         return {CommandType.USE_ANTI_FIGHTER_BARRAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del command
         if state.turn_context.space_combat_context is None:
             return ValidationResult(
                 is_valid=False,
@@ -228,11 +263,19 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="AFB is only usable during AFB step of first round of combat.",
             )
+        if not state.player_may_resolve_afb_in_system(
+            player=command.actor,
+            system_id=state.get_active_system().id,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="Player has no eligible units with ANTI-FIGHTER BARRAGE in the system.",
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
-        return []
+        del state
+        return [ResolveAntiFighterBarrageEvent(player=command.actor)]
 
 
 class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
@@ -248,7 +291,41 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+        del state
+        return [PassAntiFighterBarrageEvent(player=command.actor)]
+
+
+class EndAntiFighterBarrageStepEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            replace(
+                previous_state.turn_context.get_space_combat_context(),
+                step=SpaceCombatStep.ANNOUNCE_RETREATS,
+            )
+        )
+
+    def __repr__(self) -> str:
+        return "EndAntiFighterBarrageStepEvent"
+
+
+class CloseAntiFighterBarrageWindowEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {ResolveAntiFighterBarrageEvent, PassAntiFighterBarrageEvent}
+
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        if all(
+            not state.player_may_resolve_afb_in_system(
+                player=player,
+                system_id=state.get_active_system().id,
+            )
+            for player in [
+                state.turn_context.get_space_combat_context().attacker,
+                state.turn_context.get_space_combat_context().defender,
+            ]
+        ):
+            return [CloseWindowEvent(Window.ANTI_FIGHTER_BARRAGE), EndAntiFighterBarrageStepEvent()]
         return []
 
 
@@ -268,4 +345,5 @@ def get_event_rules() -> list[EventRule]:
         SkipSpaceCombatIfOnlyOnePlayerHasShips(),
         EndSpaceCombatEventRule(),
         CloseStartOfSpaceCombatRoundWindowsEventRule(),
+        CloseAntiFighterBarrageWindowEventRule(),
     ]

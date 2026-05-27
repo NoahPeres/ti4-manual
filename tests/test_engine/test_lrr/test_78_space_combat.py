@@ -5,8 +5,10 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.engine.core.command import Command, CommandType
+from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
+    GameState,
     HexCoord,
     SpaceCombatStep,
     System,
@@ -183,6 +185,7 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
                     ),
                 },
             ),
+            player_names=["A", "B"],
         ),
     )
     session.apply_command(
@@ -233,6 +236,60 @@ def make_start_of_space_combat_state() -> GameSession:
     return session
 
 
+class DestroyPlayersShipsInActiveSystem(Event):
+    def __init__(self, player_names: list[str]) -> None:
+        self.player_names = player_names
+        super().__init__()
+
+    def apply(self, previous_state: GameState) -> GameState:
+        new_state = previous_state
+        for ship in previous_state.get_ships_in_system(
+            system_id=previous_state.get_active_system().id,
+        ):
+            if ship.owner_name in self.player_names:
+                new_state = new_state.destroy_unit(unit_id=ship.unit_id)
+        return new_state
+
+    def __repr__(self) -> str:
+        return f"DestroyAllUnits:{self.player_names}"
+
+
+@pytest.mark.parametrize(
+    "destroy_event",
+    [
+        DestroyPlayersShipsInActiveSystem(player_names=["A"]),
+        DestroyPlayersShipsInActiveSystem(player_names=["B"]),
+        DestroyPlayersShipsInActiveSystem(player_names=["A", "B"]),
+    ],
+)
+def test_78_3_a_space_combat_ends_if_one_or_both_players_have_no_ships_after_afb(
+    destroy_event: DestroyPlayersShipsInActiveSystem,
+) -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    session.apply_command_result(
+        CommandResult(
+            new_state=destroy_event.apply(session.current_state),
+            success=True,
+            events=[destroy_event],
+        ),
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        )
+    assert session.current_state.window_context.is_window_active(window=Window.END_OF_SPACE_COMBAT)
+
+
 def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window() -> None:
     session = make_start_of_space_combat_state()
     player_a = session.current_state.get_player("A")
@@ -265,7 +322,7 @@ def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window()
     assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
 
 
-def test_78_3_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
+def test_78_3_b_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
     session = make_start_of_space_combat_state()
     player_a = session.current_state.get_player("A")
     player_b = session.current_state.get_player("B")
@@ -308,3 +365,70 @@ def test_78_3_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
             state=second_round,
             command=Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         ).success
+
+
+def test_78_3_c_afb_still_occurs_when_no_fighters_present() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    assert all(
+        unit.kind != ShipKind.FIGHTER
+        for unit in session.current_state.get_units_in_system(
+            session.current_state.get_active_system().id,
+        )
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+    ).success
+
+
+def test_78_3_only_use_afb_once() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    _ = session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+    ).success
+
+
+def test_78_3_advance_to_announce_retreats_step() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )

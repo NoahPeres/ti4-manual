@@ -1,9 +1,6 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from src.engine.actions.tactical_action import (
-    InvalidActiveSystemError,
-)
 from src.engine.core.command import (
     Command,
     CommandRule,
@@ -107,10 +104,11 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         return [
-            ResolveSpaceCannonOffenseEvent(player=command.actor, active_system=state.active_system),
+            ResolveSpaceCannonOffenseEvent(
+                player=command.actor,
+                active_system=state.get_active_system(),
+            ),
         ]
 
 
@@ -139,7 +137,7 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info=f"{command.actor.name} has already passed on space cannon.",
             )
-        if state.player_has_resolved_ability_is_current_window(command.actor, Ability.SPACE_CANNON):
+        if state.player_has_resolved_ability_in_current_window(command.actor, Ability.SPACE_CANNON):
             return ValidationResult(
                 is_valid=False,
                 info=f"{command.actor.name} has already used space cannon.",
@@ -197,12 +195,10 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        if state.active_system is None:
-            raise InvalidActiveSystemError
         if any(
             state.player_may_resolve_space_cannon_in_system(
                 player,
-                system_id=state.active_system.id,
+                system_id=state.get_active_system().id,
             )
             for player in state.players
         ):
@@ -266,9 +262,7 @@ class AddMoveToPendingEvent(Event):
         )
 
     def apply(self, previous_state: GameState) -> GameState:
-        active_system = previous_state.active_system
-        if active_system is None:
-            raise InvalidActiveSystemError
+        active_system = previous_state.get_active_system()
         move_set = previous_state.turn_context.pending_moves | {
             Move(
                 ship_id=self.ship_id,

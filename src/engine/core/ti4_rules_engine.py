@@ -16,6 +16,10 @@ _ALLOWED_COMMANDS_BY_WINDOW: dict[Window, tuple[CommandType, ...]] = {
     Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT: (CommandType.PASS_START_OF_COMBAT_ROUND,),
     Window.START_OF_SPACE_COMBAT: (CommandType.PASS_START_OF_COMBAT_ROUND,),
     Window.START_OF_SPACE_COMBAT_ROUND: (CommandType.PASS_START_OF_COMBAT_ROUND,),
+    Window.ANTI_FIGHTER_BARRAGE: (
+        CommandType.USE_ANTI_FIGHTER_BARRAGE,
+        CommandType.PASS_ANTI_FIGHTER_BARRAGE,
+    ),
 }
 
 
