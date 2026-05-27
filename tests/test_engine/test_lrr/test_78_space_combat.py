@@ -320,11 +320,11 @@ class DestroyPlayersShipsInActiveSystem(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         new_state = previous_state
-        for unit in previous_state.get_units_in_system(
+        for ship in previous_state.get_ships_in_system(
             system_id=previous_state.get_active_system().id,
         ):
-            if unit.owner_name in self.player_names:
-                new_state = new_state.destroy_unit(unit_id=unit.unit_id)
+            if ship.owner_name in self.player_names:
+                new_state = new_state.destroy_unit(unit_id=ship.unit_id)
         return new_state
 
     def __repr__(self) -> str:

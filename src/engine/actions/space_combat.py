@@ -302,10 +302,10 @@ class CloseAntiFighterBarrageWindowEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        if (state.active_system is None) or all(
+        if all(
             not state.player_may_resolve_afb_in_system(
                 player=player,
-                system_id=state.active_system.id,
+                system_id=state.get_active_system().id,
             )
             for player in [
                 state.turn_context.get_space_combat_context().attacker,
