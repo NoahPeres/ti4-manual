@@ -236,83 +236,6 @@ def make_start_of_space_combat_state() -> GameSession:
     return session
 
 
-def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window() -> None:
-    session = make_start_of_space_combat_state()
-    player_a = session.current_state.get_player("A")
-    assert session.current_state.turn_context.space_combat_context is not None
-    assigned_hits = replace(
-        session.current_state.turn_context.space_combat_context,
-        assigned_hits=frozenset({2}),
-        step=SpaceCombatStep.ASSIGN_HITS,
-    )
-    session.apply_command_result(
-        CommandResult(
-            new_state=replace(
-                session.current_state.close_all_windows(),
-                turn_context=replace(
-                    session.current_state.turn_context,
-                    space_combat_context=assigned_hits,
-                ),
-            ),
-            success=True,
-            events=[],
-        ),
-    )
-    session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.END_ASSIGN_HITS),
-    )
-    assert len(session.current_state.get_ships_in_system(0)) == 1
-    assert session.current_state.window_context.is_window_active(
-        Window.END_OF_SPACE_COMBAT_ROUND,
-    )
-    assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
-
-
-def test_78_3_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
-    session = make_start_of_space_combat_state()
-    player_a = session.current_state.get_player("A")
-    player_b = session.current_state.get_player("B")
-    assert (
-        session.current_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
-    )
-    assert session.current_state.turn_context.space_combat_context is not None
-    assert session.current_state.turn_context.space_combat_context.round_number == 1
-    assert (
-        session.current_state.turn_context.space_combat_context.step
-        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
-    )
-    for player in (player_a, player_b):
-        session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
-        )
-
-    for player, command_type in product(
-        (player_a, player_b),
-        (CommandType.USE_ANTI_FIGHTER_BARRAGE, CommandType.PASS_ANTI_FIGHTER_BARRAGE),
-    ):
-        assert session.engine.apply_command(
-            state=session.current_state,
-            command=Command(actor=player, command_type=command_type),
-        ).success
-
-    second_round = replace(
-        session.current_state,
-        turn_context=replace(
-            session.current_state.turn_context,
-            space_combat_context=replace(
-                session.current_state.turn_context.space_combat_context,
-                round_number=2,
-            ),
-        ),
-    )
-
-    for player in (player_a, player_b):
-        assert not session.engine.apply_command(
-            state=second_round,
-            command=Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
-        ).success
-
-
 class DestroyPlayersShipsInActiveSystem(Event):
     def __init__(self, player_names: list[str]) -> None:
         self.player_names = player_names
@@ -365,3 +288,147 @@ def test_78_3_a_space_combat_ends_if_one_or_both_players_have_no_ships_after_afb
             Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         )
     assert session.current_state.window_context.is_window_active(window=Window.END_OF_SPACE_COMBAT)
+
+
+def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    assert session.current_state.turn_context.space_combat_context is not None
+    assigned_hits = replace(
+        session.current_state.turn_context.space_combat_context,
+        assigned_hits=frozenset({2}),
+        step=SpaceCombatStep.ASSIGN_HITS,
+    )
+    session.apply_command_result(
+        CommandResult(
+            new_state=replace(
+                session.current_state.close_all_windows(),
+                turn_context=replace(
+                    session.current_state.turn_context,
+                    space_combat_context=assigned_hits,
+                ),
+            ),
+            success=True,
+            events=[],
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.END_ASSIGN_HITS),
+    )
+    assert len(session.current_state.get_ships_in_system(0)) == 1
+    assert session.current_state.window_context.is_window_active(
+        Window.END_OF_SPACE_COMBAT_ROUND,
+    )
+    assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
+
+
+def test_78_3_b_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    assert (
+        session.current_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+    )
+    assert session.current_state.turn_context.space_combat_context is not None
+    assert session.current_state.turn_context.space_combat_context.round_number == 1
+    assert (
+        session.current_state.turn_context.space_combat_context.step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+
+    for player, command_type in product(
+        (player_a, player_b),
+        (CommandType.USE_ANTI_FIGHTER_BARRAGE, CommandType.PASS_ANTI_FIGHTER_BARRAGE),
+    ):
+        assert session.engine.apply_command(
+            state=session.current_state,
+            command=Command(actor=player, command_type=command_type),
+        ).success
+
+    second_round = replace(
+        session.current_state,
+        turn_context=replace(
+            session.current_state.turn_context,
+            space_combat_context=replace(
+                session.current_state.turn_context.space_combat_context,
+                round_number=2,
+            ),
+        ),
+    )
+
+    for player in (player_a, player_b):
+        assert not session.engine.apply_command(
+            state=second_round,
+            command=Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        ).success
+
+
+def test_78_3_c_afb_still_occurs_when_no_fighters_present() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    assert all(
+        unit.kind != ShipKind.FIGHTER
+        for unit in session.current_state.get_units_in_system(
+            session.current_state.get_active_system().id,
+        )
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+    ).success
+
+
+def test_78_3_only_use_afb_once() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    _ = session.apply_command(
+        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+    ).success
+
+
+def test_78_3_advance_to_announce_retreats_step() -> None:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    for player in (player_a, player_b):
+        session.apply_command(
+            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )

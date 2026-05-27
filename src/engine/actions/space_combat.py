@@ -16,6 +16,7 @@ from src.engine.core.game_state import (
     Window,
 )
 from src.engine.core.windows import CloseWindowEvent
+from dataclasses import replace
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -249,7 +250,6 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
         return {CommandType.USE_ANTI_FIGHTER_BARRAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del command
         if state.turn_context.space_combat_context is None:
             return ValidationResult(
                 is_valid=False,
@@ -262,6 +262,14 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
             return ValidationResult(
                 is_valid=False,
                 info="AFB is only usable during AFB step of first round of combat.",
+            )
+        if not state.player_may_resolve_afb_in_system(
+            player=command.actor,
+            system_id=state.get_active_system().id,
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="Player has no eligible units with ANTI-FIGHTER BARRAGE in the system.",
             )
         return ValidationResult(is_valid=True)
 
@@ -289,7 +297,12 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
 
 class EndAntiFighterBarrageStepEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state
+        return previous_state.set_space_combat_context(
+            replace(
+                previous_state.turn_context.get_space_combat_context(),
+                step=SpaceCombatStep.ANNOUNCE_RETREATS,
+            )
+        )
 
     def __repr__(self) -> str:
         return "EndAntiFighterBarrageStepEvent"
