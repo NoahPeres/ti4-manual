@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING
+from dataclasses import replace
+from typing import TYPE_CHECKING, Callable, Final
 
 from src.engine.actions.movement import EndMovementStepEvent, OpenWindowEvent
 from src.engine.actions.tactical_action import (
@@ -15,13 +16,12 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     Window,
 )
+from src.engine.core.player import Player
 from src.engine.core.windows import CloseWindowEvent
-from dataclasses import replace
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from src.engine.core.player import Player
 
 START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
     Window.START_OF_SPACE_COMBAT,
@@ -301,7 +301,7 @@ class EndAntiFighterBarrageStepEvent(Event):
             replace(
                 previous_state.turn_context.get_space_combat_context(),
                 step=SpaceCombatStep.ANNOUNCE_RETREATS,
-            )
+            ),
         )
 
     def __repr__(self) -> str:
@@ -329,6 +329,82 @@ class CloseAntiFighterBarrageWindowEventRule(EventRule):
         return []
 
 
+class AnnounceRetreatEvent(Event):
+    def __init__(self, player: Player) -> None:
+        self.player = player
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            previous_state.turn_context.get_space_combat_context().announce_retreat(
+                player=self.player,
+                is_retreating=True,
+            ),
+        )
+
+    def __repr__(self) -> str:
+        return "AnnounceRetreatEvent"
+
+
+class PassAnnounceRetreatEvent(Event):
+    def __init__(self, player: Player) -> None:
+        self.player = player
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            previous_state.turn_context.get_space_combat_context().announce_retreat(
+                player=self.player,
+                is_retreating=False,
+            ),
+        )
+
+    def __repr__(self) -> str:
+        return "PassAnnounceRetreatEvent"
+
+
+EventFactoryByPlayer = Callable[[Player], Event]
+
+
+class AnnounceRetreatCommandRule(CommandRule[Command]):
+    _COMMAND_TO_EVENT_FACTORY: Final[dict[CommandType, EventFactoryByPlayer]] = {
+        CommandType.ANNOUNCE_RETREAT: AnnounceRetreatEvent,
+        CommandType.PASS_ANNOUNCE_RETREAT: PassAnnounceRetreatEvent,
+    }
+
+    @classmethod
+    def _make_event_from_command(cls, command_type: CommandType, player: Player) -> Event:
+        return cls._COMMAND_TO_EVENT_FACTORY[command_type](player)
+
+    def __repr__(self) -> str:
+        return "AnnounceRetreatCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.ANNOUNCE_RETREAT, CommandType.PASS_ANNOUNCE_RETREAT}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if state.turn_context.get_space_combat_context().step != SpaceCombatStep.ANNOUNCE_RETREATS:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only announce retreats in announce retreats step.",
+            )
+        space_combat_context = state.turn_context.get_space_combat_context()
+        if (
+            space_combat_context.attacker == command.actor
+            and space_combat_context.retreat_declaration.defender_has_declared is None
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="Must allow defender to declare retreats first.",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state
+        return [
+            self._make_event_from_command(command_type=command.command_type, player=command.actor),
+        ]
+
+
 def get_command_rules() -> list[CommandRule[Command]]:
     return [
         EndSpaceCombatCommandRule(),
@@ -336,6 +412,7 @@ def get_command_rules() -> list[CommandRule[Command]]:
         UseAntiFighterBarrageCommandRule(),
         PassAntiFighterBarrageCommandRule(),
         PassStartOfCombatWindowCommandRule(),
+        AnnounceRetreatCommandRule(),
     ]
 
 
