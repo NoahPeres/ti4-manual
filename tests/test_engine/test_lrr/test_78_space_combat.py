@@ -236,6 +236,21 @@ def make_start_of_space_combat_state() -> GameSession:
     return session
 
 
+def make_announce_retreat_step_combat_state() -> GameSession:
+    session = make_start_of_space_combat_state()
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    for player in (player_a, player_b):
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    for player in (player_a, player_b):
+        session.apply_command(
+            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        )
+    return session
+
+
 class DestroyPlayersShipsInActiveSystem(Event):
     def __init__(self, player_names: list[str]) -> None:
         self.player_names = player_names
@@ -432,3 +447,93 @@ def test_78_3_advance_to_announce_retreats_step() -> None:
         session.current_state.turn_context.get_space_combat_context().step
         == SpaceCombatStep.ANNOUNCE_RETREATS
     )
+
+
+def test_78_4_each_player_may_announce_beginning_with_defender() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+    ).success
+
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    )
+    assert not session.failure_history
+    session.apply_command(
+        command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+    )
+    assert not session.failure_history
+    assert (
+        session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
+    )
+
+
+def test_78_4_a_retreat_does_not_happen_immediately() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    ships_before = session.current_state.get_ships_in_system(
+        session.current_state.get_active_system().id,
+    )
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    )
+    session.apply_command(
+        command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
+    )
+    assert ships_before == session.current_state.get_ships_in_system(
+        session.current_state.get_active_system().id,
+    )
+
+
+def test_78_4_b_attacker_cannot_announce_retreat_after_defender_does() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.ANNOUNCE_RETREAT),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+    ).success
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ROLL_DICE
+    )
+
+
+def test_78_4_defender_cannot_announce_twice() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=defender, command_type=CommandType.ANNOUNCE_RETREAT),
+    ).success

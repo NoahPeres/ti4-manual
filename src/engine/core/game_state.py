@@ -24,6 +24,48 @@ class SpaceCombatStep(StrEnum):
     RETREAT = "retreat"
 
 
+class SpaceCombatParticipant(StrEnum):
+    ATTACKER = "attacker"
+    DEFENDER = "defender"
+
+
+class PlayerNotParticipantInCombatError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class RetreatDeclaration:
+    attacker_has_declared: bool | None = None
+    defender_has_declared: bool | None = None
+
+    def announce_attacker_retreat(self, *, is_retreating: bool) -> Self:
+        return replace(self, attacker_has_declared=is_retreating)
+
+    def announce_defender_retreat(self, *, is_retreating: bool) -> Self:
+        return replace(self, defender_has_declared=is_retreating)
+
+    def get_declaration_by_participant(self, participant: SpaceCombatParticipant) -> bool | None:
+        return {
+            SpaceCombatParticipant.ATTACKER: self.attacker_has_declared,
+            SpaceCombatParticipant.DEFENDER: self.defender_has_declared,
+        }[participant]
+
+    @property
+    def both_players_have_responded(self) -> bool:
+        return self.attacker_has_declared is not None and self.defender_has_declared is not None
+
+    def get_retreating_player(self, combat_context: SpaceCombatContext) -> Player | None:
+        if self.defender_has_declared:
+            return combat_context.defender
+        if self.attacker_has_declared:
+            return combat_context.attacker
+        return None
+
+
+class InvalidRetreatError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class SpaceCombatContext:
     step: SpaceCombatStep
@@ -31,12 +73,41 @@ class SpaceCombatContext:
     attacker: Player
     defender: Player
     assigned_hits: frozenset[int] = field(default_factory=frozenset[int])
+    retreat_declaration: RetreatDeclaration = field(default_factory=RetreatDeclaration)
 
     def resolve_assigned_hit(self, unit_id: int) -> Self:
         return replace(
             self,
             assigned_hits=frozenset({x for x in self.assigned_hits if x != unit_id}),
         )
+
+    def announce_retreat(self, *, player: Player, is_retreating: bool) -> Self:
+        if player == self.attacker:
+            return replace(
+                self,
+                retreat_declaration=self.retreat_declaration.announce_attacker_retreat(
+                    is_retreating=is_retreating,
+                ),
+            )
+        if player == self.defender:
+            return replace(
+                self,
+                retreat_declaration=self.retreat_declaration.announce_defender_retreat(
+                    is_retreating=is_retreating,
+                ),
+            )
+        raise InvalidRetreatError
+
+    @property
+    def declared_retreat(self) -> Player | None:
+        return self.retreat_declaration.get_retreating_player(self)
+
+    def get_participant_by_player(self, player: Player) -> SpaceCombatParticipant:
+        if self.attacker == player:
+            return SpaceCombatParticipant.ATTACKER
+        if self.defender == player:
+            return SpaceCombatParticipant.DEFENDER
+        raise PlayerNotParticipantInCombatError
 
 
 class Phase(StrEnum):
