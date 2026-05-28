@@ -163,6 +163,7 @@ def make_unit_with_id(
     owner_name: str,
     kind: UnitKind,
     system_id: int | None = None,
+    planet_id: int | None = None,
 ) -> Unit:
     stats = unit_stats_lookup[kind]
     if isinstance(kind, ShipKind):
@@ -179,4 +180,5 @@ def make_unit_with_id(
         stats=stats,
         system_id=system_id,
         kind=kind,
+        planet_id=planet_id,
     )

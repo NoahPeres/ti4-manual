@@ -124,10 +124,16 @@ class HexCoord:
 
 
 @dataclass(frozen=True)
+class Planet:
+    planet_id: int
+
+
+@dataclass(frozen=True)
 class System:
     id: int
     command_tokens: tuple[CommandToken, ...]
     coordinates: HexCoord | None = None
+    planets: frozenset[Planet] = field(default_factory=frozenset[Planet])
 
     def has_command_token(self, player: Player) -> bool:
         return any(token.player_name == player.name for token in self.command_tokens)
