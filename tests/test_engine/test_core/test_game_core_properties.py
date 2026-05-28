@@ -8,7 +8,7 @@ from hypothesis import given
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_engine import CommandResult, GameEngine, IllegalStateMutationError
-from src.engine.core.game_state import GameState, Phase
+from src.engine.core.game_state import Galaxy, GameState, Phase
 from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 
@@ -67,7 +67,7 @@ def simple_game_state(draw: Callable[[st.SearchStrategy[Player]], Player]) -> Ga
         players=players,
         active_player=active_player,
         phase=Phase.ACTION,
-        galaxy=frozenset(),
+        galaxy=Galaxy(),
     )
 
 

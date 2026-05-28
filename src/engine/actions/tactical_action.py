@@ -8,7 +8,7 @@ from src.engine.core.command import (
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_state import GameState, TacticalActionStep
+from src.engine.core.game_state import Galaxy, GameState, TacticalActionStep
 from src.engine.tokens import CommandToken
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class ActivateSystemEvent(Event):
         return f"ActivateSystemEvent:{self.system_id}:{self.player_id}"
 
     def apply(self, previous_state: GameState) -> GameState:
-        active_system = previous_state.get_system(system_id=self.system_id)
+        active_system = previous_state.galaxy.get_system(system_id=self.system_id)
         new_system = replace(
             active_system,
             command_tokens=(
@@ -37,9 +37,9 @@ class ActivateSystemEvent(Event):
                 CommandToken(player_name=self.player_id),
             ),
         )
-        new_galaxy = frozenset(
+        new_galaxy = Galaxy(
             {system for system in previous_state.galaxy if system.id != self.system_id},
-        ) | {new_system}
+        ).combine(Galaxy({new_system}))
         old_player = previous_state.get_player(name=self.player_id)
         new_player = replace(
             old_player,
@@ -108,7 +108,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
 
     def validate_legality(self, state: GameState, command: ActivateCommand) -> ValidationResult:
         try:
-            system = state.get_system(system_id=command.system_id)
+            system = state.galaxy.get_system(system_id=command.system_id)
         except ValueError:
             return ValidationResult(is_valid=False, info="System not found")
         if not state.is_active_player(command.actor):

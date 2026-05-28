@@ -11,12 +11,11 @@ from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
     GameState,
-    HexCoord,
     Move,
-    System,
     TacticalActionStep,
     Window,
 )
+from src.engine.core.system import System, calculate_move_distance
 from src.engine.core.windows import CloseWindowEvent, OpenWindowEvent
 
 if TYPE_CHECKING:
@@ -275,34 +274,6 @@ class AddMoveToPendingEvent(Event):
             previous_state,
             turn_context=replace(previous_state.turn_context, pending_moves=move_set),
         )
-
-
-def distance(coordinates_a: HexCoord, coordinates_b: HexCoord) -> int:
-    """Convention here: Mecatol Rex is (0,0), up is y+=1, up-right is x+=1 and y+=1,
-    down-right is x+=1 and y-=1. That is, there are two cases:
-    If the point is between y and x axes, then you can always reach it along a sequence
-    of up-right moves, plus some number of down-right moves. The number of up-right moves is
-    min(|dx|, |dy|), and the number of remaining moves is abs(|dx| - |dy|).
-    If the point is between y and -x axes, then you can always reach it along a sequence
-    of up moves plus some number of up-left moves. The number of up moves is |dy|, and the
-    number of up-left moves is |dx|. Negative values of dx and dy correspond to down and
-    down-right moves, respectively."""
-    dx = coordinates_b.x - coordinates_a.x
-    dy = coordinates_b.y - coordinates_a.y
-    if dx * dy >= 0:
-        return max(abs(dx), abs(dy))
-    return abs(dx) + abs(dy)
-
-
-class InvalidCoordinatesError(ValueError):
-    def __init__(self, systems: tuple[System, ...]) -> None:
-        super().__init__(f"Invalid coordinates for systems: {systems}")
-
-
-def calculate_move_distance(system_a: System, system_b: System) -> int:
-    if system_a.coordinates is None or system_b.coordinates is None:
-        raise InvalidCoordinatesError(systems=(system_a, system_b))
-    return distance(system_a.coordinates, system_b.coordinates)
 
 
 @dataclass(frozen=True)

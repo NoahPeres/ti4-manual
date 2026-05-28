@@ -10,14 +10,14 @@ from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
+    Galaxy,
     GameState,
-    HexCoord,
-    Planet,
     SpaceCombatStep,
     System,
     TacticalActionStep,
     Window,
 )
+from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
@@ -87,7 +87,7 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
             active_system_id=0,
             units=units,
             player_names=["A", "B"],
-            systems=frozenset(
+            systems=Galaxy(
                 {
                     System(
                         id=0,
@@ -134,7 +134,7 @@ def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
                 },
             ),
             player_names=["A", "B"],
-            systems=frozenset(
+            systems=Galaxy(
                 {
                     System(
                         id=0,
@@ -543,7 +543,7 @@ def test_78_4_defender_cannot_announce_twice() -> None:
     ).success
 
 
-CENTRE_RING_OF_SYSTEMS = frozenset(
+CENTRE_RING_OF_SYSTEMS = Galaxy(
     {
         System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
         System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
@@ -668,7 +668,7 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
                 | additional_units,
             ),
             player_names=[player.name for player in players],
-            systems=frozenset(
+            systems=Galaxy(
                 {
                     System(
                         id=0,

@@ -8,7 +8,7 @@ from src.engine import tokens
 from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
-from src.engine.core.game_state import GameState, Phase, System, TurnContext
+from src.engine.core.game_state import Galaxy, GameState, Phase, System, TurnContext
 from src.engine.core.player import CommandSheet, Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
@@ -79,7 +79,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: list[PlayerInitiati
         active_player=player_1,
         turn_context=TurnContext(has_initiated_action=False),
         phase=Phase.ACTION,
-        galaxy=frozenset({System(id=0, command_tokens=())}),
+        galaxy=Galaxy({System(id=0, command_tokens=())}),
     )
     # Player 1 ends turn
     player_1_action = ENGINE.apply_command(

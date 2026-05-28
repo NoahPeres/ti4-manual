@@ -2,9 +2,10 @@ from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import TYPE_CHECKING, Self
 
+from src.engine.core.system import System
+
 if TYPE_CHECKING:
     from src.engine.core.player import Player
-    from src.engine.tokens import CommandToken
     from src.engine.units.units import GroundForce, Ship, Unit
 
 
@@ -115,28 +116,6 @@ class Phase(StrEnum):
     ACTION = "action"
     STATUS = "status"
     AGENDA = "agenda"
-
-
-@dataclass(frozen=True)
-class HexCoord:
-    x: int
-    y: int
-
-
-@dataclass(frozen=True)
-class Planet:
-    planet_id: int
-
-
-@dataclass(frozen=True)
-class System:
-    id: int
-    command_tokens: tuple[CommandToken, ...]
-    coordinates: HexCoord | None = None
-    planets: frozenset[Planet] = field(default_factory=frozenset[Planet])
-
-    def has_command_token(self, player: Player) -> bool:
-        return any(token.player_name == player.name for token in self.command_tokens)
 
 
 @dataclass(frozen=True)
@@ -259,7 +238,19 @@ class WindowContext:
         return tracker.has_passed_on_window(window=window)
 
 
-Galaxy = frozenset[System]
+class Galaxy(frozenset[System]):
+    def get_adjacent_systems(self, system_id: int) -> set[System]:
+        system = self.get_system(system_id)
+        return {other_system for other_system in self if system.is_adjacent_to(other_system)}
+
+    def get_system(self, system_id: int) -> System:
+        try:
+            return next(system for system in self if system.id == system_id)
+        except StopIteration:
+            raise ComponentNotFoundError(f"system:{system_id}") from None
+
+    def combine(self, other: Galaxy) -> Galaxy:
+        return Galaxy(self | other)
 
 
 class ComponentNotFoundError(ValueError):
@@ -315,18 +306,12 @@ class GameState:
     def active_system(self) -> System | None:
         if self.turn_context.active_system_id is None:
             return None
-        return self.get_system(system_id=self.turn_context.active_system_id)
+        return self.galaxy.get_system(system_id=self.turn_context.active_system_id)
 
     def get_active_system(self) -> System:
         if self.active_system is None:
             raise InvalidActiveSystemError
         return self.active_system
-
-    def get_system(self, system_id: int) -> System:
-        try:
-            return next(system for system in self.galaxy if system.id == system_id)
-        except StopIteration:
-            raise ComponentNotFoundError(f"system:{system_id}") from None
 
     def get_player(self, name: str) -> Player:
         try:
@@ -335,7 +320,7 @@ class GameState:
             raise ComponentNotFoundError(f"player:{name}") from None
 
     def get_current_system(self, unit: Unit) -> System | None:
-        return self.get_system(unit.system_id) if unit.system_id is not None else None
+        return self.galaxy.get_system(unit.system_id) if unit.system_id is not None else None
 
     def get_unit_from_id(self, unit_id: int) -> Unit:
         try:

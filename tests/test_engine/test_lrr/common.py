@@ -6,14 +6,13 @@ from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
     Galaxy,
     GameState,
-    HexCoord,
     Phase,
-    System,
     TacticalActionStep,
     TurnContext,
 )
 from src.engine.core.invariants import make_all_invariants
 from src.engine.core.player import CommandSheet, Player
+from src.engine.core.system import HexCoord, System
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
@@ -41,7 +40,7 @@ def make_basic_session_from_players(
             players=players,
             active_player=players[0],
             phase=Phase.ACTION,
-            galaxy=frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
+            galaxy=Galaxy({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
         ),
         engine=engine,
     )
@@ -63,7 +62,7 @@ def make_tactical_action_movement_state(
     active_system_id: int,
     units: frozenset[Unit] | None = None,
     player_names: list[str] | None = None,
-    systems: frozenset[System] | None = None,
+    systems: Galaxy | None = None,
 ) -> GameState:
     if player_names is None:
         player_names = ["A"]
@@ -83,7 +82,7 @@ def make_tactical_action_movement_state(
 
     if systems is None:
         # Create systems with coordinates in a line
-        systems = frozenset(
+        systems = Galaxy(
             System(
                 id=system_id,
                 command_tokens=(CommandToken(players[0].name),)
@@ -129,7 +128,7 @@ def build_game_state(
     units: frozenset[Unit] | None = None,
 ) -> GameState:
     active_player = active_player or players[0]
-    galaxy = galaxy or frozenset({System(id=0, command_tokens=()), System(id=1, command_tokens=())})
+    galaxy = galaxy or Galaxy({System(id=0, command_tokens=()), System(id=1, command_tokens=())})
     turn_context = turn_context or TurnContext(
         has_initiated_action=True,
         tactical_action_step=TacticalActionStep.MOVEMENT,

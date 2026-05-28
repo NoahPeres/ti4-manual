@@ -362,6 +362,11 @@ class PassAnnounceRetreatEvent(Event):
         return "PassAnnounceRetreatEvent"
 
 
+def _check_for_eligible_retreat_system(state: GameState) -> ValidationResult:
+    state.galaxy.get_adjacent_systems(system_id=state.get_active_system().id)
+    return ValidationResult(is_valid=True)
+
+
 EventFactoryByPlayer = Callable[[Player], Event]
 
 
@@ -421,6 +426,7 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                     is_valid=False,
                     info="Defender has already announced a retreat, attacker cannot.",
                 )
+        _check_for_eligible_retreat_system(state=state)
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
