@@ -417,7 +417,7 @@ class AdvanceToRollDiceStepEvent(Event):
             replace(
                 previous_state.turn_context.get_space_combat_context(),
                 step=SpaceCombatStep.ROLL_DICE,
-            )
+            ),
         )
 
     def __repr__(self) -> str:

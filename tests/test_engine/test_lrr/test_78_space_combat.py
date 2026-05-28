@@ -483,7 +483,7 @@ def test_78_4_a_retreat_does_not_happen_immediately() -> None:
         == SpaceCombatStep.ANNOUNCE_RETREATS
     )
     ships_before = session.current_state.get_ships_in_system(
-        session.current_state.get_active_system().id
+        session.current_state.get_active_system().id,
     )
     attacker = session.current_state.turn_context.get_space_combat_context().attacker
     defender = session.current_state.turn_context.get_space_combat_context().defender
@@ -498,7 +498,7 @@ def test_78_4_a_retreat_does_not_happen_immediately() -> None:
         session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
     )
     assert ships_before == session.current_state.get_ships_in_system(
-        session.current_state.get_active_system().id
+        session.current_state.get_active_system().id,
     )
 
 
