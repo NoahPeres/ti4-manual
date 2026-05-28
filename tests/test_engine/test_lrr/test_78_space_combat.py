@@ -640,9 +640,6 @@ def parse_setup_seed(
     return units, new_systems, eligible_system_exists
 
 
-no_adjacent_systems = frozenset({System(id=0, command_tokens=(), coordinates=HexCoord(0, 0))})
-
-
 @given(setup_seed=st.lists(st.booleans(), min_size=18, max_size=18))
 def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[bool]) -> None:
     players = (make_player("A"), make_player("B"))
