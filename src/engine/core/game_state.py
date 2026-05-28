@@ -35,6 +35,10 @@ class RetreatDeclaration:
     def announce_defender_retreat(self, *, is_retreating: bool) -> Self:
         return replace(self, defender_has_declared=is_retreating)
 
+    @property
+    def both_players_have_responded(self) -> bool:
+        return self.attacker_has_declared is not None and self.defender_has_declared is not None
+
     def get_retreating_player(self, combat_context: SpaceCombatContext) -> Player | None:
         if self.defender_has_declared:
             return combat_context.defender

@@ -388,14 +388,20 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                 info="Can only announce retreats in announce retreats step.",
             )
         space_combat_context = state.turn_context.get_space_combat_context()
-        if (
-            space_combat_context.attacker == command.actor
-            and space_combat_context.retreat_declaration.defender_has_declared is None
-        ):
-            return ValidationResult(
-                is_valid=False,
-                info="Must allow defender to declare retreats first.",
-            )
+        if space_combat_context.attacker == command.actor:
+            if space_combat_context.retreat_declaration.defender_has_declared is None:
+                return ValidationResult(
+                    is_valid=False,
+                    info="Must allow defender to declare retreats first.",
+                )
+            if (
+                space_combat_context.retreat_declaration.defender_has_declared
+                and command.command_type == CommandType.ANNOUNCE_RETREAT
+            ):
+                return ValidationResult(
+                    is_valid=False,
+                    info="Defender has already announced a retreat, attacker cannot.",
+                )
         return ValidationResult(is_valid=True)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
@@ -403,6 +409,35 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
         return [
             self._make_event_from_command(command_type=command.command_type, player=command.actor),
         ]
+
+
+class AdvanceToRollDiceStepEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            replace(
+                previous_state.turn_context.get_space_combat_context(),
+                step=SpaceCombatStep.ROLL_DICE,
+            )
+        )
+
+    def __repr__(self) -> str:
+        return "AdvanceToRollDiceStepEvent"
+
+
+class AdvanceToRollDiceStepEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        combat_context = state.turn_context.get_space_combat_context()
+        if (
+            combat_context.declared_retreat is not None
+            or combat_context.retreat_declaration.both_players_have_responded
+        ):
+            return [AdvanceToRollDiceStepEvent()]
+        return []
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {PassAnnounceRetreatEvent, AnnounceRetreatEvent}
 
 
 def get_command_rules() -> list[CommandRule[Command]]:
@@ -423,4 +458,5 @@ def get_event_rules() -> list[EventRule]:
         EndSpaceCombatEventRule(),
         CloseStartOfSpaceCombatRoundWindowsEventRule(),
         CloseAntiFighterBarrageWindowEventRule(),
+        AdvanceToRollDiceStepEventRule(),
     ]

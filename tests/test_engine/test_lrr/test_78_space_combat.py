@@ -500,3 +500,24 @@ def test_78_4_a_retreat_does_not_happen_immediately() -> None:
     assert ships_before == session.current_state.get_ships_in_system(
         session.current_state.get_active_system().id
     )
+
+
+def test_78_4_b_attacker_cannot_announce_retreat_after_defender_does() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.ANNOUNCE_RETREAT),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+    ).success
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ROLL_DICE
+    )
