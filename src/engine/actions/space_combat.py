@@ -12,6 +12,7 @@ from src.engine.core.game_state import (
     Ability,
     GameState,
     SpaceCombatContext,
+    SpaceCombatParticipant,
     SpaceCombatStep,
     TacticalActionStep,
     Window,
@@ -388,7 +389,25 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                 info="Can only announce retreats in announce retreats step.",
             )
         space_combat_context = state.turn_context.get_space_combat_context()
-        if space_combat_context.attacker == command.actor:
+        if command.actor not in (space_combat_context.attacker, space_combat_context.defender):
+            return ValidationResult(
+                is_valid=False,
+                info="You are not participating in this combat.",
+            )
+        participant = state.turn_context.get_space_combat_context().get_participant_by_player(
+            player=command.actor,
+        )
+        if (
+            space_combat_context.retreat_declaration.get_declaration_by_participant(
+                participant=participant,
+            )
+            is not None
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="This player has already passed/declared retreat this round.",
+            )
+        if participant == SpaceCombatParticipant.ATTACKER:
             if space_combat_context.retreat_declaration.defender_has_declared is None:
                 return ValidationResult(
                     is_valid=False,

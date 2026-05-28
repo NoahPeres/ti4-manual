@@ -521,3 +521,19 @@ def test_78_4_b_attacker_cannot_announce_retreat_after_defender_does() -> None:
         session.current_state.turn_context.get_space_combat_context().step
         == SpaceCombatStep.ROLL_DICE
     )
+
+
+def test_78_4_defender_cannot_announce_twice() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=defender, command_type=CommandType.ANNOUNCE_RETREAT),
+    ).success

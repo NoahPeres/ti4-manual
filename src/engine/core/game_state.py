@@ -24,6 +24,15 @@ class SpaceCombatStep(StrEnum):
     RETREAT = "retreat"
 
 
+class SpaceCombatParticipant(StrEnum):
+    ATTACKER = "attacker"
+    DEFENDER = "defender"
+
+
+class PlayerNotParticipantInCombatError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class RetreatDeclaration:
     attacker_has_declared: bool | None = None
@@ -34,6 +43,12 @@ class RetreatDeclaration:
 
     def announce_defender_retreat(self, *, is_retreating: bool) -> Self:
         return replace(self, defender_has_declared=is_retreating)
+
+    def get_declaration_by_participant(self, participant: SpaceCombatParticipant) -> bool | None:
+        return {
+            SpaceCombatParticipant.ATTACKER: self.attacker_has_declared,
+            SpaceCombatParticipant.DEFENDER: self.defender_has_declared,
+        }[participant]
 
     @property
     def both_players_have_responded(self) -> bool:
@@ -86,6 +101,13 @@ class SpaceCombatContext:
     @property
     def declared_retreat(self) -> Player | None:
         return self.retreat_declaration.get_retreating_player(self)
+
+    def get_participant_by_player(self, player: Player) -> SpaceCombatParticipant:
+        if self.attacker == player:
+            return SpaceCombatParticipant.ATTACKER
+        if self.defender == player:
+            return SpaceCombatParticipant.DEFENDER
+        raise PlayerNotParticipantInCombatError
 
 
 class Phase(StrEnum):
