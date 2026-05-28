@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class Planet:
     planet_id: int
+    controller: Player | None = None
 
 
 @dataclass(frozen=True)

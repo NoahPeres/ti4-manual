@@ -228,6 +228,12 @@ def make_start_of_space_combat_state(initial_state: GameState | None = None) -> 
                         kind=ShipKind.DESTROYER,
                         system_id=0,
                     ),
+                    make_unit_with_id(
+                        unit_id=3,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=1,
+                    ),
                 },
             ),
             player_names=["A", "B"],
