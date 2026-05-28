@@ -2,14 +2,14 @@ from dataclasses import dataclass, replace
 from itertools import product
 from typing import TYPE_CHECKING
 
-from hypothesis import given, strategies as st
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
-    Galaxy,
     GameState,
     HexCoord,
     Planet,
@@ -17,10 +17,9 @@ from src.engine.core.game_state import (
     System,
     TacticalActionStep,
     Window,
-    Phase,
 )
 from src.engine.tokens import CommandToken
-from src.engine.units.units import GroundForceKind, Ship, ShipKind, Unit, make_unit_with_id
+from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
     make_basic_session_from_players,
     make_player,
@@ -577,20 +576,28 @@ class RetreatEligibility:
 
 
 def set_up_units_and_systems(
-    system: System, *, retreat_eligibility: RetreatEligibility
+    system: System,
+    *,
+    retreat_eligibility: RetreatEligibility,
 ) -> tuple[set[Unit], System]:
     units = set[Unit]()
     if retreat_eligibility.has_friendly_units:
         units |= {
             make_unit_with_id(
-                unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=system.id
-            )
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=system.id,
+            ),
         }
     if retreat_eligibility.has_enemy_ships:
         units |= {
             make_unit_with_id(
-                unit_id=0, owner_name="B", kind=ShipKind.DESTROYER, system_id=system.id
-            )
+                unit_id=0,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=system.id,
+            ),
         }
     if retreat_eligibility.has_controlled_planet:
         units |= {
@@ -600,7 +607,7 @@ def set_up_units_and_systems(
                 kind=GroundForceKind.INFANTRY,
                 system_id=system.id,
                 planet_id=system.id,
-            )
+            ),
         }
     system = replace(system, planets=frozenset({Planet(planet_id=system.id)}))
     return (
@@ -610,7 +617,8 @@ def set_up_units_and_systems(
 
 
 def parse_setup_seed(
-    setup_seed: list[bool], systems: set[System]
+    setup_seed: list[bool],
+    systems: set[System],
 ) -> tuple[set[Unit], set[System], bool]:
     units = set[Unit]()
     new_systems = set[System]()
@@ -623,7 +631,8 @@ def parse_setup_seed(
         )
         all_retreat_eligibility.append(retreat_eligibility)
         new_units, new_system = set_up_units_and_systems(
-            system=system, retreat_eligibility=retreat_eligibility
+            system=system,
+            retreat_eligibility=retreat_eligibility,
         )
         units |= new_units
         new_systems |= {new_system}
@@ -663,9 +672,9 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
             ),
             player_names=[player.name for player in players],
             systems=frozenset(
-                {System(id=0, command_tokens=(), coordinates=HexCoord(0, 0))} | additional_systems
+                {System(id=0, command_tokens=(), coordinates=HexCoord(0, 0))} | additional_systems,
             ),
-        )
+        ),
     )
     assert (
         session.current_state.turn_context.get_space_combat_context().step
