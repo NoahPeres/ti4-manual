@@ -474,3 +474,29 @@ def test_78_4_each_player_may_announce_beginning_with_defender() -> None:
     assert (
         session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
     )
+
+
+def test_78_4_a_retreat_does_not_happen_immediately() -> None:
+    session = make_announce_retreat_step_combat_state()
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    ships_before = session.current_state.get_ships_in_system(
+        session.current_state.get_active_system().id
+    )
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    )
+    session.apply_command(
+        command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
+    )
+    assert ships_before == session.current_state.get_ships_in_system(
+        session.current_state.get_active_system().id
+    )
