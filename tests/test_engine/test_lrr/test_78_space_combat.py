@@ -669,7 +669,14 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
             ),
             player_names=[player.name for player in players],
             systems=frozenset(
-                {System(id=0, command_tokens=(), coordinates=HexCoord(0, 0))} | additional_systems,
+                {
+                    System(
+                        id=0,
+                        command_tokens=(CommandToken(player_name="A"),),
+                        coordinates=HexCoord(0, 0),
+                    ),
+                }
+                | additional_systems,
             ),
         ),
     )
