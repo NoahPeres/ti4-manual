@@ -574,7 +574,7 @@ class RetreatEligibility:
 
     def __post_init__(self) -> None:
         if self.has_friendly_units and self.has_enemy_ships:
-            self.has_friendly_units = False  # can't have both
+            raise InvalidTestConfigError
 
     @property
     def is_eligible(self) -> bool:
@@ -649,10 +649,13 @@ def parse_setup_seed(
 @given(setup_seed=st.lists(st.booleans(), min_size=18, max_size=18))
 def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[bool]) -> None:
     players = (make_player("A"), make_player("B"))
-    additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
-        setup_seed=setup_seed,
-        systems={system for system in CENTRE_RING_OF_SYSTEMS if system.id != 0},
-    )
+    try:
+        additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
+            setup_seed=setup_seed,
+            systems={system for system in CENTRE_RING_OF_SYSTEMS if system.id != 0},
+        )
+    except InvalidTestConfigError:
+        return
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
