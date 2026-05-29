@@ -677,7 +677,7 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
                         ),
                     }
                     | additional_units,
-                )
+                ),
             ),
             player_names=[player.name for player in players],
             systems=Galaxy(
