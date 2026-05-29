@@ -626,11 +626,13 @@ def set_up_units_and_systems(
 def parse_setup_seed(
     setup_seed: list[bool],
     systems: set[System],
+    ref_system: System,
 ) -> tuple[set[Unit], set[System], bool]:
     units = set[Unit]()
     new_systems = set[System]()
     all_retreat_eligibility: list[RetreatEligibility] = []
     for i, system in enumerate(systems):
+        assert system.is_adjacent_to(ref_system)
         retreat_eligibility = RetreatEligibility(
             has_friendly_units=setup_seed[3 * i],
             has_enemy_ships=setup_seed[3 * i + 1],
@@ -647,13 +649,25 @@ def parse_setup_seed(
     return units, new_systems, eligible_system_exists
 
 
-@given(setup_seed=st.lists(st.booleans(), min_size=18, max_size=18))
+_VALID_ELIGIBILITY_CONFIGS = [
+    (a, b, c) for a, b, c in product([False, True], repeat=3) if not (a and b)
+]
+
+
+@given(
+    setup_seed=st.lists(
+        st.sampled_from(_VALID_ELIGIBILITY_CONFIGS),
+        min_size=6,
+        max_size=6,
+    ),
+)
 def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[bool]) -> None:
     players = (make_player("A"), make_player("B"))
     try:
         additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
             setup_seed=setup_seed,
             systems={system for system in CENTRE_RING_OF_SYSTEMS if system.id != 0},
+            ref_system=CENTRE_RING_OF_SYSTEMS.get_system(0),
         )
     except InvalidTestConfigError:
         return

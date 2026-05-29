@@ -386,7 +386,9 @@ def _check_for_eligible_retreat_system(state: GameState) -> ValidationResult:
 
 
 def _check_declaration_ordering(
-    state: GameState, command: Command, space_combat_context: SpaceCombatContext
+    state: GameState,
+    command: Command,
+    space_combat_context: SpaceCombatContext,
 ) -> ValidationResult:
     participant = state.turn_context.get_space_combat_context().get_participant_by_player(
         player=command.actor,
@@ -451,7 +453,9 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                 info="You are not participating in this combat.",
             )
         result = _check_declaration_ordering(
-            state=state, command=command, space_combat_context=space_combat_context
+            state=state,
+            command=command,
+            space_combat_context=space_combat_context,
         )
         if not result.is_valid:
             return result
