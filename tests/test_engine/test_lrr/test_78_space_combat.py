@@ -21,6 +21,7 @@ from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
+    grant_all_units_unique_ids,
     make_basic_session_from_players,
     make_player,
     make_tactical_action_movement_state,
@@ -659,22 +660,24 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
-            units=frozenset(
-                {
-                    make_unit_with_id(
-                        unit_id=1,
-                        owner_name="A",
-                        kind=ShipKind.DESTROYER,
-                        system_id=0,
-                    ),
-                    make_unit_with_id(
-                        unit_id=2,
-                        owner_name="B",
-                        kind=ShipKind.DESTROYER,
-                        system_id=0,
-                    ),
-                }
-                | additional_units,
+            units=grant_all_units_unique_ids(
+                frozenset(
+                    {
+                        make_unit_with_id(
+                            unit_id=1,
+                            owner_name="A",
+                            kind=ShipKind.DESTROYER,
+                            system_id=0,
+                        ),
+                        make_unit_with_id(
+                            unit_id=2,
+                            owner_name="B",
+                            kind=ShipKind.DESTROYER,
+                            system_id=0,
+                        ),
+                    }
+                    | additional_units,
+                )
             ),
             player_names=[player.name for player in players],
             systems=Galaxy(
