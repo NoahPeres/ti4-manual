@@ -703,3 +703,7 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
         ).success
         == eligible_system_exists
     )
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    ).success

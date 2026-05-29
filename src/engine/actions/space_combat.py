@@ -444,6 +444,8 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                     is_valid=False,
                     info="Defender has already announced a retreat, attacker cannot.",
                 )
+        if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT:
+            return ValidationResult(is_valid=True)
 
         return _check_for_eligible_retreat_system(state=state)
 
