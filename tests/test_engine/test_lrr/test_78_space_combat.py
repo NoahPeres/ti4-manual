@@ -1,23 +1,27 @@
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from itertools import product
 from typing import TYPE_CHECKING
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from src.engine.core.command import Command, CommandType
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
+    Galaxy,
     GameState,
-    HexCoord,
     SpaceCombatStep,
     System,
     TacticalActionStep,
     Window,
 )
+from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
-from src.engine.units.units import ShipKind, Unit, make_unit_with_id
+from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
+    grant_all_units_unique_ids,
     make_basic_session_from_players,
     make_player,
     make_tactical_action_movement_state,
@@ -84,7 +88,7 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
             active_system_id=0,
             units=units,
             player_names=["A", "B"],
-            systems=frozenset(
+            systems=Galaxy(
                 {
                     System(
                         id=0,
@@ -131,7 +135,7 @@ def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
                 },
             ),
             player_names=["A", "B"],
-            systems=frozenset(
+            systems=Galaxy(
                 {
                     System(
                         id=0,
@@ -198,7 +202,7 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
     assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT)
 
 
-def make_start_of_space_combat_state() -> GameSession:
+def make_start_of_space_combat_state(initial_state: GameState | None = None) -> GameSession:
     player_a = make_player(
         name="A",
     )
@@ -208,7 +212,8 @@ def make_start_of_space_combat_state() -> GameSession:
 
     session = make_basic_session_from_players(
         players=(player_a, player_b),
-        initial_state=make_tactical_action_movement_state(
+        initial_state=initial_state
+        or make_tactical_action_movement_state(
             active_system_id=0,
             units=frozenset(
                 {
@@ -224,6 +229,12 @@ def make_start_of_space_combat_state() -> GameSession:
                         kind=ShipKind.DESTROYER,
                         system_id=0,
                     ),
+                    make_unit_with_id(
+                        unit_id=3,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=1,
+                    ),
                 },
             ),
             player_names=["A", "B"],
@@ -236,8 +247,8 @@ def make_start_of_space_combat_state() -> GameSession:
     return session
 
 
-def make_announce_retreat_step_combat_state() -> GameSession:
-    session = make_start_of_space_combat_state()
+def make_announce_retreat_step_combat_state(initial_state: GameState | None = None) -> GameSession:
+    session = make_start_of_space_combat_state(initial_state)
     player_a = session.current_state.get_player("A")
     player_b = session.current_state.get_player("B")
     for player in (player_a, player_b):
@@ -536,4 +547,183 @@ def test_78_4_defender_cannot_announce_twice() -> None:
     assert not session.engine.apply_command(
         state=session.current_state,
         command=Command(actor=defender, command_type=CommandType.ANNOUNCE_RETREAT),
+    ).success
+
+
+CENTRE_RING_OF_SYSTEMS = Galaxy(
+    {
+        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
+        System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
+        System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
+        System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
+        System(id=4, command_tokens=(), coordinates=HexCoord(0, -1)),
+        System(id=5, command_tokens=(), coordinates=HexCoord(1, 1)),
+        System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
+    },
+)
+
+
+class InvalidTestConfigError(ValueError):
+    pass
+
+
+@dataclass
+class RetreatEligibility:
+    has_friendly_units: bool
+    has_enemy_ships: bool
+    has_controlled_planet: bool
+
+    def __post_init__(self) -> None:
+        if self.has_friendly_units and self.has_enemy_ships:
+            raise InvalidTestConfigError
+
+    @property
+    def is_eligible(self) -> bool:
+        return not self.has_enemy_ships and (self.has_controlled_planet or self.has_friendly_units)
+
+
+def set_up_units_and_systems(
+    system: System,
+    *,
+    retreat_eligibility: RetreatEligibility,
+) -> tuple[set[Unit], System]:
+    units = set[Unit]()
+    if retreat_eligibility.has_friendly_units:
+        units |= {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=system.id,
+            ),
+        }
+    if retreat_eligibility.has_enemy_ships:
+        units |= {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=system.id,
+            ),
+        }
+    if retreat_eligibility.has_controlled_planet:
+        units |= {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=GroundForceKind.INFANTRY,
+                system_id=system.id,
+                planet_id=system.id,
+            ),
+        }
+    system = replace(system, planets=frozenset({Planet(planet_id=system.id)}))
+    return (
+        units,
+        system,
+    )
+
+
+def parse_setup_seed(
+    setup_seed: list[bool],
+    systems: set[System],
+    ref_system: System,
+) -> tuple[set[Unit], set[System], bool]:
+    units = set[Unit]()
+    new_systems = set[System]()
+    all_retreat_eligibility: list[RetreatEligibility] = []
+    for i, system in enumerate(systems):
+        assert system.is_adjacent_to(ref_system)
+        retreat_eligibility = RetreatEligibility(
+            has_friendly_units=setup_seed[3 * i],
+            has_enemy_ships=setup_seed[3 * i + 1],
+            has_controlled_planet=setup_seed[3 * i + 2],
+        )
+        all_retreat_eligibility.append(retreat_eligibility)
+        new_units, new_system = set_up_units_and_systems(
+            system=system,
+            retreat_eligibility=retreat_eligibility,
+        )
+        units |= new_units
+        new_systems |= {new_system}
+    eligible_system_exists = any(retreat.is_eligible for retreat in all_retreat_eligibility)
+    return units, new_systems, eligible_system_exists
+
+
+_VALID_ELIGIBILITY_CONFIGS = [
+    (a, b, c) for a, b, c in product([False, True], repeat=3) if not (a and b)
+]
+
+
+@given(
+    setup_seed=st.lists(
+        st.sampled_from(_VALID_ELIGIBILITY_CONFIGS),
+        min_size=6,
+        max_size=6,
+    ),
+)
+def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[bool]) -> None:
+    players = (make_player("A"), make_player("B"))
+    try:
+        additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
+            setup_seed=setup_seed,
+            systems={system for system in CENTRE_RING_OF_SYSTEMS if system.id != 0},
+            ref_system=CENTRE_RING_OF_SYSTEMS.get_system(0),
+        )
+    except InvalidTestConfigError:
+        return
+    session = make_announce_retreat_step_combat_state(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0,
+            units=grant_all_units_unique_ids(
+                frozenset(
+                    {
+                        make_unit_with_id(
+                            unit_id=1,
+                            owner_name="A",
+                            kind=ShipKind.DESTROYER,
+                            system_id=0,
+                        ),
+                        make_unit_with_id(
+                            unit_id=2,
+                            owner_name="B",
+                            kind=ShipKind.DESTROYER,
+                            system_id=0,
+                        ),
+                    }
+                    | additional_units,
+                ),
+            ),
+            player_names=[player.name for player in players],
+            systems=Galaxy(
+                {
+                    System(
+                        id=0,
+                        command_tokens=(CommandToken(player_name="A"),),
+                        coordinates=HexCoord(0, 0),
+                    ),
+                }
+                | additional_systems,
+            ),
+        ),
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    assert attacker.name == "A"
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    )
+    assert (
+        session.engine.apply_command(
+            state=session.current_state,
+            command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
+        ).success
+        == eligible_system_exists
+    )
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
     ).success

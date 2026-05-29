@@ -9,12 +9,12 @@ from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
-    HexCoord,
-    System,
+    Galaxy,
     TacticalActionStep,
     TurnContext,
     Window,
 )
+from src.engine.core.system import HexCoord, System
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
@@ -61,7 +61,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token(
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     result = session.engine.apply_command(
-        state=replace(session.current_state, galaxy=frozenset({system})),
+        state=replace(session.current_state, galaxy=Galaxy({system})),
         command=activate_command(actor=player_a, system_id=0),
     )
 
@@ -74,7 +74,7 @@ def test_89_1_a_active_player_places_token_from_tactic_pool() -> None:
 
     new_state = session.apply_command(command=activate_command(actor=player_a, system_id=0))
 
-    activated_system = new_state.get_system(system_id=0)
+    activated_system = new_state.galaxy.get_system(system_id=0)
     assert activated_system is not None
     assert any(token.player_name == player_a.name for token in activated_system.command_tokens)
 
@@ -95,7 +95,7 @@ def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     result = session.engine.apply_command(
-        state=replace(session.current_state, galaxy=frozenset({system_with_b_token})),
+        state=replace(session.current_state, galaxy=Galaxy({system_with_b_token})),
         command=activate_command(actor=player_a, system_id=0),
     )
 
@@ -161,7 +161,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
     player_a = make_player("A")
     session = make_session(
         players=(player_a,),
-        galaxy=frozenset(
+        galaxy=Galaxy(
             {
                 System(id=0, command_tokens=()),
                 System(id=1, command_tokens=(CommandToken(player_name="A"),)),
@@ -389,7 +389,7 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
     )
     state = build_game_state(
         players=(player_a, player_b),
-        galaxy=frozenset(
+        galaxy=Galaxy(
             {
                 System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
                 System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
@@ -574,7 +574,7 @@ def test_89_2_c_ability_window_properly_clears_state() -> None:
     ).success
 
 
-CENTRE_RING_OF_SYSTEMS = frozenset(
+CENTRE_RING_OF_SYSTEMS = Galaxy(
     {
         System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
         System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
@@ -782,7 +782,7 @@ def test_89_4_active_player_may_use_their_bombardment_during_invasion() -> None:
     )
     session = make_session(
         players=(player_a, player_b),
-        galaxy=frozenset({System(id=0, command_tokens=())}),
+        galaxy=Galaxy({System(id=0, command_tokens=())}),
         units=frozenset({ship, ground_force}),
     )
 
@@ -815,7 +815,7 @@ def test_89_4_player_may_skip_bombardment() -> None:
     )
     session = make_session(
         players=(player_a, player_b),
-        galaxy=frozenset({System(id=0, command_tokens=())}),
+        galaxy=Galaxy({System(id=0, command_tokens=())}),
         units=frozenset({ship, ground_force}),
     )
 
@@ -839,7 +839,7 @@ def test_89_4_player_may_commit_ground_forces() -> None:
     )
     session = make_session(
         players=(player_a, player_b),
-        galaxy=frozenset({System(id=0, command_tokens=())}),
+        galaxy=Galaxy({System(id=0, command_tokens=())}),
         units=frozenset({ship, ground_force}),
     )
 
@@ -884,7 +884,7 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
     )
     session = make_session(
         players=(player_a, player_b),
-        galaxy=frozenset({System(id=0, command_tokens=())}),
+        galaxy=Galaxy({System(id=0, command_tokens=())}),
         units=frozenset({ship, ground_force_a, ground_force_b}),
     )
 

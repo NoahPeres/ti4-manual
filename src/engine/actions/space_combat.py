@@ -23,6 +23,8 @@ from src.engine.core.windows import CloseWindowEvent
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from src.engine.core.system import System
+
 
 START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
     Window.START_OF_SPACE_COMBAT,
@@ -362,6 +364,62 @@ class PassAnnounceRetreatEvent(Event):
         return "PassAnnounceRetreatEvent"
 
 
+def _is_eligible_retreat_system(system: System, state: GameState) -> bool:
+    if not state.get_active_system().is_adjacent_to(system):
+        return False
+    if any(
+        ship.owner_name != state.active_player.name
+        for ship in state.get_ships_in_system(system_id=system.id)
+    ):
+        return False
+    return any(
+        unit.owner_name == state.active_player.name for unit in state.get_units_in_system(system.id)
+    ) or any(planet.controller == state.active_player for planet in system.planets)
+
+
+def _check_for_eligible_retreat_system(state: GameState) -> ValidationResult:
+    systems = state.galaxy.get_adjacent_systems(system_id=state.get_active_system().id)
+    for system in systems:
+        if _is_eligible_retreat_system(system, state=state):
+            return ValidationResult(is_valid=True)
+    return ValidationResult(is_valid=False, info="No legal retreat system found.")
+
+
+def _check_declaration_ordering(
+    state: GameState,
+    command: Command,
+    space_combat_context: SpaceCombatContext,
+) -> ValidationResult:
+    participant = state.turn_context.get_space_combat_context().get_participant_by_player(
+        player=command.actor,
+    )
+    if (
+        space_combat_context.retreat_declaration.get_declaration_by_participant(
+            participant=participant,
+        )
+        is not None
+    ):
+        return ValidationResult(
+            is_valid=False,
+            info="This player has already passed/declared retreat this round.",
+        )
+    if participant == SpaceCombatParticipant.ATTACKER:
+        if space_combat_context.retreat_declaration.defender_has_declared is None:
+            return ValidationResult(
+                is_valid=False,
+                info="Must allow defender to declare retreats first.",
+            )
+        if (
+            space_combat_context.retreat_declaration.defender_has_declared
+            and command.command_type == CommandType.ANNOUNCE_RETREAT
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="Defender has already announced a retreat, attacker cannot.",
+            )
+    return ValidationResult(is_valid=True)
+
+
 EventFactoryByPlayer = Callable[[Player], Event]
 
 
@@ -394,34 +452,18 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="You are not participating in this combat.",
             )
-        participant = state.turn_context.get_space_combat_context().get_participant_by_player(
-            player=command.actor,
+        result = _check_declaration_ordering(
+            state=state,
+            command=command,
+            space_combat_context=space_combat_context,
         )
-        if (
-            space_combat_context.retreat_declaration.get_declaration_by_participant(
-                participant=participant,
-            )
-            is not None
-        ):
-            return ValidationResult(
-                is_valid=False,
-                info="This player has already passed/declared retreat this round.",
-            )
-        if participant == SpaceCombatParticipant.ATTACKER:
-            if space_combat_context.retreat_declaration.defender_has_declared is None:
-                return ValidationResult(
-                    is_valid=False,
-                    info="Must allow defender to declare retreats first.",
-                )
-            if (
-                space_combat_context.retreat_declaration.defender_has_declared
-                and command.command_type == CommandType.ANNOUNCE_RETREAT
-            ):
-                return ValidationResult(
-                    is_valid=False,
-                    info="Defender has already announced a retreat, attacker cannot.",
-                )
-        return ValidationResult(is_valid=True)
+        if not result.is_valid:
+            return result
+
+        if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT:
+            return ValidationResult(is_valid=True)
+
+        return _check_for_eligible_retreat_system(state=state)
 
     def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
         del state

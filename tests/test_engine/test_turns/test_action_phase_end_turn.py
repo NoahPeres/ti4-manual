@@ -1,6 +1,6 @@
 from src.engine.core.command import Command, CommandType
 from src.engine.core.game_engine import GameEngine
-from src.engine.core.game_state import GameState, Phase, TurnContext
+from src.engine.core.game_state import Galaxy, GameState, Phase, TurnContext
 from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.strategy_cards import StrategyCard
@@ -17,7 +17,7 @@ def test_end_turn_command_changes_active_player() -> None:
             active_player=TEST_PLAYER,
             turn_context=TurnContext(has_initiated_action=True),
             phase=Phase.ACTION,
-            galaxy=frozenset(),
+            galaxy=Galaxy(),
         ),
         command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
     )
@@ -34,7 +34,7 @@ def test_only_active_player_can_end_turn() -> None:
             active_player=ANOTHER_PLAYER,
             turn_context=TurnContext(has_initiated_action=True),
             phase=Phase.ACTION,
-            galaxy=frozenset(),
+            galaxy=Galaxy(),
         ),
         command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
     )

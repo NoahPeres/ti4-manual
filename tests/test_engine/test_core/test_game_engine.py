@@ -10,7 +10,7 @@ from src.engine.core.game_engine import (
     InvariantViolationError,
 )
 from src.engine.core.game_session import GameSession
-from src.engine.core.game_state import GameState, Phase
+from src.engine.core.game_state import Galaxy, GameState, Phase
 from src.engine.core.player import Player
 from src.engine.core.rules_engine import RulesEngine
 
@@ -39,7 +39,7 @@ class ChangePlayerEvent(Event):
             players=previous_state.players,
             active_player=new_player,
             phase=Phase.ACTION,
-            galaxy=frozenset(),
+            galaxy=Galaxy(),
         )
 
 
@@ -102,7 +102,7 @@ def _set_up_session(
             players=players,
             active_player=initial_player,
             phase=Phase.ACTION,
-            galaxy=frozenset(),
+            galaxy=Galaxy(),
         )
     if game_state_invariants is None:
         game_state_invariants = []
