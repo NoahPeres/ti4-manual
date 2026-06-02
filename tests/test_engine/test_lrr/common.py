@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from src.engine.actions.movement import MoveShipCommand
 from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command
@@ -18,20 +20,28 @@ from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 
+if TYPE_CHECKING:
+    from src.engine.core.dice_roller import DiceRoller
+
 
 class InvalidPlayerCountError(ValueError):
     pass
 
 
-def get_default_game_engine() -> GameEngine:
-    return GameEngine(rules_engine=TI4RulesEngine(), invariants=make_all_invariants())
+def get_default_game_engine(dice_roller: DiceRoller | None = None) -> GameEngine:
+    return GameEngine(
+        rules_engine=TI4RulesEngine(),
+        invariants=make_all_invariants(),
+        dice_roller=dice_roller,
+    )
 
 
 def make_basic_session_from_players(
     players: tuple[Player, ...],
     initial_state: GameState | None = None,
+    dice_roller: DiceRoller | None = None,
 ) -> GameSession:
-    engine = get_default_game_engine()
+    engine = get_default_game_engine(dice_roller=dice_roller)
     if len(players) == 0:
         raise InvalidPlayerCountError
     return GameSession(

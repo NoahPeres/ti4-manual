@@ -68,6 +68,13 @@ class InvalidRetreatError(ValueError):
 
 
 @dataclass(frozen=True)
+class CombatRoll:
+    unit_id: int
+    value: int
+    hit: bool
+
+
+@dataclass(frozen=True)
 class SpaceCombatContext:
     step: SpaceCombatStep
     round_number: int
@@ -75,6 +82,8 @@ class SpaceCombatContext:
     defender: Player
     assigned_hits: frozenset[int] = field(default_factory=frozenset[int])
     retreat_declaration: RetreatDeclaration = field(default_factory=RetreatDeclaration)
+    attacker_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
+    defender_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
 
     def resolve_assigned_hit(self, unit_id: int) -> Self:
         return replace(
@@ -109,6 +118,32 @@ class SpaceCombatContext:
         if self.defender == player:
             return SpaceCombatParticipant.DEFENDER
         raise PlayerNotParticipantInCombatError
+
+    def total_hits_for_player(self, player: Player) -> int:
+        return sum(1 for combat_roll in self.get_combat_rolls_for_player(player) if combat_roll.hit)
+
+    def get_combat_rolls_for_player(self, player: Player) -> tuple[CombatRoll, ...]:
+        participant = self.get_participant_by_player(player)
+        match participant:
+            case SpaceCombatParticipant.ATTACKER:
+                return self.attacker_combat_rolls
+            case SpaceCombatParticipant.DEFENDER:
+                return self.defender_combat_rolls
+
+    def register_combat_roll(
+        self, combat_roll: CombatRoll, participant: SpaceCombatParticipant,
+    ) -> Self:
+        match participant:
+            case SpaceCombatParticipant.ATTACKER:
+                return replace(
+                    self,
+                    attacker_combat_rolls=(*self.attacker_combat_rolls, combat_roll),
+                )
+            case SpaceCombatParticipant.DEFENDER:
+                return replace(
+                    self,
+                    defender_combat_rolls=(*self.defender_combat_rolls, combat_roll),
+                )
 
 
 class Phase(StrEnum):
@@ -449,3 +484,16 @@ class GameState:
         if num_eligible_players != 1:
             raise CannotInferDefenderError(num_eligible_players)
         return self.get_player(non_active_players.pop())
+
+    def register_combat_roll(self, combat_roll: CombatRoll) -> Self:
+        if self.turn_context.space_combat_context is None:
+            raise ContextNotFoundError("space_combat")
+        participant = self.turn_context.space_combat_context.get_participant_by_player(
+            self.get_player(self.get_unit_from_id(unit_id=combat_roll.unit_id).owner_name),
+        )
+
+        return self.set_space_combat_context(
+            self.turn_context.space_combat_context.register_combat_roll(
+                combat_roll, participant=participant,
+            ),
+        )

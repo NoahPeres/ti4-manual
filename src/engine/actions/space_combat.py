@@ -10,6 +10,7 @@ from src.engine.core.command import Command, CommandRule, CommandType, Validatio
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
+    CombatRoll,
     GameState,
     SpaceCombatContext,
     SpaceCombatParticipant,
@@ -23,7 +24,9 @@ from src.engine.core.windows import CloseWindowEvent
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from src.engine.core.dice_roller import DiceRoller
     from src.engine.core.system import System
+    from src.engine.units.units import Unit
 
 
 START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
@@ -501,6 +504,48 @@ class AdvanceToRollDiceStepEventRule(EventRule):
         return {PassAnnounceRetreatEvent, AnnounceRetreatEvent}
 
 
+def make_combat_roll(unit: Unit, dice_roller: DiceRoller) -> CombatRoll:
+    value = dice_roller.roll(num_dice=1)[0]
+    if unit.stats.combat is None:
+        raise ValueError("This unit cannot make combat rolls")
+    return CombatRoll(unit_id=unit.unit_id, value=value, hit=value >= unit.stats.combat)
+
+
+class RollDiceForUnit(Event):
+    def __init__(self, unit: Unit, dice_roller: DiceRoller) -> None:
+        self.unit = unit
+        self.dice_roller = dice_roller
+
+    def apply(self, previous_state: GameState) -> GameState:
+        combat_roll = make_combat_roll(unit=self.unit, dice_roller=self.dice_roller)
+        return previous_state.register_combat_roll(combat_roll)
+
+    def __repr__(self) -> str:
+        return f"RollDiceForUnit:{self.unit}"
+
+
+class MakeCombatRollsCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "MakeCombatRollsCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.MAKE_COMBAT_ROLLS}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        del command
+        if state.turn_context.get_space_combat_context().step != SpaceCombatStep.ROLL_DICE:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only make combat rolls during roll dice step.",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+        del state, command
+        return []
+
+
 def get_command_rules() -> list[CommandRule[Command]]:
     return [
         EndSpaceCombatCommandRule(),
@@ -509,6 +554,7 @@ def get_command_rules() -> list[CommandRule[Command]]:
         PassAntiFighterBarrageCommandRule(),
         PassStartOfCombatWindowCommandRule(),
         AnnounceRetreatCommandRule(),
+        MakeCombatRollsCommandRule(),
     ]
 
 

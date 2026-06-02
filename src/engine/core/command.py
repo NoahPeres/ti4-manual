@@ -33,6 +33,7 @@ class CommandType(enum.StrEnum):
     PASS_START_OF_COMBAT_ROUND = "pass_start_of_combat_round"
     ANNOUNCE_RETREAT = "announce_retreat"
     PASS_ANNOUNCE_RETREAT = "pass_announce_retreat"
+    MAKE_COMBAT_ROLLS = "make_combat_rolls"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:
