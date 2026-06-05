@@ -6,10 +6,17 @@ from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
 )
-from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandType,
+    EngineContext,
+    ValidationResult,
+)
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
+    CombatRoll,
     GameState,
     SpaceCombatContext,
     SpaceCombatParticipant,
@@ -23,7 +30,9 @@ from src.engine.core.windows import CloseWindowEvent
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from src.engine.core.dice_roller import DiceRoller
     from src.engine.core.system import System
+    from src.engine.units.units import Unit
 
 
 START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
@@ -100,8 +109,13 @@ class EndSpaceCombatCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> list[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> list[Event]:
+        del state, command, engine_context
         return [AdvanceToInvasionStepEvent()]
 
 
@@ -128,8 +142,13 @@ class EndAssignHitsCommandRule(CommandRule[Command]):
         del state, command
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del command, engine_context
 
         return [DestroyUnitEvent(unit_id) for unit_id in state.get_pending_assigned_hits()]
 
@@ -171,8 +190,13 @@ class PassStartOfCombatWindowCommandRule(CommandRule[Command]):
         del state, command
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [PassStartOfCombatWindowEvent(player=command.actor)]
 
 
@@ -276,8 +300,13 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [ResolveAntiFighterBarrageEvent(player=command.actor)]
 
 
@@ -293,8 +322,13 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
         del state, command
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [PassAntiFighterBarrageEvent(player=command.actor)]
 
 
@@ -465,8 +499,13 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
 
         return _check_for_eligible_retreat_system(state=state)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [
             self._make_event_from_command(command_type=command.command_type, player=command.actor),
         ]
@@ -501,6 +540,76 @@ class AdvanceToRollDiceStepEventRule(EventRule):
         return {PassAnnounceRetreatEvent, AnnounceRetreatEvent}
 
 
+class InvalidCombatRollError(ValueError):
+    pass
+
+
+def make_combat_roll(unit: Unit, dice_roller: DiceRoller) -> CombatRoll:
+    value = dice_roller.roll(num_dice=1)[0]
+    if unit.stats.combat is None:
+        raise InvalidCombatRollError
+    return CombatRoll(unit_id=unit.unit_id, value=value, hit=value >= unit.stats.combat)
+
+
+class RollDiceForUnit(Event):
+    def __init__(self, unit_id: int, combat_roll: CombatRoll) -> None:
+        self.unit_id = unit_id
+        self.combat_roll = combat_roll
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.register_combat_roll(self.combat_roll)
+
+    def __repr__(self) -> str:
+        return f"RollDiceForUnit:{self.unit_id}:{self.combat_roll}"
+
+
+class MakeCombatRollsCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "MakeCombatRollsCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.MAKE_COMBAT_ROLLS}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        space_combat_context = state.turn_context.get_space_combat_context()
+        if space_combat_context.step != SpaceCombatStep.ROLL_DICE:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only make combat rolls during roll dice step.",
+            )
+        if command.actor not in (space_combat_context.attacker, space_combat_context.defender):
+            return ValidationResult(
+                is_valid=False,
+                info="You are not participating in this combat.",
+            )
+        if space_combat_context.get_combat_rolls_for_player(command.actor):
+            return ValidationResult(
+                is_valid=False,
+                info="Combat rolls have already been made for this player.",
+            )
+
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        units = state.get_units_in_system(state.get_active_system().id)
+        return [
+            RollDiceForUnit(
+                unit_id=unit.unit_id,
+                combat_roll=make_combat_roll(unit=unit, dice_roller=engine_context.dice_roller),
+            )
+            for unit in units
+            if unit.stats.combat is not None
+            and unit.is_ship
+            and unit.owner_name == command.actor.name
+        ]
+
+
 def get_command_rules() -> list[CommandRule[Command]]:
     return [
         EndSpaceCombatCommandRule(),
@@ -509,6 +618,7 @@ def get_command_rules() -> list[CommandRule[Command]]:
         PassAntiFighterBarrageCommandRule(),
         PassStartOfCombatWindowCommandRule(),
         AnnounceRetreatCommandRule(),
+        MakeCombatRollsCommandRule(),
     ]
 
 

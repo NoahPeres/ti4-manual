@@ -7,7 +7,12 @@ from hypothesis import given
 
 from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
 from src.engine.core.event import Event, EventRule
-from src.engine.core.game_engine import CommandResult, GameEngine, IllegalStateMutationError
+from src.engine.core.game_engine import (
+    CommandResult,
+    EngineContext,
+    GameEngine,
+    IllegalStateMutationError,
+)
 from src.engine.core.game_state import Galaxy, GameState, Phase
 from src.engine.core.player import Player
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
@@ -54,8 +59,13 @@ class MutatingCommandRule(CommandRule[Command]):
         del state, command
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return [TrivialEvent(payload="Does nothing"), MutatingEvent()]
 
 
@@ -84,8 +94,13 @@ class CommandAlwaysFails(CommandRule[Command]):
         del state, command
         return ValidationResult(is_valid=False, info="This command always fails")
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return []
 
 

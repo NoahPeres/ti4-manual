@@ -5,7 +5,13 @@ from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToProductionStepEvent,
 )
-from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandType,
+    EngineContext,
+    ValidationResult,
+)
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
@@ -71,8 +77,13 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
             return ValidationResult(is_valid=False, info="Only active player can use bombardment.")
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> list[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> list[Event]:
+        del state, command, engine_context
         return [ResolveBombardmentEvent()]
 
 
@@ -94,8 +105,13 @@ class PassBombardmentCommandRule(CommandRule[Command]):
             return ValidationResult(is_valid=False, info="Only active player can pass bombardment.")
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> list[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> list[Event]:
+        del state, command, engine_context
         return [PassBombardmentEvent()]
 
 
@@ -182,8 +198,13 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: CommitGroundForceCommand) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: CommitGroundForceCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [
             AddInvasionCommitToPendingEvent(
                 ground_force_id=command.ground_force_id,
@@ -232,8 +253,13 @@ class EndInvasionCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return [ResolvePendingInvasionCommitsEvent()]
 
 

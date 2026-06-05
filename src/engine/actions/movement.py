@@ -5,6 +5,7 @@ from src.engine.core.command import (
     Command,
     CommandRule,
     CommandType,
+    EngineContext,
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
@@ -102,7 +103,13 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del engine_context
         return [
             ResolveSpaceCannonOffenseEvent(
                 player=command.actor,
@@ -143,8 +150,13 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [PassSpaceCannonEvent(player=command.actor)]
 
 
@@ -180,8 +192,13 @@ class EndMovementCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return [
             ResolvePendingMovesEvent(),
         ]
@@ -454,8 +471,13 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
     def validate_legality(self, state: GameState, command: MoveShipCommand) -> ValidationResult:
         return _validate_tactical_action_move(state, command)
 
-    def derive_events(self, state: GameState, command: MoveShipCommand) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: MoveShipCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [
             AddMoveToPendingEvent(
                 ship_id=command.ship_id,

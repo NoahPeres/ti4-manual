@@ -7,6 +7,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from src.engine.core.command import Command, CommandType
+from src.engine.core.player import Player
+from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
@@ -202,7 +204,10 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
     assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT)
 
 
-def make_start_of_space_combat_state(initial_state: GameState | None = None) -> GameSession:
+def make_start_of_space_combat_state(
+    initial_state: GameState | None = None,
+    dice_roller: DiceRoller | None = None,
+) -> GameSession:
     player_a = make_player(
         name="A",
     )
@@ -239,6 +244,7 @@ def make_start_of_space_combat_state(initial_state: GameState | None = None) -> 
             ),
             player_names=["A", "B"],
         ),
+        dice_roller=dice_roller,
     )
     session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
@@ -247,11 +253,14 @@ def make_start_of_space_combat_state(initial_state: GameState | None = None) -> 
     return session
 
 
-def make_announce_retreat_step_combat_state(initial_state: GameState | None = None) -> GameSession:
-    session = make_start_of_space_combat_state(initial_state)
+def make_announce_retreat_step_combat_state(
+    initial_state: GameState | None = None,
+    dice_roller: DiceRoller | None = None,
+) -> GameSession:
+    session = make_start_of_space_combat_state(initial_state, dice_roller)
     player_a = session.current_state.get_player("A")
     player_b = session.current_state.get_player("B")
-    for player in (player_a, player_b):
+    for player in session.current_state.players:
         session.apply_command(
             command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
@@ -624,7 +633,7 @@ def set_up_units_and_systems(
 
 
 def parse_setup_seed(
-    setup_seed: list[bool],
+    setup_seed: list[tuple[bool, bool, bool]],
     systems: set[System],
     ref_system: System,
 ) -> tuple[set[Unit], set[System], bool]:
@@ -634,9 +643,9 @@ def parse_setup_seed(
     for i, system in enumerate(systems):
         assert system.is_adjacent_to(ref_system)
         retreat_eligibility = RetreatEligibility(
-            has_friendly_units=setup_seed[3 * i],
-            has_enemy_ships=setup_seed[3 * i + 1],
-            has_controlled_planet=setup_seed[3 * i + 2],
+            has_friendly_units=setup_seed[i][0],
+            has_enemy_ships=setup_seed[i][1],
+            has_controlled_planet=setup_seed[i][2],
         )
         all_retreat_eligibility.append(retreat_eligibility)
         new_units, new_system = set_up_units_and_systems(
@@ -661,16 +670,16 @@ _VALID_ELIGIBILITY_CONFIGS = [
         max_size=6,
     ),
 )
-def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[bool]) -> None:
+def test_78_4_c_player_cannot_retreat_without_adjacent_system(
+    setup_seed: list[tuple[bool, bool, bool]],
+) -> None:
     players = (make_player("A"), make_player("B"))
-    try:
-        additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
-            setup_seed=setup_seed,
-            systems={system for system in CENTRE_RING_OF_SYSTEMS if system.id != 0},
-            ref_system=CENTRE_RING_OF_SYSTEMS.get_system(0),
-        )
-    except InvalidTestConfigError:
-        return
+
+    additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
+        setup_seed=setup_seed,
+        systems={system for system in CENTRE_RING_OF_SYSTEMS if system.id != 0},
+        ref_system=CENTRE_RING_OF_SYSTEMS.get_system(0),
+    )
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
@@ -726,4 +735,272 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(setup_seed: list[b
     assert session.engine.apply_command(
         state=session.current_state,
         command=Command(actor=attacker, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+    ).success
+
+
+def make_roll_dice_step_state(
+    units: frozenset[Unit],
+    systems: Galaxy | None = None,
+    dice_roller: DiceRoller | None = None,
+    players: tuple[Player, ...] | None = None,
+) -> GameSession:
+    if players is None:
+        players = (make_player("A"), make_player("B"))
+    session = make_announce_retreat_step_combat_state(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0,
+            units=units,
+            player_names=[player.name for player in players],
+            systems=systems
+            or Galaxy(
+                {
+                    System(
+                        id=0,
+                        command_tokens=(CommandToken(player_name="A"),),
+                        coordinates=HexCoord(0, 0),
+                    ),
+                },
+            ),
+        ),
+        dice_roller=dice_roller,
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    for player in defender, attacker:
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+        )
+    return session
+
+
+class FixedDiceRoller(DiceRoller):
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def roll(self, num_dice: int) -> list[int]:
+        return [self.value] * num_dice
+
+
+@given(
+    attacker_unit_types=st.lists(
+        st.sampled_from([ShipKind.DESTROYER, ShipKind.CRUISER, ShipKind.DREADNOUGHT]),
+        min_size=1,
+        max_size=16,
+    ),
+    defender_unit_types=st.lists(
+        st.sampled_from([ShipKind.DESTROYER, ShipKind.CRUISER, ShipKind.DREADNOUGHT]),
+        min_size=1,
+        max_size=16,
+    ),
+)
+def test_78_5_roll_dice_step_one_roll_per_ship(
+    attacker_unit_types: list[ShipKind],
+    defender_unit_types: list[ShipKind],
+) -> None:
+    all_units = set[Unit]()
+    for i, unit_type in enumerate(attacker_unit_types):
+        all_units |= {make_unit_with_id(unit_id=i, owner_name="A", kind=unit_type, system_id=0)}
+    next_id = len(all_units)
+    for i, unit_type in enumerate(defender_unit_types):
+        all_units |= {
+            make_unit_with_id(unit_id=next_id + i, owner_name="B", kind=unit_type, system_id=0),
+        }
+    session = make_roll_dice_step_state(
+        units=frozenset(all_units),
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    session.apply_command(
+        Command(
+            session.current_state.turn_context.get_space_combat_context().attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    session.apply_command(
+        Command(
+            session.current_state.turn_context.get_space_combat_context().defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker, defender = (
+        space_combat_context.attacker,
+        space_combat_context.defender,
+    )
+    assert len(space_combat_context.get_combat_rolls_for_player(attacker)) == len(
+        attacker_unit_types,
+    )
+    assert len(space_combat_context.get_combat_rolls_for_player(defender)) == len(
+        defender_unit_types,
+    )
+    assert space_combat_context.total_hits_for_player(attacker) == len(
+        [ship for ship in attacker_unit_types if ship == ShipKind.DREADNOUGHT],
+    )
+    assert space_combat_context.total_hits_for_player(defender) == len(
+        [ship for ship in defender_unit_types if ship == ShipKind.DREADNOUGHT],
+    )
+
+
+def test_78_5_ground_forces_do_not_roll_space_combat() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=GroundForceKind.INFANTRY,
+                system_id=0,
+                planet_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=2,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    session.apply_command(
+        Command(
+            session.current_state.turn_context.get_space_combat_context().attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    session.apply_command(
+        Command(
+            session.current_state.turn_context.get_space_combat_context().defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker, defender = (
+        space_combat_context.attacker,
+        space_combat_context.defender,
+    )
+    assert len(space_combat_context.get_combat_rolls_for_player(attacker)) == 1
+    assert len(space_combat_context.get_combat_rolls_for_player(defender)) == 1
+
+
+def test_78_5_cannot_roll_combat_dice_more_than_once_per_step() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        Command(
+            attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.MAKE_COMBAT_ROLLS),
+    ).success
+    session.apply_command(
+        Command(
+            defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=defender, command_type=CommandType.MAKE_COMBAT_ROLLS),
+    ).success
+
+
+@given(dice_value=st.integers(min_value=1, max_value=10))
+def test_78_5_hit_produced_iff_roll_geq_combat_value(dice_value: int) -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=dice_value))
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        Command(
+            attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    session.apply_command(
+        Command(
+            defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    _destroyer_combat_value = 9
+    _dreadnought_combat_value = 5
+    assert space_combat_context.total_hits_for_player(attacker) == (
+        dice_value >= _destroyer_combat_value
+    )
+    assert space_combat_context.total_hits_for_player(defender) == (
+        dice_value >= _dreadnought_combat_value
+    )
+
+
+def test_78_5_other_players_cannot_make_combat_rolls() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(
+        players=tuple(make_player(name) for name in ["A", "B", "C"]),
+        units=units,
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    other_player = session.current_state.get_player("C")
+
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=other_player, command_type=CommandType.MAKE_COMBAT_ROLLS),
     ).success

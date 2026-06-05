@@ -1,7 +1,13 @@
 from typing import TYPE_CHECKING
 
 from src.engine.actions.tactical_action import replace
-from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandType,
+    EngineContext,
+    ValidationResult,
+)
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, TacticalActionStep
 
@@ -46,9 +52,14 @@ class ResolveProductionCommandRule(CommandRule[Command]):
             return ValidationResult(is_valid=False, info="Only active player can use production.")
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
         # TODO: Actually implement production here
-        del state, command
+        del state, command, engine_context
         return [TacticalActionCompletedEvent()]
 
 
@@ -70,8 +81,13 @@ class PassProductionCommandRule(CommandRule[Command]):
             return ValidationResult(is_valid=False, info="Only active player can pass production.")
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return [TacticalActionCompletedEvent()]
 
 
