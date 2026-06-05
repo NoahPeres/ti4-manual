@@ -927,3 +927,47 @@ def test_78_5_cannot_roll_combat_dice_more_than_once_per_step() -> None:
         state=session.current_state,
         command=Command(actor=defender, command_type=CommandType.MAKE_COMBAT_ROLLS),
     ).success
+
+
+@given(dice_value=st.integers(min_value=1, max_value=10))
+def test_78_5_hit_produced_iff_roll_geq_combat_value(dice_value: int) -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=dice_value))
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    session.apply_command(
+        Command(
+            attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    session.apply_command(
+        Command(
+            defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    _destroyer_combat_value = 9
+    _dreadnought_combat_value = 5
+    assert space_combat_context.total_hits_for_player(attacker) == (
+        dice_value >= _destroyer_combat_value
+    )
+    assert space_combat_context.total_hits_for_player(defender) == (
+        dice_value >= _dreadnought_combat_value
+    )
