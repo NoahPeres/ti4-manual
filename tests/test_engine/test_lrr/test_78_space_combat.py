@@ -7,7 +7,6 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from src.engine.core.command import Command, CommandType
-from src.engine.core.player import Player
 from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
@@ -32,6 +31,7 @@ from tests.test_engine.test_lrr.common import (
 
 if TYPE_CHECKING:
     from src.engine.core.game_session import GameSession
+    from src.engine.core.player import Player
 
 
 @pytest.mark.parametrize(
@@ -1004,3 +1004,45 @@ def test_78_5_other_players_cannot_make_combat_rolls() -> None:
         state=session.current_state,
         command=Command(actor=other_player, command_type=CommandType.MAKE_COMBAT_ROLLS),
     ).success
+
+
+def test_78_5_a_burst_icons_mean_extra_dice() -> None:
+    _war_sun_burst_icons = 3
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.WAR_SUN,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.WAR_SUN,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(
+        units=units,
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    session.apply_command(
+        Command(
+            actor=attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    session.apply_command(
+        Command(
+            actor=defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    assert len(space_combat_context.get_combat_rolls_for_player(attacker)) == _war_sun_burst_icons
+    assert len(space_combat_context.get_combat_rolls_for_player(defender)) == _war_sun_burst_icons

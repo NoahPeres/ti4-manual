@@ -10,6 +10,7 @@ class ShipKind(StrEnum):
     DESTROYER = "destroyer"
     FIGHTER = "fighter"
     CARRIER = "carrier"
+    WAR_SUN = "war_sun"
 
 
 class GroundForceKind(StrEnum):
@@ -39,6 +40,11 @@ class UnitStats:
     combat: int | None = None
     move: int | None = None
     capacity: int | None = None
+    burst_icons: int | None = None
+
+    @property
+    def num_dice(self) -> int:
+        return 1 if self.burst_icons is None else self.burst_icons
 
 
 @runtime_checkable
@@ -153,6 +159,7 @@ unit_stats_lookup: dict[UnitKind, UnitStats] = {
     ShipKind.CARRIER: UnitStats(cost=3, combat=9, move=1, capacity=4),
     ShipKind.CRUISER: UnitStats(cost=2, combat=7, move=2),
     ShipKind.FLAGSHIP: UnitStats(cost=8, combat=7, move=1, capacity=3),
+    ShipKind.WAR_SUN: UnitStats(cost=8, combat=9, move=2, capacity=4, burst_icons=3),
     GroundForceKind.INFANTRY: UnitStats(cost=1, combat=8),
     GroundForceKind.MECH: UnitStats(cost=2, combat=6),
 }
