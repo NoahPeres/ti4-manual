@@ -552,15 +552,15 @@ def make_combat_roll(unit: Unit, dice_roller: DiceRoller) -> CombatRoll:
 
 
 class RollDiceForUnit(Event):
-    def __init__(self, unit: Unit, combat_roll: CombatRoll) -> None:
-        self.unit = unit
+    def __init__(self, unit_id: int, combat_roll: CombatRoll) -> None:
+        self.unit_id = unit_id
         self.combat_roll = combat_roll
 
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.register_combat_roll(self.combat_roll)
 
     def __repr__(self) -> str:
-        return f"RollDiceForUnit:{self.unit}"
+        return f"RollDiceForUnit:{self.unit_id}:{self.combat_roll}"
 
 
 class MakeCombatRollsCommandRule(CommandRule[Command]):
@@ -589,7 +589,7 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
         units = state.get_units_in_system(state.get_active_system().id)
         return [
             RollDiceForUnit(
-                unit=unit,
+                unit_id=unit.unit_id,
                 combat_roll=make_combat_roll(unit=unit, dice_roller=engine_context.dice_roller),
             )
             for unit in units
