@@ -578,11 +578,17 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Can only make combat rolls during roll dice step.",
             )
+        if command.actor not in (space_combat_context.attacker, space_combat_context.defender):
+            return ValidationResult(
+                is_valid=False,
+                info="You are not participating in this combat.",
+            )
         if space_combat_context.get_combat_rolls_for_player(command.actor):
             return ValidationResult(
                 is_valid=False,
                 info="Combat rolls have already been made for this player.",
             )
+
         return ValidationResult(is_valid=True)
 
     def derive_events(

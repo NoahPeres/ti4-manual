@@ -7,6 +7,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from src.engine.core.command import Command, CommandType
+from src.engine.core.player import Player
 from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
@@ -259,7 +260,7 @@ def make_announce_retreat_step_combat_state(
     session = make_start_of_space_combat_state(initial_state, dice_roller)
     player_a = session.current_state.get_player("A")
     player_b = session.current_state.get_player("B")
-    for player in (player_a, player_b):
+    for player in session.current_state.players:
         session.apply_command(
             command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
@@ -741,8 +742,10 @@ def make_roll_dice_step_state(
     units: frozenset[Unit],
     systems: Galaxy | None = None,
     dice_roller: DiceRoller | None = None,
+    players: tuple[Player, ...] | None = None,
 ) -> GameSession:
-    players = (make_player("A"), make_player("B"))
+    if players is None:
+        players = (make_player("A"), make_player("B"))
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
@@ -971,3 +974,33 @@ def test_78_5_hit_produced_iff_roll_geq_combat_value(dice_value: int) -> None:
     assert space_combat_context.total_hits_for_player(defender) == (
         dice_value >= _dreadnought_combat_value
     )
+
+
+def test_78_5_other_players_cannot_make_combat_rolls() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(
+        players=tuple(make_player(name) for name in ["A", "B", "C"]),
+        units=units,
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    other_player = session.current_state.get_player("C")
+
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=other_player, command_type=CommandType.MAKE_COMBAT_ROLLS),
+    ).success
