@@ -572,11 +572,16 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
         return {CommandType.MAKE_COMBAT_ROLLS}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del command
-        if state.turn_context.get_space_combat_context().step != SpaceCombatStep.ROLL_DICE:
+        space_combat_context = state.turn_context.get_space_combat_context()
+        if space_combat_context.step != SpaceCombatStep.ROLL_DICE:
             return ValidationResult(
                 is_valid=False,
                 info="Can only make combat rolls during roll dice step.",
+            )
+        if space_combat_context.get_combat_rolls_for_player(command.actor):
+            return ValidationResult(
+                is_valid=False,
+                info="Combat rolls have already been made for this player.",
             )
         return ValidationResult(is_valid=True)
 
@@ -593,7 +598,9 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
                 combat_roll=make_combat_roll(unit=unit, dice_roller=engine_context.dice_roller),
             )
             for unit in units
-            if unit.stats.combat is not None and unit.owner_name == command.actor.name
+            if unit.stats.combat is not None
+            and unit.is_ship
+            and unit.owner_name == command.actor.name
         ]
 
 
