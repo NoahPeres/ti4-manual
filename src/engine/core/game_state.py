@@ -131,7 +131,9 @@ class SpaceCombatContext:
                 return self.defender_combat_rolls
 
     def register_combat_roll(
-        self, combat_roll: CombatRoll, participant: SpaceCombatParticipant,
+        self,
+        combat_roll: CombatRoll,
+        participant: SpaceCombatParticipant,
     ) -> Self:
         match participant:
             case SpaceCombatParticipant.ATTACKER:
@@ -494,6 +496,7 @@ class GameState:
 
         return self.set_space_combat_context(
             self.turn_context.space_combat_context.register_combat_roll(
-                combat_roll, participant=participant,
+                combat_roll,
+                participant=participant,
             ),
         )

@@ -2,7 +2,7 @@ import logging
 from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from src.engine.core.command import CommandRule, CommandType
+from src.engine.core.command import CommandRule, CommandType, EngineContext
 from src.engine.core.dice_roller import DiceRoller, UniformDiceRoller
 
 if TYPE_CHECKING:
@@ -137,7 +137,11 @@ class GameEngine:
         events: list[Event] = []
         resolved_events: list[Event] = []
         for rule in relevant_rules:
-            events += rule.derive_events(state, command)
+            events += rule.derive_events(
+                state,
+                command,
+                EngineContext(dice_roller=self.dice_roller),
+            )
 
         while events:
             event: Event = events.pop(0)

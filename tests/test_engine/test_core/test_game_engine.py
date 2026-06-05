@@ -2,7 +2,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandType,
+    EngineContext,
+    ValidationResult,
+)
 from src.engine.core.event import Event
 from src.engine.core.game_engine import (
     GameEngine,
@@ -57,8 +63,13 @@ class TrivialCommandRule(CommandRule[Command]):
             return ValidationResult(is_valid=True)
         return ValidationResult(is_valid=False, info="Command is not always valid")
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return [TrivialEvent(payload="test")]
 
 
@@ -75,7 +86,13 @@ class EndTurn(CommandRule[Command]):
             return ValidationResult(is_valid=True)
         return ValidationResult(is_valid=False, info="Only the active player can end their turn")
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del engine_context
         if command.command_type == CommandType.END_TURN:
             return [ChangePlayerEvent(players=state.players)]
         return []

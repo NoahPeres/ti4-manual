@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from src.engine.core.event import Event
+    from src.engine.core.game_engine import DiceRoller
     from src.engine.core.game_state import GameState
     from src.engine.core.player import Player
 
@@ -52,9 +53,19 @@ class ValidationResult:
     info: str = ""
 
 
+@dataclass(frozen=True)
+class EngineContext:
+    dice_roller: DiceRoller
+
+
 class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
     def handles_command_types() -> set[CommandType]: ...
     def validate_legality(self, state: GameState, command: C) -> ValidationResult: ...
-    def derive_events(self, state: GameState, command: C) -> Sequence[Event]: ...
+    def derive_events(
+        self,
+        state: GameState,
+        command: C,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]: ...

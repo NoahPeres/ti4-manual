@@ -5,6 +5,7 @@ from src.engine.core.command import (
     Command,
     CommandRule,
     CommandType,
+    EngineContext,
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
@@ -130,8 +131,13 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: ActivateCommand) -> Sequence[Event]:
-        del state
+    def derive_events(
+        self,
+        state: GameState,
+        command: ActivateCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
         return [
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionInitiatedEvent(),

@@ -6,6 +6,7 @@ from src.engine.core.command import (
     Command,
     CommandRule,
     CommandType,
+    EngineContext,
     ValidationResult,
 )
 from src.engine.core.event import Event, EventRule
@@ -57,8 +58,13 @@ class PassCommandRule(CommandRule[Command]):
             )
         return ValidationResult(is_valid=True)
 
-    def derive_events(self, state: GameState, command: Command) -> Sequence[Event]:
-        del state, command
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
         return [PassEvent(), EndTurnEvent()]
 
 
