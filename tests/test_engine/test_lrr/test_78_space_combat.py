@@ -18,6 +18,7 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     Window,
 )
+from src.engine.actions.space_combat import RollDiceForUnitEvent
 from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
@@ -1046,3 +1047,43 @@ def test_78_5_a_burst_icons_mean_extra_dice() -> None:
     space_combat_context = session.current_state.turn_context.get_space_combat_context()
     assert len(space_combat_context.get_combat_rolls_for_player(attacker)) == _war_sun_burst_icons
     assert len(space_combat_context.get_combat_rolls_for_player(defender)) == _war_sun_burst_icons
+
+
+def test_75_b_c_dice_are_rolled_in_increasing_order() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=i,
+                owner_name="A",
+                kind=kind,
+                system_id=0,
+            )
+            for i, kind in enumerate(ShipKind)
+        }
+        | {
+            make_unit_with_id(
+                unit_id=len(ShipKind),
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+        },
+    )
+    expected_order = sorted(
+        [unit for unit in units if unit.owner_name == "A"],
+        key=lambda unit: (unit.stats.combat, unit.unit_id),
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    session.apply_command(
+        Command(
+            attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    latest_events = session.history[-1].events
+    rolled_unit_ids: list[int] = []
+    for event in latest_events:
+        if isinstance(event, RollDiceForUnitEvent) and event.unit_id not in rolled_unit_ids:
+            rolled_unit_ids.append(event.unit_id)
+    assert rolled_unit_ids == [unit.unit_id for unit in expected_order]
