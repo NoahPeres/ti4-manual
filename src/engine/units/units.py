@@ -34,6 +34,11 @@ def kind_from_str(unit_kind_str: str) -> ShipKind | GroundForceKind:
 UnitKind = ShipKind | GroundForceKind
 
 
+class InvalidUnitStatsError(ValueError):
+    def __init__(self, attribute: str, value: int | None) -> None:
+        super().__init__(f"Invalid unit stats: {attribute} = {value}")
+
+
 @dataclass(frozen=True)
 class UnitStats:
     cost: int | None = None
@@ -41,6 +46,10 @@ class UnitStats:
     move: int | None = None
     capacity: int | None = None
     burst_icons: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.burst_icons is not None and self.burst_icons < 0:
+            raise InvalidUnitStatsError("burst_icons", self.burst_icons)
 
     @property
     def num_dice(self) -> int:
