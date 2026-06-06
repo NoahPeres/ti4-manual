@@ -1087,3 +1087,41 @@ def test_75_b_c_dice_are_rolled_in_increasing_order() -> None:
         if isinstance(event, RollDiceForUnitEvent) and event.unit_id not in rolled_unit_ids:
             rolled_unit_ids.append(event.unit_id)
     assert rolled_unit_ids == [unit.unit_id for unit in expected_order]
+
+
+@pytest.mark.skip
+def test_78_5_e_abilities_after_dice_rolled_trigger_after_all_combat_rolls_made() -> None:
+    pass
+
+
+def test_78_5_f_attacker_rolls_first() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=defender, command_type=CommandType.MAKE_COMBAT_ROLLS),
+    ).success
+    session.apply_command(
+        Command(
+            actor=attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )

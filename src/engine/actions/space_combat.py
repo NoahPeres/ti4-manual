@@ -590,6 +590,14 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Combat rolls have already been made for this player.",
             )
+        if (
+            command.actor != space_combat_context.attacker
+            and not space_combat_context.get_combat_rolls_for_player(space_combat_context.attacker)
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="Attacker must roll before defender.",
+            )
 
         return ValidationResult(is_valid=True)
 
