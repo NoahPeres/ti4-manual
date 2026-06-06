@@ -48,7 +48,7 @@ class UnitStats:
     burst_icons: int | None = None
 
     def __post_init__(self) -> None:
-        if self.burst_icons is not None and self.burst_icons < 0:
+        if self.burst_icons is not None and self.burst_icons <= 0:
             raise InvalidUnitStatsError("burst_icons", self.burst_icons)
 
     @property
