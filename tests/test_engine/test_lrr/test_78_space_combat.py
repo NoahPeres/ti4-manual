@@ -6,6 +6,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from src.engine.actions.space_combat import RollDiceForUnitEvent
 from src.engine.core.command import Command, CommandType
 from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.event import Event
@@ -18,7 +19,6 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     Window,
 )
-from src.engine.actions.space_combat import RollDiceForUnitEvent
 from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
