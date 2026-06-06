@@ -6,8 +6,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from src.engine.actions.space_combat import RollDiceForUnitEvent
 from src.engine.core.command import Command, CommandType
-from src.engine.core.player import Player
 from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
@@ -32,6 +32,7 @@ from tests.test_engine.test_lrr.common import (
 
 if TYPE_CHECKING:
     from src.engine.core.game_session import GameSession
+    from src.engine.core.player import Player
 
 
 @pytest.mark.parametrize(
@@ -1004,3 +1005,123 @@ def test_78_5_other_players_cannot_make_combat_rolls() -> None:
         state=session.current_state,
         command=Command(actor=other_player, command_type=CommandType.MAKE_COMBAT_ROLLS),
     ).success
+
+
+def test_78_5_a_burst_icons_mean_extra_dice() -> None:
+    _war_sun_burst_icons = 3
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.WAR_SUN,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.WAR_SUN,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(
+        units=units,
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    session.apply_command(
+        Command(
+            actor=attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    session.apply_command(
+        Command(
+            actor=defender,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    assert len(space_combat_context.get_combat_rolls_for_player(attacker)) == _war_sun_burst_icons
+    assert len(space_combat_context.get_combat_rolls_for_player(defender)) == _war_sun_burst_icons
+
+
+def test_75_b_c_dice_are_rolled_in_increasing_order() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=i,
+                owner_name="A",
+                kind=kind,
+                system_id=0,
+            )
+            for i, kind in enumerate(ShipKind)
+        }
+        | {
+            make_unit_with_id(
+                unit_id=len(ShipKind),
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+        },
+    )
+    expected_order = sorted(
+        [unit for unit in units if unit.owner_name == "A"],
+        key=lambda unit: (unit.stats.combat, unit.unit_id),
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    session.apply_command(
+        Command(
+            attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )
+    latest_events = session.history[-1].events
+    rolled_unit_ids: list[int] = []
+    for event in latest_events:
+        if isinstance(event, RollDiceForUnitEvent) and event.unit_id not in rolled_unit_ids:
+            rolled_unit_ids.append(event.unit_id)
+    assert rolled_unit_ids == [unit.unit_id for unit in expected_order]
+
+
+@pytest.mark.skip
+def test_78_5_e_abilities_after_dice_rolled_trigger_after_all_combat_rolls_made() -> None:
+    pass
+
+
+def test_78_5_f_attacker_rolls_first() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=defender, command_type=CommandType.MAKE_COMBAT_ROLLS),
+    ).success
+    session.apply_command(
+        Command(
+            actor=attacker,
+            command_type=CommandType.MAKE_COMBAT_ROLLS,
+        ),
+    )

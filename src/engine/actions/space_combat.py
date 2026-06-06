@@ -551,16 +551,18 @@ def make_combat_roll(unit: Unit, dice_roller: DiceRoller) -> CombatRoll:
     return CombatRoll(unit_id=unit.unit_id, value=value, hit=value >= unit.stats.combat)
 
 
-class RollDiceForUnit(Event):
-    def __init__(self, unit_id: int, combat_roll: CombatRoll) -> None:
+class RollDiceForUnitEvent(Event):
+    def __init__(self, unit_id: int, combat_rolls: tuple[CombatRoll, ...]) -> None:
         self.unit_id = unit_id
-        self.combat_roll = combat_roll
+        self.combat_rolls = combat_rolls
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.register_combat_roll(self.combat_roll)
+        for combat_roll in self.combat_rolls:
+            previous_state = previous_state.register_combat_roll(combat_roll)
+        return previous_state
 
     def __repr__(self) -> str:
-        return f"RollDiceForUnit:{self.unit_id}:{self.combat_roll}"
+        return f"RollDiceForUnit:{self.unit_id}:{self.combat_rolls}"
 
 
 class MakeCombatRollsCommandRule(CommandRule[Command]):
@@ -588,6 +590,14 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Combat rolls have already been made for this player.",
             )
+        if (
+            command.actor != space_combat_context.attacker
+            and not space_combat_context.get_combat_rolls_for_player(space_combat_context.attacker)
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="Attacker must roll before defender.",
+            )
 
         return ValidationResult(is_valid=True)
 
@@ -598,12 +608,16 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
         engine_context: EngineContext,
     ) -> Sequence[Event]:
         units = state.get_units_in_system(state.get_active_system().id)
+        ordered_units = sorted(units, key=lambda unit: (unit.stats.combat or 0, unit.unit_id))
         return [
-            RollDiceForUnit(
+            RollDiceForUnitEvent(
                 unit_id=unit.unit_id,
-                combat_roll=make_combat_roll(unit=unit, dice_roller=engine_context.dice_roller),
+                combat_rolls=tuple(
+                    make_combat_roll(unit=unit, dice_roller=engine_context.dice_roller)
+                    for _ in range(unit.stats.num_dice)
+                ),
             )
-            for unit in units
+            for unit in ordered_units
             if unit.stats.combat is not None
             and unit.is_ship
             and unit.owner_name == command.actor.name
