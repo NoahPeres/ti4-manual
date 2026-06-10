@@ -696,7 +696,7 @@ class SetHitsAssigneeEvent(Event):
         )
 
     def __repr__(self) -> str:
-        return "SetInitialHitsAssigneeEvent"
+        return "SetHitsAssigneeEvent"
 
 
 class OpenBeforeAssignHitsWindowEventRule(EventRule):
