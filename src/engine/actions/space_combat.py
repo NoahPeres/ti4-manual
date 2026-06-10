@@ -142,6 +142,30 @@ class DestroyUnitWhenAssignedHitEventRule(EventRule):
         return {AssignHitEvent}
 
 
+class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        combat_context = state.turn_context.get_space_combat_context()
+        if combat_context.step != SpaceCombatStep.ASSIGN_HITS:
+            return []
+        if (
+            combat_context.current_hits_assignee == combat_context.attacker
+            and has_finished_assigning_hits(state, combat_context.attacker)
+        ):
+            return [
+                SetHitsAssigneeEvent(
+                    player=combat_context.defender
+                    if not has_finished_assigning_hits(state, combat_context.defender)
+                    else None,
+                ),
+            ]
+        return []
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {DestroyUnitEvent}
+
+
 def has_finished_assigning_hits(state: GameState, player: Player) -> bool:
     combat_context = state.turn_context.get_space_combat_context()
     return (
@@ -662,6 +686,29 @@ class AdvanceToAssignHitsStepEvent(Event):
         return "AdvanceToAssignHitsStepEvent"
 
 
+class SetHitsAssigneeEvent(Event):
+    def __init__(self, player: Player | None) -> None:
+        self.player = player
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            previous_state.turn_context.get_space_combat_context().set_hits_assignee(self.player),
+        )
+
+    def __repr__(self) -> str:
+        return "SetInitialHitsAssigneeEvent"
+
+
+class OpenBeforeAssignHitsWindowEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del state, event
+        return [OpenWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {SetHitsAssigneeEvent}
+
+
 class AdvanceToAssignHitsStepEventRule(EventRule):
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
@@ -694,7 +741,13 @@ class AdvanceToAssignHitsStepEventRule(EventRule):
             }
             - defender_rolled_unit_ids
         ):
-            return [AdvanceToAssignHitsStepEvent()]
+            initial_assignee = None
+            if not has_finished_assigning_hits(state, combat_context.attacker):
+                initial_assignee = combat_context.attacker
+            elif not has_finished_assigning_hits(state, combat_context.defender):
+                initial_assignee = combat_context.defender
+
+            return [AdvanceToAssignHitsStepEvent(), SetHitsAssigneeEvent(initial_assignee)]
         return []
 
 
@@ -765,6 +818,55 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         return [AssignHitEvent(unit_id=command.unit_id, player_name=command.actor.name)]
 
 
+class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "PassBeforeAssignHitsCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.PASS_BEFORE_ASSIGN_HITS}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
+            return ValidationResult(
+                is_valid=False,
+                info="This is not your assign hits window to pass.",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
+        return [CloseWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
+
+
+class SustainDamageCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "SustainDamageCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.USE_SUSTAIN_DAMAGE}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        del state, command
+        # TODO: Proper sustain damage logic
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
+        return []
+
+
 def get_command_rules() -> list[CommandRule[AssignHitCommand]]:
     return [
         EndSpaceCombatCommandRule(),
@@ -774,6 +876,8 @@ def get_command_rules() -> list[CommandRule[AssignHitCommand]]:
         PassStartOfCombatWindowCommandRule(),
         AnnounceRetreatCommandRule(),
         MakeCombatRollsCommandRule(),
+        PassBeforeAssignHitsCommandRule(),
+        SustainDamageCommandRule(),
     ]
 
 
@@ -788,4 +892,6 @@ def get_event_rules() -> list[EventRule]:
         AdvanceToAssignHitsStepEventRule(),
         DestroyUnitWhenAssignedHitEventRule(),
         AdvanceToRetreatStepEventRule(),
+        OpenBeforeAssignHitsWindowEventRule(),
+        SwitchAssigneeWhenFinishedAssigningEventRule(),
     ]

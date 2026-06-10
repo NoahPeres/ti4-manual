@@ -86,6 +86,7 @@ class SpaceCombatContext:
     defender_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
     attacker_hits_assigned: int = 0
     defender_hits_assigned: int = 0
+    current_hits_assignee: Player | None = None
 
     def assign_hit(self, unit_id: int, player: Player) -> Self:
         participant = self.get_participant_by_player(player)
@@ -160,6 +161,9 @@ class SpaceCombatContext:
             case SpaceCombatParticipant.DEFENDER:
                 return self.total_hits_for_player(self.attacker) - self.defender_hits_assigned
 
+    def set_hits_assignee(self, player: Player | None) -> Self:
+        return replace(self, current_hits_assignee=player)
+
 
 class Phase(StrEnum):
     STRATEGY = "strategy"
@@ -197,6 +201,7 @@ class Window(StrEnum):
     END_OF_SPACE_COMBAT = "end_of_space_combat"
     END_OF_SPACE_COMBAT_ROUND = "end_of_space_combat_round"
     ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
+    BEFORE_ASSIGNING_HITS = "before_assigning_hits"
 
 
 @dataclass(frozen=True)
