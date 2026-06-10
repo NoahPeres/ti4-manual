@@ -159,6 +159,11 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
                     else None,
                 ),
             ]
+        if (
+            combat_context.current_hits_assignee == combat_context.defender
+            and has_finished_assigning_hits(state, combat_context.defender)
+        ):
+            return [SetHitsAssigneeEvent(player=None)]
         return []
 
     @staticmethod
@@ -701,8 +706,12 @@ class SetHitsAssigneeEvent(Event):
 
 class OpenBeforeAssignHitsWindowEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        del state, event
-        return [OpenWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
+        del event
+        return (
+            [OpenWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
+            if state.turn_context.get_space_combat_context().current_hits_assignee is not None
+            else []
+        )
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
