@@ -84,12 +84,17 @@ class SpaceCombatContext:
     retreat_declaration: RetreatDeclaration = field(default_factory=RetreatDeclaration)
     attacker_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
     defender_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
+    attacker_hits_assigned: int = 0
+    defender_hits_assigned: int = 0
 
-    def resolve_assigned_hit(self, unit_id: int) -> Self:
-        return replace(
-            self,
-            assigned_hits=frozenset({x for x in self.assigned_hits if x != unit_id}),
-        )
+    def assign_hit(self, unit_id: int, player: Player) -> Self:
+        participant = self.get_participant_by_player(player)
+        new = self
+        if participant == SpaceCombatParticipant.ATTACKER:
+            new = replace(self, attacker_hits_assigned=self.attacker_hits_assigned + 1)
+        elif participant == SpaceCombatParticipant.DEFENDER:
+            new = replace(self, defender_hits_assigned=self.defender_hits_assigned + 1)
+        return replace(new, assigned_hits=frozenset(self.assigned_hits | {unit_id}))
 
     def announce_retreat(self, *, player: Player, is_retreating: bool) -> Self:
         if player == self.attacker:
@@ -146,6 +151,14 @@ class SpaceCombatContext:
                     self,
                     defender_combat_rolls=(*self.defender_combat_rolls, combat_roll),
                 )
+
+    def unassigned_hits_for_player(self, player: Player) -> int:
+        participant = self.get_participant_by_player(player)
+        match participant:
+            case SpaceCombatParticipant.ATTACKER:
+                return self.total_hits_for_player(self.defender) - self.attacker_hits_assigned
+            case SpaceCombatParticipant.DEFENDER:
+                return self.total_hits_for_player(self.attacker) - self.defender_hits_assigned
 
 
 class Phase(StrEnum):
@@ -423,14 +436,20 @@ class GameState:
             in self.window_context.get_or_create_ability_tracker(player=player).abilities_used
         )
 
-    def get_units_in_system(self, system_id: int) -> set[Unit]:
-        return {unit for unit in self.units if unit.system_id == system_id}
+    def get_units_in_system(self, system_id: int, player: Player | None = None) -> set[Unit]:
+        return {
+            unit
+            for unit in self.units
+            if unit.system_id == system_id and (player is None or unit.owner_name == player.name)
+        }
 
-    def get_ships_in_system(self, system_id: int) -> set[Ship]:
+    def get_ships_in_system(self, system_id: int, player: Player | None = None) -> set[Ship]:
         return {
             unit.cast_to_ship()
             for unit in self.units
-            if unit.system_id == system_id and unit.is_ship
+            if unit.system_id == system_id
+            and unit.is_ship
+            and (player is None or unit.owner_name == player.name)
         }
 
     def close_all_windows(self) -> Self:
@@ -457,13 +476,12 @@ class GameState:
             | {self.get_unit_from_id(unit_id=unit_id).set_system_id(None)},
         )
 
-    def resolve_assigned_hit(self, unit_id: int) -> Self:
-        if self.turn_context.space_combat_context is None:
-            raise ContextNotFoundError("space_combat")
-        if unit_id not in self.turn_context.space_combat_context.assigned_hits:
+    def assign_hit(self, unit_id: int, player: Player) -> Self:
+        context = self.turn_context.get_space_combat_context()
+        if self.get_current_system(self.get_unit_from_id(unit_id)) is None:
             raise ComponentNotFoundError(str(unit_id))
         return self.set_space_combat_context(
-            self.turn_context.space_combat_context.resolve_assigned_hit(unit_id),
+            context.assign_hit(unit_id, player=player),
         ).destroy_unit(unit_id)
 
     def player_may_resolve_afb_in_system(self, player: Player, system_id: int) -> bool:
