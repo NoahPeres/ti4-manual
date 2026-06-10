@@ -1,4 +1,4 @@
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Callable, Final
 
 from src.engine.actions.movement import EndMovementStepEvent, OpenWindowEvent
@@ -127,30 +127,36 @@ class DestroyUnitEvent(Event):
         return f"DestroyUnitEvent(unit_id={self.unit_id})"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.resolve_assigned_hit(unit_id=self.unit_id)
+        return previous_state.destroy_unit(unit_id=self.unit_id)
 
 
-class EndAssignHitsCommandRule(CommandRule[Command]):
-    def __repr__(self) -> str:
-        return "EndAssignHitsCommandRule"
+class DestroyUnitWhenAssignedHitEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del state
+        if not isinstance(event, AssignHitEvent):
+            return []
+        return [DestroyUnitEvent(event.unit_id)]
 
     @staticmethod
-    def handles_command_types() -> set[CommandType]:
-        return {CommandType.END_ASSIGN_HITS}
+    def handles_event_types() -> set[type[Event]]:
+        return {AssignHitEvent}
 
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
-        return ValidationResult(is_valid=True)
 
-    def derive_events(
-        self,
-        state: GameState,
-        command: Command,
-        engine_context: EngineContext,
-    ) -> Sequence[Event]:
-        del command, engine_context
+class AdvanceToRetreatStepEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        combat_context = state.turn_context.get_space_combat_context()
+        if all(
+            (combat_context.unassigned_hits_for_player(player) == 0)
+            or state.get_ships_in_system(system_id=state.get_active_system().id, player=player)
+            for player in [combat_context.attacker, combat_context.defender]
+        ):
+            return [AdvanceToRetreatStepEvent()]
+        return []
 
-        return [DestroyUnitEvent(unit_id) for unit_id in state.get_pending_assigned_hits()]
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {DestroyUnitEvent}
 
 
 class EndSpaceCombatEventRule(EventRule):
@@ -170,7 +176,7 @@ class EndSpaceCombatEventRule(EventRule):
                 },
             )
             <= 1
-        ) and (len(state.turn_context.get_space_combat_context().assigned_hits) == 0):
+        ):
             return [
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT_ROUND),
@@ -524,6 +530,19 @@ class AdvanceToRollDiceStepEvent(Event):
         return "AdvanceToRollDiceStepEvent"
 
 
+class AdvanceToRetreatStepEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            replace(
+                previous_state.turn_context.get_space_combat_context(),
+                step=SpaceCombatStep.RETREAT,
+            ),
+        )
+
+    def __repr__(self) -> str:
+        return "AdvanceToRetreatStepEvent"
+
+
 class AdvanceToRollDiceStepEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
@@ -624,10 +643,108 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
         ]
 
 
-def get_command_rules() -> list[CommandRule[Command]]:
+class AdvanceToAssignHitsStepEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            replace(
+                previous_state.turn_context.get_space_combat_context(),
+                step=SpaceCombatStep.ASSIGN_HITS,
+            ),
+        )
+
+    def __repr__(self) -> str:
+        return "AdvanceToAssignHitsStepEvent"
+
+
+class AdvanceToAssignHitsStepEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {RollDiceForUnitEvent}
+
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        combat_context = state.turn_context.get_space_combat_context()
+        attacker_rolls = combat_context.get_combat_rolls_for_player(combat_context.attacker)
+        defender_rolls = combat_context.get_combat_rolls_for_player(combat_context.defender)
+        attacker_rolled_unit_ids = {roll.unit_id for roll in attacker_rolls}
+        defender_rolled_unit_ids = {roll.unit_id for roll in defender_rolls}
+
+        if not (
+            {
+                ship.unit_id
+                for ship in state.get_ships_in_system(
+                    state.get_active_system().id,
+                    player=combat_context.attacker,
+                )
+            }
+            - attacker_rolled_unit_ids
+        ) and not (
+            {
+                ship.unit_id
+                for ship in state.get_ships_in_system(
+                    state.get_active_system().id,
+                    player=combat_context.defender,
+                )
+            }
+            - defender_rolled_unit_ids
+        ):
+            return [AdvanceToAssignHitsStepEvent()]
+        return []
+
+
+@dataclass(frozen=True)
+class AssignHitCommand(Command):
+    unit_id: int
+
+
+class AssignHitEvent(Event):
+    def __init__(self, unit_id: int, player_name: str) -> None:
+        self.unit_id = unit_id
+        self.player_name = player_name
+
+    def __repr__(self) -> str:
+        return f"AssignHitEvent(unit_id={self.unit_id},player_name={self.player_name})"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            previous_state.turn_context.get_space_combat_context().assign_hit(
+                unit_id=self.unit_id,
+                player=previous_state.get_player(self.player_name),
+            ),
+        )
+
+
+class AssignHitCommandRule(CommandRule[AssignHitCommand]):
+    def __repr__(self) -> str:
+        return "AssignHitCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.ASSIGN_HIT}
+
+    def validate_legality(self, state: GameState, command: AssignHitCommand) -> ValidationResult:
+        unit = state.get_unit_from_id(unit_id=command.unit_id)
+        if unit.owner_name != command.actor.name:
+            return ValidationResult(
+                is_valid=False,
+                info="You can only assign hits to your own units.",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: AssignHitCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
+        return [AssignHitEvent(unit_id=command.unit_id, player_name=command.actor.name)]
+
+
+def get_command_rules() -> list[CommandRule[AssignHitCommand]]:
     return [
         EndSpaceCombatCommandRule(),
-        EndAssignHitsCommandRule(),
+        AssignHitCommandRule(),
         UseAntiFighterBarrageCommandRule(),
         PassAntiFighterBarrageCommandRule(),
         PassStartOfCombatWindowCommandRule(),
@@ -644,4 +761,7 @@ def get_event_rules() -> list[EventRule]:
         CloseStartOfSpaceCombatRoundWindowsEventRule(),
         CloseAntiFighterBarrageWindowEventRule(),
         AdvanceToRollDiceStepEventRule(),
+        AdvanceToAssignHitsStepEventRule(),
+        DestroyUnitWhenAssignedHitEventRule(),
+        AdvanceToRetreatStepEventRule(),
     ]
