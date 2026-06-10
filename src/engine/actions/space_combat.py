@@ -142,13 +142,19 @@ class DestroyUnitWhenAssignedHitEventRule(EventRule):
         return {AssignHitEvent}
 
 
+def has_finished_assigning_hits(state: GameState, player: Player) -> bool:
+    combat_context = state.turn_context.get_space_combat_context()
+    return (
+        combat_context.unassigned_hits_for_player(player) == 0
+    ) or not state.get_ships_in_system(system_id=state.get_active_system().id, player=player)
+
+
 class AdvanceToRetreatStepEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         combat_context = state.turn_context.get_space_combat_context()
         if all(
-            (combat_context.unassigned_hits_for_player(player) == 0)
-            or state.get_ships_in_system(system_id=state.get_active_system().id, player=player)
+            has_finished_assigning_hits(state=state, player=player)
             for player in [combat_context.attacker, combat_context.defender]
         ):
             return [AdvanceToRetreatStepEvent()]
@@ -723,12 +729,30 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         return {CommandType.ASSIGN_HIT}
 
     def validate_legality(self, state: GameState, command: AssignHitCommand) -> ValidationResult:
+        space_combat_context = state.turn_context.get_space_combat_context()
+        if space_combat_context.step != SpaceCombatStep.ASSIGN_HITS:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only assign hits during assign hit step.",
+            )
         unit = state.get_unit_from_id(unit_id=command.unit_id)
+        if unit.system_id != state.get_active_system().id:
+            return ValidationResult(
+                is_valid=False,
+                info=f"Ship {unit.unit_id} is not in the active system.",
+            )
         if unit.owner_name != command.actor.name:
             return ValidationResult(
                 is_valid=False,
                 info="You can only assign hits to your own units.",
             )
+        if has_finished_assigning_hits(state=state, player=command.actor):
+            return ValidationResult(is_valid=False, info="No more hits to assign.")
+        if command.actor == space_combat_context.defender and not has_finished_assigning_hits(
+            state=state,
+            player=space_combat_context.attacker,
+        ):
+            return ValidationResult(is_valid=False, info="Attacker must assign all hits first.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
