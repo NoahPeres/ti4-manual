@@ -1205,7 +1205,19 @@ def test_78_6_assign_hit_legality_edge_cases() -> None:
                 system_id=0,
             ),
             make_unit_with_id(
+                unit_id=5,
+                owner_name="A",
+                kind=ShipKind.CRUISER,
+                system_id=0,
+            ),
+            make_unit_with_id(
                 unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=4,
                 owner_name="B",
                 kind=ShipKind.DREADNOUGHT,
                 system_id=0,
@@ -1246,9 +1258,12 @@ def test_78_6_assign_hit_legality_edge_cases() -> None:
     )
     assert not session.engine.apply_command(
         state=session.current_state,
-        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=3),
-    ).success  # no remaining hits to assign
-    assert not session.engine.apply_command(
-        state=session.current_state,
         command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=0),
     ).success  # Ship already destroyed
+    session.apply_command(
+        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=3),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=5),
+    ).success  # no remaining hits to assign
