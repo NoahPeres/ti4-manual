@@ -523,3 +523,10 @@ class GameState:
                 participant=participant,
             ),
         )
+
+    def reinforcements_for_player(self, player: Player) -> set[Unit]:
+        return {
+            unit
+            for unit in self.units
+            if unit.owner_name == player.name and unit.is_in_reinforcements
+        }
