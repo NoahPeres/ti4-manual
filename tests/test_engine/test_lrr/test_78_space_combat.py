@@ -1161,6 +1161,7 @@ def test_78_6_destroy_one_ship_per_opponent_hit(n_hits: int) -> None:
                 command_type=CommandType.MAKE_COMBAT_ROLLS,
             ),
         )
+    session.apply_command(Command(actor=attacker, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS))
     space_combat_context = session.current_state.turn_context.get_space_combat_context()
     assert space_combat_context.total_hits_for_player(attacker) == 0
     assert space_combat_context.total_hits_for_player(defender) == n_hits
@@ -1267,3 +1268,83 @@ def test_78_6_assign_hit_legality_edge_cases() -> None:
         state=session.current_state,
         command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=5),
     ).success  # no remaining hits to assign
+
+
+def test_78_6_a_window_before_assigning_hits_for_sustain_damage() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    for player in (attacker, defender):
+        session.apply_command(
+            Command(
+                actor=player,
+                command_type=CommandType.MAKE_COMBAT_ROLLS,
+            ),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ASSIGN_HITS
+    )
+    assert Window.BEFORE_ASSIGNING_HITS in session.current_state.window_context.active_windows
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS),
+    ).success
+
+
+def test_78_6_b_after_assignment_units_are_in_reinforcements() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    for player in (attacker, defender):
+        session.apply_command(
+            Command(
+                actor=player,
+                command_type=CommandType.MAKE_COMBAT_ROLLS,
+            ),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ASSIGN_HITS
+    )
+    session.apply_command(
+        command=Command(actor=attacker, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS),
+    )
+    session.apply_command(
+        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=0),
+    )
+    assert 0 in [unit.unit_id for unit in session.current_state.reinforcements_for_player(attacker)]

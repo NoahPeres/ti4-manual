@@ -20,6 +20,10 @@ _ALLOWED_COMMANDS_BY_WINDOW: dict[Window, tuple[CommandType, ...]] = {
         CommandType.USE_ANTI_FIGHTER_BARRAGE,
         CommandType.PASS_ANTI_FIGHTER_BARRAGE,
     ),
+    Window.BEFORE_ASSIGNING_HITS: (
+        CommandType.USE_SUSTAIN_DAMAGE,
+        CommandType.PASS_BEFORE_ASSIGN_HITS,
+    ),
 }
 
 
