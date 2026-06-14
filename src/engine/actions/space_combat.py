@@ -1,7 +1,12 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Callable, Final
 
-from src.engine.actions.movement import EndMovementStepEvent, OpenWindowEvent
+from src.engine.actions.movement import (
+    AddMoveToPendingEvent,
+    EndMovementStepEvent,
+    OpenWindowEvent,
+    ResolvePendingMovesEvent,
+)
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
@@ -184,6 +189,7 @@ class AdvanceToRetreatStepEventRule(EventRule):
         combat_context = state.turn_context.get_space_combat_context()
         if all(
             has_finished_assigning_hits(state=state, player=player)
+            and state.get_ships_in_system(state.get_active_system().id, player)
             for player in [combat_context.attacker, combat_context.defender]
         ):
             return [AdvanceToRetreatStepEvent()]
@@ -439,23 +445,26 @@ class PassAnnounceRetreatEvent(Event):
         return "PassAnnounceRetreatEvent"
 
 
-def _is_eligible_retreat_system(system: System, state: GameState) -> bool:
+def _is_eligible_retreat_system_for_player(
+    system: System,
+    state: GameState,
+    player: Player,
+) -> bool:
     if not state.get_active_system().is_adjacent_to(system):
         return False
     if any(
-        ship.owner_name != state.active_player.name
-        for ship in state.get_ships_in_system(system_id=system.id)
+        ship.owner_name != player.name for ship in state.get_ships_in_system(system_id=system.id)
     ):
         return False
     return any(
-        unit.owner_name == state.active_player.name for unit in state.get_units_in_system(system.id)
-    ) or any(planet.controller == state.active_player for planet in system.planets)
+        unit.owner_name == player.name for unit in state.get_units_in_system(system.id)
+    ) or any(planet.controller == player for planet in system.planets)
 
 
-def _check_for_eligible_retreat_system(state: GameState) -> ValidationResult:
+def _check_for_eligible_retreat_system(state: GameState, player: Player) -> ValidationResult:
     systems = state.galaxy.get_adjacent_systems(system_id=state.get_active_system().id)
     for system in systems:
-        if _is_eligible_retreat_system(system, state=state):
+        if _is_eligible_retreat_system_for_player(system, state=state, player=player):
             return ValidationResult(is_valid=True)
     return ValidationResult(is_valid=False, info="No legal retreat system found.")
 
@@ -538,7 +547,7 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
         if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT:
             return ValidationResult(is_valid=True)
 
-        return _check_for_eligible_retreat_system(state=state)
+        return _check_for_eligible_retreat_system(state=state, player=command.actor)
 
     def derive_events(
         self,
@@ -876,7 +885,68 @@ class SustainDamageCommandRule(CommandRule[Command]):
         return []
 
 
-def get_command_rules() -> list[CommandRule[AssignHitCommand]]:
+@dataclass(frozen=True)
+class RetreatShipCommand(Command):
+    ship_id: int
+    to_system_id: int
+    transported_unit_ids: frozenset[int] = frozenset()
+
+
+class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
+    def __repr__(self) -> str:
+        return "RetreatShip"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.RETREAT_SHIP}
+
+    def validate_legality(self, state: GameState, command: RetreatShipCommand) -> ValidationResult:
+        context = state.turn_context.get_space_combat_context()
+        if context.step != SpaceCombatStep.RETREAT:
+            return ValidationResult(
+                is_valid=False, info="Can only retreat during the retreat step."
+            )
+        ship = state.get_ship_from_id(ship_id=command.ship_id)
+        if ship.system_id != state.get_active_system().id:
+            return ValidationResult(
+                is_valid=False, info=f"{command.ship_id} is not in the active system."
+            )
+        if ship.stats.move is None:
+            return ValidationResult(
+                is_valid=False, info=f"{command.ship_id} cannot move on its own."
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: RetreatShipCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        return [AddMoveToPendingEvent(ship_id=command.ship_id, to_system_id=command.to_system_id)]
+
+
+class EndRetreatCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "RetreatShip"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.END_RETREAT}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        return [ResolvePendingMovesEvent()]
+
+
+def get_command_rules() -> list[CommandRule[AssignHitCommand] | CommandRule[RetreatShipCommand]]:
     return [
         EndSpaceCombatCommandRule(),
         AssignHitCommandRule(),
@@ -887,6 +957,8 @@ def get_command_rules() -> list[CommandRule[AssignHitCommand]]:
         MakeCombatRollsCommandRule(),
         PassBeforeAssignHitsCommandRule(),
         SustainDamageCommandRule(),
+        RetreatShipCommandRule(),
+        EndRetreatCommandRule(),
     ]
 
 
