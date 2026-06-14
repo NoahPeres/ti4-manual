@@ -904,16 +904,19 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
         context = state.turn_context.get_space_combat_context()
         if context.step != SpaceCombatStep.RETREAT:
             return ValidationResult(
-                is_valid=False, info="Can only retreat during the retreat step."
+                is_valid=False,
+                info="Can only retreat during the retreat step.",
             )
         ship = state.get_ship_from_id(ship_id=command.ship_id)
         if ship.system_id != state.get_active_system().id:
             return ValidationResult(
-                is_valid=False, info=f"{command.ship_id} is not in the active system."
+                is_valid=False,
+                info=f"{command.ship_id} is not in the active system.",
             )
         if ship.stats.move is None:
             return ValidationResult(
-                is_valid=False, info=f"{command.ship_id} cannot move on its own."
+                is_valid=False,
+                info=f"{command.ship_id} cannot move on its own.",
             )
         return ValidationResult(is_valid=True)
 
@@ -935,6 +938,10 @@ class EndRetreatCommandRule(CommandRule[Command]):
         return {CommandType.END_RETREAT}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if state.turn_context.get_space_combat_context().step != SpaceCombatStep.RETREAT:
+            return ValidationResult(
+                is_valid=False, info="Can only retreat during the retreat step."
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(
