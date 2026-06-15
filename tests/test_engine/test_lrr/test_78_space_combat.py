@@ -1550,6 +1550,15 @@ def test_78_7_b_retreat_validity() -> None:
             to_system_id=1,
         ),
     ).success
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=RetreatShipCommand(
+            actor=context.attacker,  # not the retreating player
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=0,
+            to_system_id=1,
+        ),
+    ).success
 
 
 def test_78_7_b_retreating_player_must_take_all_ships() -> None:

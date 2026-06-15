@@ -907,6 +907,10 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
                 is_valid=False,
                 info="Can only retreat during the retreat step.",
             )
+        if context.declared_retreat != command.actor:
+            return ValidationResult(
+                is_valid=False, info="Only the player who declared may retreat."
+            )
         ship = state.get_ship_from_id(ship_id=command.ship_id)
         if ship.system_id != state.get_active_system().id:
             return ValidationResult(
