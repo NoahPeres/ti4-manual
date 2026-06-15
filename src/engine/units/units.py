@@ -77,6 +77,8 @@ class Unit(Protocol):
     def is_ground_force(self) -> bool: ...
     @property
     def is_in_reinforcements(self) -> bool: ...
+    @property
+    def is_in_space_area(self) -> bool: ...
 
     def set_system_id(self, new_system_id: int | None) -> Unit: ...
 
@@ -119,6 +121,10 @@ class Ship:
     def is_in_reinforcements(self) -> bool:
         return self.system_id is None
 
+    @property
+    def is_in_space_area(self) -> bool:
+        return True
+
     def set_system_id(self, new_system_id: int | None) -> Ship:
         return replace(self, system_id=new_system_id)
 
@@ -155,6 +161,10 @@ class GroundForce:
     @property
     def is_in_reinforcements(self) -> bool:
         return self.system_id is None
+
+    @property
+    def is_in_space_area(self) -> bool:
+        return self.system_id is not None and self.planet_id is None
 
     def set_system_id(self, new_system_id: int | None) -> GroundForce:
         return replace(self, system_id=new_system_id)

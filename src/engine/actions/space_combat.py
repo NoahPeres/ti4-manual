@@ -5,7 +5,7 @@ from src.engine.actions.movement import (
     AddMoveToPendingEvent,
     EndMovementStepEvent,
     OpenWindowEvent,
-    ResolvePendingMovesEvent,
+    resolve_pending_moves,
 )
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
@@ -132,7 +132,7 @@ class DestroyUnitEvent(Event):
         return f"DestroyUnitEvent(unit_id={self.unit_id})"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.destroy_unit(unit_id=self.unit_id)
+        return previous_state.remove_unit(unit_id=self.unit_id)
 
 
 class DestroyUnitWhenAssignedHitEventRule(EventRule):
@@ -926,7 +926,16 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
         command: RetreatShipCommand,
         engine_context: EngineContext,
     ) -> Sequence[Event]:
+        del state, engine_context
         return [AddMoveToPendingEvent(ship_id=command.ship_id, to_system_id=command.to_system_id)]
+
+
+class ResolvePendingRetreatsEvent(Event):
+    def __repr__(self) -> str:
+        return "ResolvePendingRetreatsEvent"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return resolve_pending_moves(previous_state=previous_state)
 
 
 class EndRetreatCommandRule(CommandRule[Command]):
@@ -940,8 +949,24 @@ class EndRetreatCommandRule(CommandRule[Command]):
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if state.turn_context.get_space_combat_context().step != SpaceCombatStep.RETREAT:
             return ValidationResult(
-                is_valid=False, info="Can only retreat during the retreat step."
+                is_valid=False,
+                info="Can only retreat during the retreat step.",
             )
+        ships_in_active_system_with_move_value = {
+            ship.unit_id
+            for ship in state.get_ships_in_system(
+                system_id=state.get_active_system().id,
+                player=command.actor,
+            )
+            if ship.stats.move is not None
+        }
+        pending_retreats = {move.ship_id for move in state.turn_context.pending_moves}
+        if len(ships_in_active_system_with_move_value - pending_retreats) > 0:
+            return ValidationResult(
+                is_valid=False,
+                info="You must retreat all ships with a move value.",
+            )
+
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -950,7 +975,33 @@ class EndRetreatCommandRule(CommandRule[Command]):
         command: Command,
         engine_context: EngineContext,
     ) -> Sequence[Event]:
-        return [ResolvePendingMovesEvent()]
+        del state, command, engine_context
+        return [ResolvePendingRetreatsEvent()]
+
+
+class RemoveUnitEvent(Event):
+    def __init__(self, unit_id: int) -> None:
+        self.unit_id = unit_id
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.remove_unit(self.unit_id)
+
+    def __repr__(self) -> str:
+        return f"RemoveUnitEvent:{self.unit_id}"
+
+
+class RemoveAbandonedFightersAndGroundForcesEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        abandoned_units = state.get_units_in_space_area_of_system(
+            system_id=state.get_active_system().id,
+            player=state.turn_context.get_space_combat_context().declared_retreat,
+        )
+        return [RemoveUnitEvent(unit_id=unit.unit_id) for unit in abandoned_units]
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {ResolvePendingRetreatsEvent}
 
 
 def get_command_rules() -> list[CommandRule[AssignHitCommand] | CommandRule[RetreatShipCommand]]:
@@ -982,4 +1033,5 @@ def get_event_rules() -> list[EventRule]:
         AdvanceToRetreatStepEventRule(),
         OpenBeforeAssignHitsWindowEventRule(),
         SwitchAssigneeWhenFinishedAssigningEventRule(),
+        RemoveAbandonedFightersAndGroundForcesEventRule(),
     ]

@@ -33,31 +33,34 @@ class MoveShipCommand(Command):
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+def resolve_pending_moves(previous_state: GameState) -> GameState:
+    moved_units: set[Unit] = set()
+    for move in previous_state.turn_context.pending_moves:
+        ship = previous_state.get_ship_from_id(move.ship_id)
+        new_ship = ship.set_system_id(move.to_system_id)
+        moved_units.add(new_ship)
+        for transported_unit_id in move.transported_unit_ids:
+            unit = previous_state.get_unit_from_id(transported_unit_id)
+            new_unit = unit.set_system_id(move.to_system_id)
+            moved_units.add(new_unit)
+    moved_unit_ids = {unit.unit_id for unit in moved_units}
+    new_units = frozenset(
+        {unit for unit in previous_state.units if unit.unit_id not in moved_unit_ids} | moved_units,
+    )
+
+    return replace(
+        previous_state,
+        units=new_units,
+        turn_context=replace(previous_state.turn_context, pending_moves=frozenset()),
+    )
+
+
 class ResolvePendingMovesEvent(Event):
     def __repr__(self) -> str:
         return "ResolvePendingMovesEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        moved_units: set[Unit] = set()
-        for move in previous_state.turn_context.pending_moves:
-            ship = previous_state.get_ship_from_id(move.ship_id)
-            new_ship = ship.set_system_id(move.to_system_id)
-            moved_units.add(new_ship)
-            for transported_unit_id in move.transported_unit_ids:
-                unit = previous_state.get_unit_from_id(transported_unit_id)
-                new_unit = unit.set_system_id(move.to_system_id)
-                moved_units.add(new_unit)
-        moved_unit_ids = {unit.unit_id for unit in moved_units}
-        new_units = frozenset(
-            {unit for unit in previous_state.units if unit.unit_id not in moved_unit_ids}
-            | moved_units,
-        )
-
-        return replace(
-            previous_state,
-            units=new_units,
-            turn_context=replace(previous_state.turn_context, pending_moves=frozenset()),
-        )
+        return resolve_pending_moves(previous_state=previous_state)
 
 
 class ResolveSpaceCannonOffenseEvent(Event):

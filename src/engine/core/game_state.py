@@ -474,7 +474,7 @@ class GameState:
             return frozenset()
         return self.turn_context.space_combat_context.assigned_hits
 
-    def destroy_unit(self, unit_id: int) -> Self:
+    def remove_unit(self, unit_id: int) -> Self:
         return replace(
             self,
             units=frozenset(unit for unit in self.units if unit.unit_id != unit_id)
@@ -487,7 +487,7 @@ class GameState:
             raise ComponentNotFoundError(str(unit_id))
         return self.set_space_combat_context(
             context.assign_hit(unit_id, player=player),
-        ).destroy_unit(unit_id)
+        ).remove_unit(unit_id)
 
     def player_may_resolve_afb_in_system(self, player: Player, system_id: int) -> bool:
         # TODO: deferred - return to this when we properly implement SPACE CANNON unit ability
@@ -529,4 +529,15 @@ class GameState:
             unit
             for unit in self.units
             if unit.owner_name == player.name and unit.is_in_reinforcements
+        }
+
+    def get_units_in_space_area_of_system(
+        self,
+        system_id: int,
+        player: Player | None = None,
+    ) -> set[Unit]:
+        return {
+            unit
+            for unit in self.get_units_in_system(system_id=system_id, player=player)
+            if unit.is_in_space_area
         }

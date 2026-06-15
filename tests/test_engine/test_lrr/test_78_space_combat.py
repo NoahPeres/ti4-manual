@@ -295,7 +295,7 @@ class DestroyPlayersShipsInActiveSystem(Event):
             system_id=previous_state.get_active_system().id,
         ):
             if ship.owner_name in self.player_names:
-                new_state = new_state.destroy_unit(unit_id=ship.unit_id)
+                new_state = new_state.remove_unit(unit_id=ship.unit_id)
         return new_state
 
     def __repr__(self) -> str:
@@ -1428,7 +1428,7 @@ def test_78_7_a_combat_immediately_ends_when_only_one_player_has_units() -> None
     assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
 
 
-def make_retreat_step_combat_state() -> GameSession:
+def make_retreat_step_combat_state(b_assigns_hit_to: int) -> GameSession:
     players = (make_player("A"), make_player("B"))
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
@@ -1494,7 +1494,7 @@ def make_retreat_step_combat_state() -> GameSession:
         command=AssignHitCommand(
             actor=context.defender,
             command_type=CommandType.ASSIGN_HIT,
-            unit_id=1,
+            unit_id=b_assigns_hit_to,
         ),
     )
     assert len(session.failure_history) == 0
@@ -1502,7 +1502,7 @@ def make_retreat_step_combat_state() -> GameSession:
 
 
 def test_78_7_b_successful_retreat_moves_all_ships_to_adjacent_system() -> None:
-    session = make_retreat_step_combat_state()
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
     context = session.current_state.turn_context.get_space_combat_context()
     session.apply_command(
         command=RetreatShipCommand(
@@ -1520,7 +1520,7 @@ def test_78_7_b_successful_retreat_moves_all_ships_to_adjacent_system() -> None:
 
 
 def test_78_7_b_retreat_validity() -> None:
-    session = make_retreat_step_combat_state()
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
     context = session.current_state.turn_context.get_space_combat_context()
     assert not session.engine.apply_command(
         state=session.current_state,
@@ -1549,3 +1549,45 @@ def test_78_7_b_retreat_validity() -> None:
             to_system_id=1,
         ),
     ).success
+
+
+def test_78_7_b_retreating_player_must_take_all_ships() -> None:
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(
+            actor=session.current_state.turn_context.get_space_combat_context().defender,
+            command_type=CommandType.END_RETREAT,
+        ),
+    ).success  # B's destroyer is still alive in the active system
+
+
+def test_78_7_b_abandoned_fighters_are_removed() -> None:
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
+    context = session.current_state.turn_context.get_space_combat_context()
+    assert any(
+        ship.kind == ShipKind.FIGHTER
+        for ship in session.current_state.get_ships_in_system(system_id=0, player=context.defender)
+    )
+    session.apply_command(
+        command=RetreatShipCommand(
+            actor=context.defender,
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=3,
+            to_system_id=1,
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
+    )
+    assert not any(
+        ship.kind == ShipKind.FIGHTER
+        for ship in session.current_state.get_ships_in_system(system_id=1, player=context.defender)
+    )
+    assert not any(
+        ship.kind == ShipKind.FIGHTER
+        for ship in session.current_state.get_ships_in_system(
+            system_id=session.current_state.get_active_system().id,
+            player=context.defender,
+        )
+    )
