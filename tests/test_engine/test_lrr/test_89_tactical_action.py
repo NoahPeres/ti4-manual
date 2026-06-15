@@ -14,7 +14,7 @@ from src.engine.core.game_state import (
     TurnContext,
     Window,
 )
-from src.engine.core.system import HexCoord, System
+from src.engine.core.system import HexCoord, Planet, System
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import (
@@ -576,7 +576,7 @@ def test_89_2_c_ability_window_properly_clears_state() -> None:
 
 CENTRE_RING_OF_SYSTEMS = Galaxy(
     {
-        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
+        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0), planets=frozenset({Planet(0)})),
         System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
         System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
         System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
@@ -644,6 +644,7 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
                 [ShipKind.FIGHTER, GroundForceKind.INFANTRY, GroundForceKind.MECH],
             ),
             system_id=st.just(0),
+            planet_id=st.just(0),
         ),
         min_size=1,
         max_size=4,
@@ -670,6 +671,9 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
     transported_unit_ids = frozenset(
         unit.unit_id for unit in unique_units if unit.unit_id != ship.unit_id
     )
+    for unit in session.current_state.units:
+        if unit.is_ground_force:
+            assert unit.cast_to_ground_force().planet_id is not None
     new_state = session.apply_command(
         command=move_command(
             actor=session.initial_state.get_player("A"),
@@ -686,6 +690,8 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
     for unit in unique_units:
         new_unit = new_state.get_unit_from_id(unit.unit_id)
         assert new_state.get_current_system(new_unit) == new_state.active_system
+        if new_unit.is_ground_force:
+            assert new_unit.cast_to_ground_force().planet_id is None
 
     assert new_state.turn_context.pending_moves == frozenset()
 
@@ -839,7 +845,7 @@ def test_89_4_player_may_commit_ground_forces() -> None:
     )
     session = make_session(
         players=(player_a, player_b),
-        galaxy=Galaxy({System(id=0, command_tokens=())}),
+        galaxy=Galaxy({System(id=0, command_tokens=(), planets=frozenset({Planet(0)}))}),
         units=frozenset({ship, ground_force}),
     )
 

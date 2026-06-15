@@ -37,5 +37,25 @@ class NoPassedPlayersWithReadyStrategyCards(GameStateInvariant):
         return True
 
 
+class UnitOnPlanetImpliesUnitInSystem(GameStateInvariant):
+    description = """Units which are on a planet are also in the planet's system."""
+
+    def check(self, state: GameState) -> bool:
+        planet_to_system_map: dict[int, int] = {}
+        for system in state.galaxy:
+            planet_to_system_map |= {planet.planet_id: system.id for planet in system.planets}
+        ground_forces = {
+            unit.cast_to_ground_force() for unit in state.units if unit.is_ground_force
+        }
+        return all(
+            unit.planet_id is None or planet_to_system_map[unit.planet_id] == unit.system_id
+            for unit in ground_forces
+        )
+
+
 def make_all_invariants() -> list[GameStateInvariant]:
-    return [UniqueTokenInvariant(tokens=UNIQUE_TOKENS), NoPassedPlayersWithReadyStrategyCards()]
+    return [
+        UniqueTokenInvariant(tokens=UNIQUE_TOKENS),
+        NoPassedPlayersWithReadyStrategyCards(),
+        UnitOnPlanetImpliesUnitInSystem(),
+    ]

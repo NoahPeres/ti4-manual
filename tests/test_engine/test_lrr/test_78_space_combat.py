@@ -772,6 +772,7 @@ def make_roll_dice_step_state(
                         id=0,
                         command_tokens=(CommandToken(player_name="A"),),
                         coordinates=HexCoord(0, 0),
+                        planets=frozenset({Planet(0)}),
                     ),
                 },
             ),

@@ -42,6 +42,8 @@ def resolve_pending_moves(previous_state: GameState) -> GameState:
         for transported_unit_id in move.transported_unit_ids:
             unit = previous_state.get_unit_from_id(transported_unit_id)
             new_unit = unit.set_system_id(move.to_system_id)
+            if unit.is_ground_force:
+                new_unit = new_unit.cast_to_ground_force().set_planet_id(None)
             moved_units.add(new_unit)
     moved_unit_ids = {unit.unit_id for unit in moved_units}
     new_units = frozenset(

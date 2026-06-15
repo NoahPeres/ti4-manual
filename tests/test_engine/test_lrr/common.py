@@ -125,6 +125,7 @@ def grant_all_units_unique_ids(units: frozenset[Unit]) -> frozenset[Unit]:
             owner_name=unit.owner_name,
             kind=unit.kind,
             system_id=unit.system_id,
+            planet_id=unit.cast_to_ground_force().planet_id if unit.is_ground_force else None,
         )
         for i, unit in enumerate(units)
     )
