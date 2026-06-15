@@ -911,6 +911,15 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
             return ValidationResult(
                 is_valid=False, info="Only the player who declared may retreat."
             )
+        if not _is_eligible_retreat_system_for_player(
+            system=state.galaxy.get_system(command.to_system_id), state=state, player=command.actor
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info="System is not eligible for retreat: must contain one or more of that player's"
+                " units, a planet they control, or both, as well as no ships controlled by another "
+                "player.",
+            )
         ship = state.get_ship_from_id(ship_id=command.ship_id)
         if ship.system_id != state.get_active_system().id:
             return ValidationResult(

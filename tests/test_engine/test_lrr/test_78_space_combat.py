@@ -1559,6 +1559,20 @@ def test_78_7_b_retreat_validity() -> None:
             to_system_id=1,
         ),
     ).success
+    # Note that only system 1 is a legal system, as it contains one of B's ships:
+    assert all(
+        session.engine.apply_command(
+            state=session.current_state,
+            command=RetreatShipCommand(
+                actor=context.defender,
+                command_type=CommandType.RETREAT_SHIP,
+                ship_id=3,
+                to_system_id=system.id,
+            ),
+        ).success
+        == (system.id == 1)
+        for system in CENTRE_RING_OF_SYSTEMS
+    )
 
 
 def test_78_7_b_retreating_player_must_take_all_ships() -> None:
