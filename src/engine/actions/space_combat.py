@@ -940,7 +940,13 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
         engine_context: EngineContext,
     ) -> Sequence[Event]:
         del state, engine_context
-        return [AddMoveToPendingEvent(ship_id=command.ship_id, to_system_id=command.to_system_id)]
+        return [
+            AddMoveToPendingEvent(
+                ship_id=command.ship_id,
+                to_system_id=command.to_system_id,
+                transported_unit_ids=command.transported_unit_ids,
+            )
+        ]
 
 
 class ResolvePendingRetreatsEvent(Event):
@@ -964,6 +970,10 @@ class EndRetreatCommandRule(CommandRule[Command]):
             return ValidationResult(
                 is_valid=False,
                 info="Can only retreat during the retreat step.",
+            )
+        if state.turn_context.get_space_combat_context().declared_retreat != command.actor:
+            return ValidationResult(
+                is_valid=False, info="Only the retreating player may resolve retreats."
             )
         ships_in_active_system_with_move_value = {
             ship.unit_id

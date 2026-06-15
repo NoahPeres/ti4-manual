@@ -247,7 +247,7 @@ def make_start_of_space_combat_state(
                         system_id=1,
                     ),
                     make_unit_with_id(
-                        unit_id=3,
+                        unit_id=4,
                         owner_name="B",
                         kind=ShipKind.DESTROYER,
                         system_id=2,
@@ -1516,8 +1516,26 @@ def test_78_7_b_successful_retreat_moves_all_ships_to_adjacent_system() -> None:
     session.apply_command(
         command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
     )
+    assert len(session.failure_history) == 0
     retreating_ship = session.current_state.get_unit_from_id(3)
     assert retreating_ship in session.current_state.get_ships_in_system(1)
+
+
+def test_78_7_b_other_players_cannot_end_retreat_command() -> None:
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
+    context = session.current_state.turn_context.get_space_combat_context()
+    session.apply_command(
+        command=RetreatShipCommand(
+            actor=context.defender,
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=3,
+            to_system_id=1,
+        ),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=context.attacker, command_type=CommandType.END_RETREAT),
+    ).success
 
 
 def test_78_7_b_retreat_validity() -> None:
@@ -1615,3 +1633,21 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
             player=context.defender,
         )
     )
+
+
+def test_78_7_d_retreating_player_must_place_command_token() -> None:
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
+    context = session.current_state.turn_context.get_space_combat_context()
+    session.apply_command(
+        command=RetreatShipCommand(
+            actor=context.defender,
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=3,
+            to_system_id=1,
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
+    )
+    assert len(session.failure_history) == 0
+    assert session.current_state.galaxy.get_system(1).has_command_token(context.defender)
