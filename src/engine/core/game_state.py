@@ -307,6 +307,11 @@ class Galaxy(frozenset[System]):
     def combine(self, other: Galaxy) -> Galaxy:
         return Galaxy(self | other)
 
+    def place_command_token_in_system_from_reinforcements(
+        self, player: Player, system_id: int
+    ) -> Self:
+        pass
+
 
 class ComponentNotFoundError(ValueError):
     def __init__(self, component_name: str) -> None:

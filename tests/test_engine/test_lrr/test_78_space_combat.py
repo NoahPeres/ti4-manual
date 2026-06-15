@@ -24,6 +24,7 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     Window,
 )
+from src.engine.core.player import MAX_COMMAND_TOKENS
 from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
@@ -1650,4 +1651,11 @@ def test_78_7_d_retreating_player_must_place_command_token() -> None:
         command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
     )
     assert len(session.failure_history) == 0
+    defender_command_sheet = session.current_state.get_player(context.defender.name).command_sheet
+    assert (
+        len(defender_command_sheet.tactic)
+        + len(defender_command_sheet.fleet)
+        + len(defender_command_sheet.strategy)
+        < MAX_COMMAND_TOKENS
+    )  # confirm the player would not be forced to remove from sheet, no player decision is required
     assert session.current_state.galaxy.get_system(1).has_command_token(context.defender)

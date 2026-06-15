@@ -1027,6 +1027,21 @@ class RemoveAbandonedFightersAndGroundForcesEventRule(EventRule):
         return {ResolvePendingRetreatsEvent}
 
 
+class PlaceCommandTokenFromReinforcementsEvent(Event):
+    def __init__(self, system_id: int) -> None:
+        self.system_id = system_id
+
+    def apply(self, previous_state: GameState) -> GameState: ...
+    def __repr__(self) -> str: ...
+
+
+class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]: ...
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {ResolvePendingRetreatsEvent}
+
+
 def get_command_rules() -> list[CommandRule[AssignHitCommand] | CommandRule[RetreatShipCommand]]:
     return [
         EndSpaceCombatCommandRule(),

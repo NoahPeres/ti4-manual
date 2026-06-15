@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from src.engine.tokens import CommandToken, TokenType
 
 if TYPE_CHECKING:
     from src.engine.strategy_cards import StrategyCard
+
+MAX_COMMAND_TOKENS: Final[int] = 16
 
 
 @dataclass(frozen=True)
