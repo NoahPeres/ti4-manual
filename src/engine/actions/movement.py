@@ -33,21 +33,30 @@ class MoveShipCommand(Command):
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+class ConflictingMoveError(ValueError):
+    def __init__(self, unit_id: int):
+        super().__init__(f"Conflicting move commands for unit {unit_id}")
+
+
 def resolve_pending_moves(previous_state: GameState) -> GameState:
-    moved_units: set[Unit] = set()
+    moved_units_by_id: dict[int, Unit] = {}
     for move in previous_state.turn_context.pending_moves:
         ship = previous_state.get_ship_from_id(move.ship_id)
+        if ship.unit_id in moved_units_by_id:
+            raise ConflictingMoveError(ship.unit_id)
         new_ship = ship.set_system_id(move.to_system_id)
-        moved_units.add(new_ship)
+        moved_units_by_id[new_ship.unit_id] = new_ship
         for transported_unit_id in move.transported_unit_ids:
+            if transported_unit_id in moved_units_by_id:
+                raise ConflictingMoveError(transported_unit_id)
             unit = previous_state.get_unit_from_id(transported_unit_id)
             new_unit = unit.set_system_id(move.to_system_id)
             if unit.is_ground_force:
                 new_unit = new_unit.cast_to_ground_force().set_planet_id(None)
-            moved_units.add(new_unit)
-    moved_unit_ids = {unit.unit_id for unit in moved_units}
+            moved_units_by_id[new_unit.unit_id] = new_unit
     new_units = frozenset(
-        {unit for unit in previous_state.units if unit.unit_id not in moved_unit_ids} | moved_units,
+        {unit for unit in previous_state.units if unit.unit_id not in moved_units_by_id}
+        | set(moved_units_by_id.values()),
     )
 
     return replace(
