@@ -203,6 +203,7 @@ class Window(StrEnum):
     END_OF_SPACE_COMBAT_ROUND = "end_of_space_combat_round"
     ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
     BEFORE_ASSIGNING_HITS = "before_assigning_hits"
+    MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN = "must_choose_pool_for_remove_command_token"
 
 
 @dataclass(frozen=True)

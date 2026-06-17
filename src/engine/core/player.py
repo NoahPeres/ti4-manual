@@ -86,6 +86,17 @@ class CommandSheet:
                     reinforcements=_remove_one_token_from_pool(self.reinforcements, command_token),
                 )
 
+    def get_pool(self, pool: CommandTokenPool) -> tuple[CommandToken, ...]:
+        match pool:
+            case CommandTokenPool.TACTIC:
+                return self.tactic
+            case CommandTokenPool.FLEET:
+                return self.fleet
+            case CommandTokenPool.STRATEGY:
+                return self.strategy
+            case CommandTokenPool.REINFORCEMENTS:
+                return self.reinforcements
+
 
 @dataclass(frozen=True)
 class Player:

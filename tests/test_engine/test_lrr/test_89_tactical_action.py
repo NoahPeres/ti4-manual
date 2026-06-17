@@ -709,7 +709,7 @@ def test_89_3_if_one_player_has_ships_skip_space_combat(*, opponent_has_ground_f
         initial_state=make_tactical_action_movement_state(
             active_system_id=1,
             units=frozenset({ship_a} | ground_forces),
-            player_names=["A", "B"],
+            players=(make_player("A"), make_player("B")),
             systems=CENTRE_RING_OF_SYSTEMS,
         ),
         engine=get_default_game_engine(),
@@ -746,7 +746,7 @@ def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None
         initial_state=make_tactical_action_movement_state(
             active_system_id=1,
             units=frozenset({ship_a, ship_b}),
-            player_names=["A", "B"],
+            players=(make_player("A"), make_player("B")),
             systems=CENTRE_RING_OF_SYSTEMS,
         ),
         engine=get_default_game_engine(),

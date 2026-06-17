@@ -16,12 +16,12 @@ from src.engine.core.invariants import make_all_invariants
 from src.engine.core.player import CommandSheet, Player
 from src.engine.core.system import HexCoord, System
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
-from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 
 if TYPE_CHECKING:
     from src.engine.core.dice_roller import DiceRoller
+    from src.engine.strategy_cards import StrategyCard
 
 
 class InvalidPlayerCountError(ValueError):
@@ -59,11 +59,14 @@ def make_basic_session_from_players(
 def make_player(
     name: str,
     strategy_cards: tuple[StrategyCard, ...] = (),
+    command_sheet: CommandSheet | None = None,
 ) -> Player:
     return Player(
         name=name,
         strategy_cards=strategy_cards,
-        command_sheet=CommandSheet.make_from_int(name, tactic=3, fleet=3, strategy=2),
+        command_sheet=command_sheet
+        if command_sheet is not None
+        else CommandSheet.make_from_int(name, tactic=3, fleet=3, strategy=2),
         has_passed=False,
     )
 
@@ -71,15 +74,12 @@ def make_player(
 def make_tactical_action_movement_state(
     active_system_id: int,
     units: frozenset[Unit] | None = None,
-    player_names: list[str] | None = None,
+    players: tuple[Player, ...] | None = None,
     systems: Galaxy | None = None,
 ) -> GameState:
-    if player_names is None:
-        player_names = ["A"]
-    players = [
-        make_player(name=name, strategy_cards=(StrategyCard(name="A", initiative=i),))
-        for i, name in enumerate(player_names)
-    ]
+    if players is None:
+        players = (make_player("A"),)
+
     if units is None:
         # Create default ship at system 0
         default_ship = make_unit_with_id(

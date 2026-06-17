@@ -9,6 +9,7 @@ from hypothesis import strategies as st
 from src.engine.actions.space_combat import (
     AssignHitCommand,
     CombatRoll,
+    RemoveCommandTokenFromPoolCommand,
     RetreatShipCommand,
     RollDiceForUnitEvent,
 )
@@ -24,7 +25,7 @@ from src.engine.core.game_state import (
     TacticalActionStep,
     Window,
 )
-from src.engine.core.player import MAX_COMMAND_TOKENS
+from src.engine.core.player import MAX_COMMAND_TOKENS, CommandSheet, CommandTokenPool
 from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
@@ -96,7 +97,7 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
             units=units,
-            player_names=["A", "B"],
+            players=(player_a, player_b),
             systems=Galaxy(
                 {
                     System(
@@ -143,7 +144,7 @@ def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
                     ),
                 },
             ),
-            player_names=["A", "B"],
+            players=(player_a, player_b),
             systems=Galaxy(
                 {
                     System(
@@ -198,7 +199,7 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
                     ),
                 },
             ),
-            player_names=["A", "B"],
+            players=(player_a, player_b),
         ),
     )
     session.apply_command(
@@ -255,7 +256,7 @@ def make_start_of_space_combat_state(
                     ),
                 },
             ),
-            player_names=["A", "B"],
+            players=(player_a, player_b),
             systems=CENTRE_RING_OF_SYSTEMS,
         ),
         dice_roller=dice_roller,
@@ -717,7 +718,7 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(
                     | additional_units,
                 ),
             ),
-            player_names=[player.name for player in players],
+            players=players,
             systems=Galaxy(
                 {
                     System(
@@ -765,7 +766,7 @@ def make_roll_dice_step_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
             units=units,
-            player_names=[player.name for player in players],
+            players=players,
             systems=systems
             or Galaxy(
                 {
@@ -1393,7 +1394,7 @@ def test_78_7_a_combat_immediately_ends_when_only_one_player_has_units() -> None
                     ),
                 },
             ),
-            player_names=[player.name for player in players],
+            players=players,
             systems=CENTRE_RING_OF_SYSTEMS,
         ),
         dice_roller=FixedDiceRoller(5),
@@ -1430,8 +1431,12 @@ def test_78_7_a_combat_immediately_ends_when_only_one_player_has_units() -> None
     assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
 
 
-def make_retreat_step_combat_state(b_assigns_hit_to: int) -> GameSession:
-    players = (make_player("A"), make_player("B"))
+def make_retreat_step_combat_state(
+    b_assigns_hit_to: int,
+    players: tuple[Player, ...] | None = None,
+) -> GameSession:
+    if players is None:
+        players = (make_player("A"), make_player("B"))
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
@@ -1469,7 +1474,7 @@ def make_retreat_step_combat_state(b_assigns_hit_to: int) -> GameSession:
                     ),
                 },
             ),
-            player_names=[player.name for player in players],
+            players=players,
             systems=CENTRE_RING_OF_SYSTEMS,
         ),
         dice_roller=FixedDiceRoller(5),
@@ -1658,4 +1663,75 @@ def test_78_7_d_retreating_player_must_place_command_token() -> None:
         + len(defender_command_sheet.strategy)
         < MAX_COMMAND_TOKENS
     )  # confirm the player would not be forced to remove from sheet, no player decision is required
+    assert session.current_state.galaxy.get_system(1).has_command_token(context.defender)
+
+
+def test_78_7_d_retreating_player_must_place_command_token_even_if_none_in_reinforcements() -> None:
+    session = make_retreat_step_combat_state(
+        b_assigns_hit_to=1,
+        players=(
+            make_player("A"),
+            make_player(
+                "B",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="B",
+                    tactic=8,
+                    fleet=8,
+                    strategy=0,
+                ),
+            ),
+        ),
+    )
+    context = session.current_state.turn_context.get_space_combat_context()
+    session.apply_command(
+        command=RetreatShipCommand(
+            actor=context.defender,
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=3,
+            to_system_id=1,
+        ),
+    )
+    session.apply_command(
+        command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
+    )
+    assert len(session.failure_history) == 0
+    defender_command_sheet = session.current_state.get_player(context.defender.name).command_sheet
+    assert (
+        len(defender_command_sheet.tactic)
+        + len(defender_command_sheet.fleet)
+        + len(defender_command_sheet.strategy)
+        == MAX_COMMAND_TOKENS
+    )  # player decision is required, they must choose a pool
+    assert (
+        Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN
+        in session.current_state.window_context.active_windows
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=RemoveCommandTokenFromPoolCommand(
+            actor=context.attacker,  # Not the retreating player
+            command_type=CommandType.REMOVE_COMMAND_TOKEN_FROM_POOL,
+            pool=CommandTokenPool.TACTIC,
+        ),
+    ).success
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=RemoveCommandTokenFromPoolCommand(
+            actor=context.defender,
+            command_type=CommandType.REMOVE_COMMAND_TOKEN_FROM_POOL,
+            pool=CommandTokenPool.STRATEGY,  # No tokens in this pool
+        ),
+    ).success
+    session.apply_command(
+        RemoveCommandTokenFromPoolCommand(
+            actor=context.defender,
+            command_type=CommandType.REMOVE_COMMAND_TOKEN_FROM_POOL,
+            pool=CommandTokenPool.TACTIC,
+        ),
+    )
+    assert len(session.failure_history) == 0
+    assert (
+        Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN
+        not in session.current_state.window_context.active_windows
+    )
     assert session.current_state.galaxy.get_system(1).has_command_token(context.defender)

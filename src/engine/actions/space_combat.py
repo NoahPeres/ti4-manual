@@ -1043,9 +1043,10 @@ class RemoveAbandonedFightersAndGroundForcesEventRule(EventRule):
         return {ResolvePendingRetreatsEvent}
 
 
-class PlaceCommandTokenFromReinforcementsEvent(Event):
-    def __init__(self, system_id: int) -> None:
+class PlaceCommandTokenFromPoolEvent(Event):
+    def __init__(self, system_id: int, pool: CommandTokenPool) -> None:
         self.system_id = system_id
+        self.pool = pool
 
     def apply(self, previous_state: GameState) -> GameState:
         retreating_player = previous_state.turn_context.get_space_combat_context().declared_retreat
@@ -1053,19 +1054,26 @@ class PlaceCommandTokenFromReinforcementsEvent(Event):
             raise ValueError
         return previous_state.withdraw_command_token(
             player=retreating_player,
-            from_pool=CommandTokenPool.REINFORCEMENTS,
+            from_pool=self.pool,
         ).place_command_token_in_system(player=retreating_player, system_id=self.system_id)
 
     def __repr__(self) -> str:
-        return f"PlaceCommandTokenFromReinforcementsEvent:{self.system_id}"
+        return f"PlaceCommandTokenFromReinforcementsEvent:{self.system_id}:{self.pool}"
 
 
 class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
+        retreating_player = state.turn_context.get_space_combat_context().declared_retreat
+        if retreating_player is None:
+            raise InvalidRetreatError
+        command_sheet = state.get_player(retreating_player.name).command_sheet
+        if len(command_sheet.reinforcements) < 1:
+            return [OpenWindowEvent(Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN)]
         return [
-            PlaceCommandTokenFromReinforcementsEvent(
+            PlaceCommandTokenFromPoolEvent(
                 system_id=state.turn_context.get_retreat_system_id(),
+                pool=CommandTokenPool.REINFORCEMENTS,
             ),
         ]
 
@@ -1074,7 +1082,63 @@ class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
         return {ResolvePendingRetreatsEvent}
 
 
-def get_command_rules() -> list[CommandRule[AssignHitCommand] | CommandRule[RetreatShipCommand]]:
+@dataclass(frozen=True)
+class RemoveCommandTokenFromPoolCommand(Command):
+    pool: CommandTokenPool
+
+
+class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFromPoolCommand]):
+    def __repr__(self) -> str:
+        return "ChoosePoolToRemoveCommandTokenCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.REMOVE_COMMAND_TOKEN_FROM_POOL}
+
+    def validate_legality(
+        self,
+        state: GameState,
+        command: RemoveCommandTokenFromPoolCommand,
+    ) -> ValidationResult:
+        retreating_player = state.turn_context.get_space_combat_context().declared_retreat
+        if retreating_player is None:
+            raise InvalidRetreatError
+        if retreating_player != command.actor:
+            return ValidationResult(
+                is_valid=False,
+                info="Only the relevant player may choose a pool.",
+            )
+        if (
+            len(state.get_player(retreating_player.name).command_sheet.get_pool(pool=command.pool))
+            < 1
+        ):
+            return ValidationResult(
+                is_valid=False,
+                info=f"You have no tokens in {command.pool.value}.",
+            )
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: RemoveCommandTokenFromPoolCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del engine_context
+        return [
+            CloseWindowEvent(window=Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN),
+            PlaceCommandTokenFromPoolEvent(
+                system_id=state.turn_context.get_retreat_system_id(),
+                pool=command.pool,
+            ),
+        ]
+
+
+def get_command_rules() -> list[
+    CommandRule[AssignHitCommand]
+    | CommandRule[RetreatShipCommand]
+    | CommandRule[RemoveCommandTokenFromPoolCommand]
+]:
     return [
         EndSpaceCombatCommandRule(),
         AssignHitCommandRule(),
@@ -1087,6 +1151,7 @@ def get_command_rules() -> list[CommandRule[AssignHitCommand] | CommandRule[Retr
         SustainDamageCommandRule(),
         RetreatShipCommandRule(),
         EndRetreatCommandRule(),
+        ChoosePoolToRemoveCommandTokenCommandRule(),
     ]
 
 
