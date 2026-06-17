@@ -974,7 +974,7 @@ class ResolvePendingRetreatsEvent(Event):
 
 class EndRetreatCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
-        return "RetreatShip"
+        return "EndRetreat"
 
     @staticmethod
     def handles_command_types() -> set[CommandType]:
