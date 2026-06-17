@@ -241,7 +241,7 @@ class TurnContext:
 
     def get_retreat_system_id(self) -> int:
         if self.retreat_system_id is None:
-            raise ValueError
+            raise InvalidRetreatError
         return self.retreat_system_id
 
     def set_retreat_system_id(self, retreat_system_id: int | None) -> Self:
@@ -554,18 +554,16 @@ class GameState:
         }
 
     def withdraw_command_token(self, player: Player, from_pool: CommandTokenPool) -> Self:
+        updated_player = replace(
+            player,
+            command_sheet=self.get_player(player.name).command_sheet.remove_token_from_pool(
+                command_token=CommandToken(player.name),
+                pool=from_pool,
+            ),
+        )
         return replace(
             self,
-            players={other_player for other_player in self.players if other_player != player}
-            | {
-                replace(
-                    player,
-                    command_sheet=self.get_player(player.name).command_sheet.remove_token_from_pool(
-                        command_token=CommandToken(player.name),
-                        pool=from_pool,
-                    ),
-                ),
-            },
+            players=tuple(updated_player if p == player else p for p in self.players),
         )
 
     def place_command_token_in_system(self, player: Player, system_id: int) -> Self:

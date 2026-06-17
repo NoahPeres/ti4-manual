@@ -34,7 +34,7 @@ class MoveShipCommand(Command):
 
 
 class ConflictingMoveError(ValueError):
-    def __init__(self, unit_id: int):
+    def __init__(self, unit_id: int) -> None:
         super().__init__(f"Conflicting move commands for unit {unit_id}")
 
 

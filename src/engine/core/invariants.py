@@ -47,10 +47,13 @@ class UnitOnPlanetImpliesUnitInSystem(GameStateInvariant):
         ground_forces = {
             unit.cast_to_ground_force() for unit in state.units if unit.is_ground_force
         }
-        return all(
-            unit.planet_id is None or planet_to_system_map[unit.planet_id] == unit.system_id
-            for unit in ground_forces
-        )
+        for unit in ground_forces:
+            if unit.planet_id is not None and (
+                unit.planet_id not in planet_to_system_map
+                or planet_to_system_map[unit.planet_id] != unit.system_id
+            ):
+                return False
+        return True
 
 
 def make_all_invariants() -> list[GameStateInvariant]:
