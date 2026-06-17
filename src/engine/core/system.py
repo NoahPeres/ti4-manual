@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Self
 
 if TYPE_CHECKING:
     from src.engine.core.player import Player
@@ -10,6 +10,10 @@ if TYPE_CHECKING:
 class Planet:
     planet_id: int
     controller: Player | None = None
+
+
+class SystemAlreadyHasCommandTokenError(ValueError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,11 @@ class System:
 
     def is_adjacent_to(self, system: System) -> bool:
         return calculate_move_distance(self, system) == 1
+
+    def place_command_token(self, command_token: CommandToken) -> Self:
+        if command_token in self.command_tokens:
+            raise SystemAlreadyHasCommandTokenError
+        return replace(self, command_tokens=tuple(list(self.command_tokens) + [command_token]))
 
 
 @dataclass(frozen=True)

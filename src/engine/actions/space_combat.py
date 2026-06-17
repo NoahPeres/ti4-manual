@@ -23,13 +23,14 @@ from src.engine.core.game_state import (
     Ability,
     CombatRoll,
     GameState,
+    InvalidRetreatError,
     SpaceCombatContext,
     SpaceCombatParticipant,
     SpaceCombatStep,
     TacticalActionStep,
     Window,
 )
-from src.engine.core.player import Player
+from src.engine.core.player import CommandTokenPool, Player
 from src.engine.core.windows import CloseWindowEvent
 
 if TYPE_CHECKING:
@@ -909,10 +910,13 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
             )
         if context.declared_retreat != command.actor:
             return ValidationResult(
-                is_valid=False, info="Only the player who declared may retreat."
+                is_valid=False,
+                info="Only the player who declared may retreat.",
             )
         if not _is_eligible_retreat_system_for_player(
-            system=state.galaxy.get_system(command.to_system_id), state=state, player=command.actor
+            system=state.galaxy.get_system(command.to_system_id),
+            state=state,
+            player=command.actor,
         ):
             return ValidationResult(
                 is_valid=False,
@@ -945,8 +949,19 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
                 ship_id=command.ship_id,
                 to_system_id=command.to_system_id,
                 transported_unit_ids=command.transported_unit_ids,
-            )
+            ),
         ]
+
+
+def resolve_pending_retreats(previous_state: GameState) -> GameState:
+    destination_systems = {move.to_system_id for move in previous_state.turn_context.pending_moves}
+    if len(destination_systems) != 1:
+        raise InvalidRetreatError
+    new_state = resolve_pending_moves(previous_state=previous_state)
+    return replace(
+        new_state,
+        turn_context=new_state.turn_context.set_retreat_system_id(destination_systems.pop()),
+    )
 
 
 class ResolvePendingRetreatsEvent(Event):
@@ -954,7 +969,7 @@ class ResolvePendingRetreatsEvent(Event):
         return "ResolvePendingRetreatsEvent"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return resolve_pending_moves(previous_state=previous_state)
+        return resolve_pending_retreats(previous_state=previous_state)
 
 
 class EndRetreatCommandRule(CommandRule[Command]):
@@ -973,7 +988,8 @@ class EndRetreatCommandRule(CommandRule[Command]):
             )
         if state.turn_context.get_space_combat_context().declared_retreat != command.actor:
             return ValidationResult(
-                is_valid=False, info="Only the retreating player may resolve retreats."
+                is_valid=False,
+                info="Only the retreating player may resolve retreats.",
             )
         ships_in_active_system_with_move_value = {
             ship.unit_id
@@ -1031,12 +1047,28 @@ class PlaceCommandTokenFromReinforcementsEvent(Event):
     def __init__(self, system_id: int) -> None:
         self.system_id = system_id
 
-    def apply(self, previous_state: GameState) -> GameState: ...
-    def __repr__(self) -> str: ...
+    def apply(self, previous_state: GameState) -> GameState:
+        retreating_player = previous_state.turn_context.get_space_combat_context().declared_retreat
+        if retreating_player is None:
+            raise ValueError
+        return previous_state.withdraw_command_token(
+            player=retreating_player,
+            from_pool=CommandTokenPool.REINFORCEMENTS,
+        ).place_command_token_in_system(player=retreating_player, system_id=self.system_id)
+
+    def __repr__(self) -> str:
+        return f"PlaceCommandTokenFromReinforcementsEvent:{self.system_id}"
 
 
 class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
-    def on_event(self, state: GameState, event: Event) -> Sequence[Event]: ...
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        return [
+            PlaceCommandTokenFromReinforcementsEvent(
+                system_id=state.turn_context.get_retreat_system_id(),
+            ),
+        ]
+
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
         return {ResolvePendingRetreatsEvent}
@@ -1072,4 +1104,5 @@ def get_event_rules() -> list[EventRule]:
         OpenBeforeAssignHitsWindowEventRule(),
         SwitchAssigneeWhenFinishedAssigningEventRule(),
         RemoveAbandonedFightersAndGroundForcesEventRule(),
+        PlaceCommandTokenInDestinationSystemIfAbleEventRule(),
     ]

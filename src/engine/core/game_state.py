@@ -3,9 +3,10 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Self
 
 from src.engine.core.system import System
+from src.engine.tokens import CommandToken
 
 if TYPE_CHECKING:
-    from src.engine.core.player import Player
+    from src.engine.core.player import CommandTokenPool, Player
     from src.engine.units.units import GroundForce, Ship, Unit
 
 
@@ -226,6 +227,7 @@ class TurnContext:
     tactical_action_step: TacticalActionStep | None = None
     space_combat_context: SpaceCombatContext | None = None
     active_system_id: int | None = None
+    retreat_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
     pending_invasion_commits: frozenset[InvasionCommit] = field(
         default_factory=frozenset[InvasionCommit],
@@ -235,6 +237,14 @@ class TurnContext:
         if self.space_combat_context is None:
             raise ContextNotFoundError("space_combat")
         return self.space_combat_context
+
+    def get_retreat_system_id(self) -> int:
+        if self.retreat_system_id is None:
+            raise ValueError
+        return self.retreat_system_id
+
+    def set_retreat_system_id(self, retreat_system_id: int | None) -> Self:
+        return replace(self, retreat_system_id=retreat_system_id)
 
 
 class IllegalWindowOperationError(RuntimeError):
@@ -306,11 +316,6 @@ class Galaxy(frozenset[System]):
 
     def combine(self, other: Galaxy) -> Galaxy:
         return Galaxy(self | other)
-
-    def place_command_token_in_system_from_reinforcements(
-        self, player: Player, system_id: int
-    ) -> Self:
-        pass
 
 
 class ComponentNotFoundError(ValueError):
@@ -546,3 +551,29 @@ class GameState:
             for unit in self.get_units_in_system(system_id=system_id, player=player)
             if unit.is_in_space_area
         }
+
+    def withdraw_command_token(self, player: Player, from_pool: CommandTokenPool) -> Self:
+        return replace(
+            self,
+            players={other_player for other_player in self.players if other_player != player}
+            | {
+                replace(
+                    player,
+                    command_sheet=self.get_player(player.name).command_sheet.remove_token_from_pool(
+                        command_token=CommandToken(player.name),
+                        pool=from_pool,
+                    ),
+                ),
+            },
+        )
+
+    def place_command_token_in_system(self, player: Player, system_id: int) -> Self:
+        return replace(
+            self,
+            galaxy=Galaxy(
+                {system for system in self.galaxy if system.id != system_id}
+                | {
+                    self.galaxy.get_system(system_id).place_command_token(CommandToken(player.name)),
+                },
+            ),
+        )
