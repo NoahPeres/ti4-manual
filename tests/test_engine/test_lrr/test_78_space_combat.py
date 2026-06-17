@@ -1544,6 +1544,28 @@ def test_78_7_b_other_players_cannot_end_retreat_command() -> None:
     ).success
 
 
+def test_78_7_b_cannot_retreat_same_ship_twice() -> None:
+    session = make_retreat_step_combat_state(b_assigns_hit_to=1)
+    context = session.current_state.turn_context.get_space_combat_context()
+    session.apply_command(
+        command=RetreatShipCommand(
+            actor=context.defender,
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=3,
+            to_system_id=1,
+        ),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=RetreatShipCommand(
+            actor=context.defender,
+            command_type=CommandType.RETREAT_SHIP,
+            ship_id=3,
+            to_system_id=1,
+        ),
+    ).success
+
+
 def test_78_7_b_retreat_validity() -> None:
     session = make_retreat_step_combat_state(b_assigns_hit_to=1)
     context = session.current_state.turn_context.get_space_combat_context()

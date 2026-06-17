@@ -935,6 +935,10 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
                 is_valid=False,
                 info=f"{command.ship_id} cannot move on its own.",
             )
+        if ship.unit_id in {move.ship_id for move in state.turn_context.pending_moves}:
+            return ValidationResult(
+                is_valid=False, info=f"This ship {ship.unit_id} already declared retreat."
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(
