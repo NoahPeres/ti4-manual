@@ -573,7 +573,9 @@ class GameState:
             galaxy=Galaxy(
                 {system for system in self.galaxy if system.id != system_id}
                 | {
-                    self.galaxy.get_system(system_id).place_command_token(CommandToken(player.name)),
+                    self.galaxy.get_system(system_id).place_command_token(
+                        CommandToken(player.name),
+                    ),
                 },
             ),
         )

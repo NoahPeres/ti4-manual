@@ -22,7 +22,8 @@ class NoCommandTokenError(ValueError):
 
 
 def _remove_one_token_from_pool(
-    pool: tuple[CommandToken, ...], command_token: CommandToken,
+    pool: tuple[CommandToken, ...],
+    command_token: CommandToken,
 ) -> tuple[CommandToken, ...]:
     if len(pool) == 0:
         raise NoCommandTokenError
@@ -76,7 +77,8 @@ class CommandSheet:
                 )
             case CommandTokenPool.STRATEGY:
                 return replace(
-                    self, strategy=_remove_one_token_from_pool(self.strategy, command_token),
+                    self,
+                    strategy=_remove_one_token_from_pool(self.strategy, command_token),
                 )
             case CommandTokenPool.REINFORCEMENTS:
                 return replace(
