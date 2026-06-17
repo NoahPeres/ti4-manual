@@ -30,6 +30,7 @@ from src.engine.core.system import HexCoord, Planet
 from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
+    CENTRE_RING_OF_SYSTEMS,
     grant_all_units_unique_ids,
     make_basic_session_from_players,
     make_player,
@@ -573,19 +574,6 @@ def test_78_4_defender_cannot_announce_twice() -> None:
         state=session.current_state,
         command=Command(actor=defender, command_type=CommandType.ANNOUNCE_RETREAT),
     ).success
-
-
-CENTRE_RING_OF_SYSTEMS = Galaxy(
-    {
-        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
-        System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
-        System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
-        System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
-        System(id=4, command_tokens=(), coordinates=HexCoord(0, -1)),
-        System(id=5, command_tokens=(), coordinates=HexCoord(1, 1)),
-        System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
-    },
-)
 
 
 class InvalidTestConfigError(ValueError):

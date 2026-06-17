@@ -14,7 +14,7 @@ from src.engine.core.game_state import (
 )
 from src.engine.core.invariants import make_all_invariants
 from src.engine.core.player import CommandSheet, Player
-from src.engine.core.system import HexCoord, System
+from src.engine.core.system import HexCoord, Planet, System
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
 from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
@@ -238,3 +238,16 @@ def pass_bombardment_window(session: GameSession, state: GameState) -> GameState
     return session.apply_command(
         command=action_command(state.active_player, CommandType.PASS_BOMBARDMENT),
     )
+
+
+CENTRE_RING_OF_SYSTEMS = Galaxy(
+    {
+        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0), planets=frozenset({Planet(0)})),
+        System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
+        System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
+        System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
+        System(id=4, command_tokens=(), coordinates=HexCoord(0, -1)),
+        System(id=5, command_tokens=(), coordinates=HexCoord(1, 1)),
+        System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
+    },
+)

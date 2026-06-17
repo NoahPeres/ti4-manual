@@ -25,6 +25,7 @@ from src.engine.units.units import (
     make_unit_with_id,
 )
 from tests.test_engine.test_lrr.common import (
+    CENTRE_RING_OF_SYSTEMS,
     action_command,
     activate_command,
     begin_invasion,
@@ -572,19 +573,6 @@ def test_89_2_c_ability_window_properly_clears_state() -> None:
         state=session.current_state,
         command=action_command(player_a, CommandType.USE_SPACE_CANNON),
     ).success
-
-
-CENTRE_RING_OF_SYSTEMS = Galaxy(
-    {
-        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0), planets=frozenset({Planet(0)})),
-        System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
-        System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
-        System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
-        System(id=4, command_tokens=(), coordinates=HexCoord(0, -1)),
-        System(id=5, command_tokens=(), coordinates=HexCoord(1, 1)),
-        System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
-    },
-)
 
 
 @given(

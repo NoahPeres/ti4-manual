@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
     from src.engine.core.dice_roller import DiceRoller
     from src.engine.core.system import System
-    from src.engine.units.units import Unit
+    from src.engine.units.units import Ship, Unit
 
 
 START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
@@ -893,6 +893,29 @@ class RetreatShipCommand(Command):
     transported_unit_ids: frozenset[int] = frozenset()
 
 
+def _ship_is_valid_for_retreat(
+    ship: Ship,
+    command: RetreatShipCommand,
+    state: GameState,
+) -> ValidationResult:
+    if ship.system_id != state.get_active_system().id:
+        return ValidationResult(
+            is_valid=False,
+            info=f"{command.ship_id} is not in the active system.",
+        )
+    if ship.stats.move is None:
+        return ValidationResult(
+            is_valid=False,
+            info=f"{command.ship_id} cannot move on its own.",
+        )
+    if ship.unit_id in {move.ship_id for move in state.turn_context.pending_moves}:
+        return ValidationResult(
+            is_valid=False,
+            info=f"This ship {ship.unit_id} already declared retreat.",
+        )
+    return ValidationResult(is_valid=True)
+
+
 class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
     def __repr__(self) -> str:
         return "RetreatShip"
@@ -925,21 +948,7 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
                 "player.",
             )
         ship = state.get_ship_from_id(ship_id=command.ship_id)
-        if ship.system_id != state.get_active_system().id:
-            return ValidationResult(
-                is_valid=False,
-                info=f"{command.ship_id} is not in the active system.",
-            )
-        if ship.stats.move is None:
-            return ValidationResult(
-                is_valid=False,
-                info=f"{command.ship_id} cannot move on its own.",
-            )
-        if ship.unit_id in {move.ship_id for move in state.turn_context.pending_moves}:
-            return ValidationResult(
-                is_valid=False, info=f"This ship {ship.unit_id} already declared retreat."
-            )
-        return ValidationResult(is_valid=True)
+        return _ship_is_valid_for_retreat(ship=ship, command=command, state=state)
 
     def derive_events(
         self,
