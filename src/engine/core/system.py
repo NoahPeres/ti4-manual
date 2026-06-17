@@ -32,7 +32,7 @@ class System:
     def place_command_token(self, command_token: CommandToken) -> Self:
         if command_token in self.command_tokens:
             raise SystemAlreadyHasCommandTokenError
-        return replace(self, command_tokens=tuple(list(self.command_tokens) + [command_token]))
+        return replace(self, command_tokens=(*self.command_tokens, command_token))
 
 
 @dataclass(frozen=True)
