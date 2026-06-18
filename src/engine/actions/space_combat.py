@@ -1071,7 +1071,7 @@ class PlaceCommandTokenFromPoolEvent(Event):
         ).place_command_token_in_system(player=retreating_player, system_id=self.system_id)
 
     def __repr__(self) -> str:
-        return f"PlaceCommandTokenFromReinforcementsEvent:{self.system_id}:{self.pool}"
+        return f"PlaceCommandTokenFromPoolEvent:{self.system_id}:{self.pool}"
 
 
 class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
