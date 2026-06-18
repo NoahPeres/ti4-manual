@@ -181,7 +181,9 @@ def has_finished_assigning_hits(state: GameState, player: Player) -> bool:
     combat_context = state.turn_context.get_space_combat_context()
     return (
         combat_context.unassigned_hits_for_player(player) == 0
-    ) or not state.get_ships_in_system(system_id=state.get_active_system().id, player=player)
+    ) or not state.get_ships_in_system(
+        system_id=state.get_active_system().id, player_name=player.name
+    )
 
 
 class AdvanceToRetreatStepEventRule(EventRule):
@@ -190,7 +192,7 @@ class AdvanceToRetreatStepEventRule(EventRule):
         combat_context = state.turn_context.get_space_combat_context()
         if all(
             has_finished_assigning_hits(state=state, player=player)
-            and state.get_ships_in_system(state.get_active_system().id, player)
+            and state.get_ships_in_system(state.get_active_system().id, player.name)
             for player in [combat_context.attacker, combat_context.defender]
         ):
             return [AdvanceToRetreatStepEvent()]
@@ -593,7 +595,7 @@ class AdvanceToRollDiceStepEventRule(EventRule):
         del event
         combat_context = state.turn_context.get_space_combat_context()
         if (
-            combat_context.declared_retreat is not None
+            combat_context.declared_retreat_name is not None
             or combat_context.retreat_declaration.both_players_have_responded
         ):
             return [AdvanceToRollDiceStepEvent()]
@@ -746,7 +748,7 @@ class AdvanceToAssignHitsStepEventRule(EventRule):
                 ship.unit_id
                 for ship in state.get_ships_in_system(
                     state.get_active_system().id,
-                    player=combat_context.attacker,
+                    player_name=combat_context.attacker.name,
                 )
             }
             - attacker_rolled_unit_ids
@@ -755,7 +757,7 @@ class AdvanceToAssignHitsStepEventRule(EventRule):
                 ship.unit_id
                 for ship in state.get_ships_in_system(
                     state.get_active_system().id,
-                    player=combat_context.defender,
+                    player_name=combat_context.defender.name,
                 )
             }
             - defender_rolled_unit_ids
@@ -931,7 +933,7 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
                 is_valid=False,
                 info="Can only retreat during the retreat step.",
             )
-        if context.declared_retreat != command.actor:
+        if context.declared_retreat_name != command.actor.name:
             return ValidationResult(
                 is_valid=False,
                 info="Only the player who declared may retreat.",
@@ -999,7 +1001,10 @@ class EndRetreatCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Can only retreat during the retreat step.",
             )
-        if state.turn_context.get_space_combat_context().declared_retreat != command.actor:
+        if (
+            state.turn_context.get_space_combat_context().declared_retreat_name
+            != command.actor.name
+        ):
             return ValidationResult(
                 is_valid=False,
                 info="Only the retreating player may resolve retreats.",
@@ -1008,7 +1013,7 @@ class EndRetreatCommandRule(CommandRule[Command]):
             ship.unit_id
             for ship in state.get_ships_in_system(
                 system_id=state.get_active_system().id,
-                player=command.actor,
+                player_name=command.actor.name,
             )
             if ship.stats.move is not None
         }
@@ -1047,7 +1052,7 @@ class RemoveAbandonedFightersAndGroundForcesEventRule(EventRule):
         del event
         abandoned_units = state.get_units_in_space_area_of_system(
             system_id=state.get_active_system().id,
-            player=state.turn_context.get_space_combat_context().declared_retreat,
+            player_name=state.turn_context.get_space_combat_context().declared_retreat_name,
         )
         return [RemoveUnitEvent(unit_id=unit.unit_id) for unit in abandoned_units]
 
@@ -1062,13 +1067,17 @@ class PlaceCommandTokenFromPoolEvent(Event):
         self.pool = pool
 
     def apply(self, previous_state: GameState) -> GameState:
-        retreating_player = previous_state.turn_context.get_space_combat_context().declared_retreat
-        if retreating_player is None:
+        retreating_player_name = (
+            previous_state.turn_context.get_space_combat_context().declared_retreat_name
+        )
+        if retreating_player_name is None:
             raise ValueError
         return previous_state.withdraw_command_token(
-            player=retreating_player,
+            player_name=retreating_player_name,
             from_pool=self.pool,
-        ).place_command_token_in_system(player=retreating_player, system_id=self.system_id)
+        ).place_command_token_in_system(
+            player_name=retreating_player_name, system_id=self.system_id
+        )
 
     def __repr__(self) -> str:
         return f"PlaceCommandTokenFromPoolEvent:{self.system_id}:{self.pool}"
@@ -1077,10 +1086,10 @@ class PlaceCommandTokenFromPoolEvent(Event):
 class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
-        retreating_player = state.turn_context.get_space_combat_context().declared_retreat
-        if retreating_player is None:
+        retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
+        if retreating_player_name is None:
             raise InvalidRetreatError
-        command_sheet = state.get_player(retreating_player.name).command_sheet
+        command_sheet = state.get_player(retreating_player_name).command_sheet
         if len(command_sheet.reinforcements) < 1:
             return [OpenWindowEvent(Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN)]
         return [
@@ -1113,16 +1122,16 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
         state: GameState,
         command: RemoveCommandTokenFromPoolCommand,
     ) -> ValidationResult:
-        retreating_player = state.turn_context.get_space_combat_context().declared_retreat
-        if retreating_player is None:
+        retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
+        if retreating_player_name is None:
             raise InvalidRetreatError
-        if retreating_player != command.actor:
+        if retreating_player_name != command.actor.name:
             return ValidationResult(
                 is_valid=False,
                 info="Only the relevant player may choose a pool.",
             )
         if (
-            len(state.get_player(retreating_player.name).command_sheet.get_pool(pool=command.pool))
+            len(state.get_player(retreating_player_name).command_sheet.get_pool(pool=command.pool))
             < 1
         ):
             return ValidationResult(

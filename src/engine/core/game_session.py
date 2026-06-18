@@ -20,6 +20,9 @@ class GameSession:
             info="Initial state",
         )
 
+    def __post_init__(self) -> None:
+        self.engine.check_invariants(self.current_state)
+
     @property
     def current_state(self) -> GameState:
         return self.history[-1].new_state if self.history else self.initial_state

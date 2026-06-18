@@ -56,11 +56,11 @@ class RetreatDeclaration:
     def both_players_have_responded(self) -> bool:
         return self.attacker_has_declared is not None and self.defender_has_declared is not None
 
-    def get_retreating_player(self, combat_context: SpaceCombatContext) -> Player | None:
+    def get_retreating_player_name(self, combat_context: SpaceCombatContext) -> str | None:
         if self.defender_has_declared:
-            return combat_context.defender
+            return combat_context.defender.name
         if self.attacker_has_declared:
-            return combat_context.attacker
+            return combat_context.attacker.name
         return None
 
 
@@ -116,8 +116,8 @@ class SpaceCombatContext:
         raise InvalidRetreatError
 
     @property
-    def declared_retreat(self) -> Player | None:
-        return self.retreat_declaration.get_retreating_player(self)
+    def declared_retreat_name(self) -> str | None:
+        return self.retreat_declaration.get_retreating_player_name(self)
 
     def get_participant_by_player(self, player: Player) -> SpaceCombatParticipant:
         if self.attacker == player:
@@ -456,20 +456,21 @@ class GameState:
             in self.window_context.get_or_create_ability_tracker(player=player).abilities_used
         )
 
-    def get_units_in_system(self, system_id: int, player: Player | None = None) -> set[Unit]:
+    def get_units_in_system(self, system_id: int, player_name: str | None = None) -> set[Unit]:
         return {
             unit
             for unit in self.units
-            if unit.system_id == system_id and (player is None or unit.owner_name == player.name)
+            if unit.system_id == system_id
+            and (player_name is None or unit.owner_name == player_name)
         }
 
-    def get_ships_in_system(self, system_id: int, player: Player | None = None) -> set[Ship]:
+    def get_ships_in_system(self, system_id: int, player_name: str | None = None) -> set[Ship]:
         return {
             unit.cast_to_ship()
             for unit in self.units
             if unit.system_id == system_id
             and unit.is_ship
-            and (player is None or unit.owner_name == player.name)
+            and (player_name is None or unit.owner_name == player_name)
         }
 
     def close_all_windows(self) -> Self:
@@ -549,35 +550,36 @@ class GameState:
     def get_units_in_space_area_of_system(
         self,
         system_id: int,
-        player: Player | None = None,
+        player_name: str | None = None,
     ) -> set[Unit]:
         return {
             unit
-            for unit in self.get_units_in_system(system_id=system_id, player=player)
+            for unit in self.get_units_in_system(system_id=system_id, player_name=player_name)
             if unit.is_in_space_area
         }
 
-    def withdraw_command_token(self, player: Player, from_pool: CommandTokenPool) -> Self:
+    def withdraw_command_token(self, player_name: str, from_pool: CommandTokenPool) -> Self:
+        current_player = self.get_player(player_name)
         updated_player = replace(
-            player,
-            command_sheet=self.get_player(player.name).command_sheet.remove_token_from_pool(
-                command_token=CommandToken(player.name),
+            current_player,
+            command_sheet=current_player.command_sheet.remove_token_from_pool(
+                command_token=CommandToken(player_name),
                 pool=from_pool,
             ),
         )
         return replace(
             self,
-            players=tuple(updated_player if p == player else p for p in self.players),
+            players=tuple(updated_player if p.name == player_name else p for p in self.players),
         )
 
-    def place_command_token_in_system(self, player: Player, system_id: int) -> Self:
+    def place_command_token_in_system(self, player_name: str, system_id: int) -> Self:
         return replace(
             self,
             galaxy=Galaxy(
                 {system for system in self.galaxy if system.id != system_id}
                 | {
                     self.galaxy.get_system(system_id).place_command_token(
-                        CommandToken(player.name),
+                        CommandToken(player_name),
                     ),
                 },
             ),

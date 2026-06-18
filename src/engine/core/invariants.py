@@ -73,10 +73,23 @@ class EachPlayerHasExactly16CommandTokens(GameStateInvariant):
         return True
 
 
+class EachSystemHasAtMostOneCommandTokenPerPlayer(GameStateInvariant):
+    description = """Every system only has one command token per player at most."""
+
+    def check(self, state: GameState) -> bool:
+        for system in state.galaxy:
+            if len(set(system.command_tokens)) != len(
+                {token.player_name for token in system.command_tokens}
+            ):
+                return False
+        return True
+
+
 def make_all_invariants() -> list[GameStateInvariant]:
     return [
         UniqueTokenInvariant(tokens=UNIQUE_TOKENS),
         NoPassedPlayersWithReadyStrategyCards(),
         UnitOnPlanetImpliesUnitInSystem(),
         EachPlayerHasExactly16CommandTokens(),
+        EachSystemHasAtMostOneCommandTokenPerPlayer(),
     ]

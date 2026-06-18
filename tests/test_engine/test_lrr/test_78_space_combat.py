@@ -530,7 +530,8 @@ def test_78_4_each_player_may_announce_beginning_with_defender() -> None:
     )
     assert not session.failure_history
     assert (
-        session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
+        session.current_state.turn_context.get_space_combat_context().declared_retreat_name
+        == attacker.name
     )
 
 
@@ -553,7 +554,8 @@ def test_78_4_a_retreat_does_not_happen_immediately() -> None:
         command=Command(actor=attacker, command_type=CommandType.ANNOUNCE_RETREAT),
     )
     assert (
-        session.current_state.turn_context.get_space_combat_context().declared_retreat == attacker
+        session.current_state.turn_context.get_space_combat_context().declared_retreat_name
+        == attacker.name
     )
     assert ships_before == session.current_state.get_ships_in_system(
         session.current_state.get_active_system().id,
@@ -1245,7 +1247,10 @@ def test_78_6_destroy_one_ship_per_opponent_hit(n_hits: int) -> None:
             ),
         )
         assert len(session.failure_history) == 0
-    assert len(session.current_state.get_ships_in_system(0, player=attacker)) == max_hits - n_hits
+    assert (
+        len(session.current_state.get_ships_in_system(0, player_name=attacker.name))
+        == max_hits - n_hits
+    )
     if n_hits < max_hits:
         assert (
             session.current_state.turn_context.get_space_combat_context().step
@@ -1683,7 +1688,9 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
     context = session.current_state.turn_context.get_space_combat_context()
     assert any(
         ship.kind == ShipKind.FIGHTER
-        for ship in session.current_state.get_ships_in_system(system_id=0, player=context.defender)
+        for ship in session.current_state.get_ships_in_system(
+            system_id=0, player_name=context.defender.name
+        )
     )
     session.apply_command(
         command=RetreatShipCommand(
@@ -1698,13 +1705,15 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
     )
     assert not any(
         ship.kind == ShipKind.FIGHTER
-        for ship in session.current_state.get_ships_in_system(system_id=1, player=context.defender)
+        for ship in session.current_state.get_ships_in_system(
+            system_id=1, player_name=context.defender.name
+        )
     )
     assert not any(
         ship.kind == ShipKind.FIGHTER
         for ship in session.current_state.get_ships_in_system(
             system_id=session.current_state.get_active_system().id,
-            player=context.defender,
+            player_name=context.defender.name,
         )
     )
 

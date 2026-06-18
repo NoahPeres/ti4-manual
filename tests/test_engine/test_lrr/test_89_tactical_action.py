@@ -59,7 +59,18 @@ def test_89_1_active_player_must_activate_system_without_their_command_token(
     tokens: tuple[CommandToken, ...],
     expected_success: bool,
 ) -> None:
-    player_a = make_player("A")
+    player_a = make_player(
+        "A",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="A",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        )
+        if "A" in (token.player_name for token in tokens)
+        else None,
+    )
     player_b = make_player(
         "B",
         command_sheet=CommandSheet.make_from_int(
