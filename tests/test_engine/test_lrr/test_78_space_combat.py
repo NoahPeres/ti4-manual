@@ -1689,7 +1689,8 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
     assert any(
         ship.kind == ShipKind.FIGHTER
         for ship in session.current_state.get_ships_in_system(
-            system_id=0, player_name=context.defender.name
+            system_id=0,
+            player_name=context.defender.name,
         )
     )
     session.apply_command(
@@ -1706,7 +1707,8 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
     assert not any(
         ship.kind == ShipKind.FIGHTER
         for ship in session.current_state.get_ships_in_system(
-            system_id=1, player_name=context.defender.name
+            system_id=1,
+            player_name=context.defender.name,
         )
     )
     assert not any(

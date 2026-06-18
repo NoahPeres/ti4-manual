@@ -182,7 +182,8 @@ def has_finished_assigning_hits(state: GameState, player: Player) -> bool:
     return (
         combat_context.unassigned_hits_for_player(player) == 0
     ) or not state.get_ships_in_system(
-        system_id=state.get_active_system().id, player_name=player.name
+        system_id=state.get_active_system().id,
+        player_name=player.name,
     )
 
 
@@ -1076,7 +1077,8 @@ class PlaceCommandTokenFromPoolEvent(Event):
             player_name=retreating_player_name,
             from_pool=self.pool,
         ).place_command_token_in_system(
-            player_name=retreating_player_name, system_id=self.system_id
+            player_name=retreating_player_name,
+            system_id=self.system_id,
         )
 
     def __repr__(self) -> str:
