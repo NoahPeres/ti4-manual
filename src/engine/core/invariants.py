@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from src.engine.core.game_engine import GameStateInvariant
+from src.engine.core.player import MAX_COMMAND_TOKENS
 from src.engine.tokens import UNIQUE_TOKENS, TokenType
 
 if TYPE_CHECKING:
@@ -56,9 +57,26 @@ class UnitOnPlanetImpliesUnitInSystem(GameStateInvariant):
         return True
 
 
+class EachPlayerHasExactly16CommandTokens(GameStateInvariant):
+    description = """Across the entire game state, each player should have exactly 16 tokens."""
+
+    def check(self, state: GameState) -> bool:
+        for player in state.players:
+            total_command_tokens = (
+                len(player.command_sheet.tactic)
+                + len(player.command_sheet.fleet)
+                + len(player.command_sheet.strategy)
+                + len(player.command_sheet.reinforcements)
+            ) + sum(1 for system in state.galaxy if system.has_command_token(player))
+            if total_command_tokens != MAX_COMMAND_TOKENS:
+                return False
+        return True
+
+
 def make_all_invariants() -> list[GameStateInvariant]:
     return [
         UniqueTokenInvariant(tokens=UNIQUE_TOKENS),
         NoPassedPlayersWithReadyStrategyCards(),
         UnitOnPlanetImpliesUnitInSystem(),
+        EachPlayerHasExactly16CommandTokens(),
     ]

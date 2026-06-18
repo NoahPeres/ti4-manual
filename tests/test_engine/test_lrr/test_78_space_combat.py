@@ -88,6 +88,13 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
 ) -> None:
     player_a = make_player(
         name="A",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="A",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        ),
     )
     player_b = make_player(
         name="B",
@@ -120,6 +127,13 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
 def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
     player_a = make_player(
         name="A",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="A",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        ),
     )
     player_b = make_player(
         name="B",
@@ -175,6 +189,13 @@ def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
 def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_window() -> None:
     player_a = make_player(
         name="A",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="A",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        ),
     )
     player_b = make_player(
         name="B",
@@ -677,7 +698,19 @@ _VALID_ELIGIBILITY_CONFIGS = [
 def test_78_4_c_player_cannot_retreat_without_adjacent_system(
     setup_seed: list[tuple[bool, bool, bool]],
 ) -> None:
-    players = (make_player("A"), make_player("B"))
+    players = (
+        make_player(
+            "A",
+            command_sheet=CommandSheet.make_from_int(
+                player_name="A",
+                tactic=2,
+                fleet=3,
+                strategy=2,
+                reinforcements=8,
+            ),
+        ),
+        make_player("B"),
+    )
 
     additional_units, additional_systems, eligible_system_exists = parse_setup_seed(
         setup_seed=setup_seed,
@@ -749,7 +782,19 @@ def make_roll_dice_step_state(
     players: tuple[Player, ...] | None = None,
 ) -> GameSession:
     if players is None:
-        players = (make_player("A"), make_player("B"))
+        players = (
+            make_player(
+                "A",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="A",
+                    tactic=2,
+                    fleet=3,
+                    strategy=2,
+                    reinforcements=8,
+                ),
+            ),
+            make_player("B"),
+        )
     session = make_announce_retreat_step_combat_state(
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
@@ -999,7 +1044,20 @@ def test_78_5_other_players_cannot_make_combat_rolls() -> None:
         },
     )
     session = make_roll_dice_step_state(
-        players=tuple(make_player(name) for name in ["A", "B", "C"]),
+        players=(
+            make_player(
+                "A",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="A",
+                    tactic=2,
+                    fleet=3,
+                    strategy=2,
+                    reinforcements=8,
+                ),
+            ),
+            make_player("B"),
+            make_player("C"),
+        ),
         units=units,
         dice_roller=FixedDiceRoller(value=5),
     )

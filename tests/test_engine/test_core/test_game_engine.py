@@ -43,7 +43,7 @@ class ChangePlayerEvent(Event):
         new_player: Player = self.players[(current_index + 1) % len(self.players)]
         return GameState(
             players=previous_state.players,
-            active_player=new_player,
+            active_player_name=new_player.name,
             phase=Phase.ACTION,
             galaxy=Galaxy(),
         )
@@ -117,7 +117,7 @@ def _set_up_session(
     if initial_state is None:
         initial_state = GameState(
             players=players,
-            active_player=initial_player,
+            active_player_name=initial_player.name,
             phase=Phase.ACTION,
             galaxy=Galaxy(),
         )

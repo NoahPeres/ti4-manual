@@ -25,7 +25,7 @@ def _remove_one_token_from_pool(
     pool: tuple[CommandToken, ...],
     command_token: CommandToken,
 ) -> tuple[CommandToken, ...]:
-    if len(pool) == 0:
+    if len([token for token in pool if token == command_token]) == 0:
         raise NoCommandTokenError
     return tuple(
         [token for token in pool if token == command_token][1:]

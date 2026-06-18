@@ -14,6 +14,7 @@ from src.engine.core.game_state import (
     TurnContext,
     Window,
 )
+from src.engine.core.player import CommandSheet
 from src.engine.core.system import HexCoord, Planet, System
 from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
@@ -26,6 +27,7 @@ from src.engine.units.units import (
 )
 from tests.test_engine.test_lrr.common import (
     CENTRE_RING_OF_SYSTEMS,
+    CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
     action_command,
     activate_command,
     begin_invasion,
@@ -34,6 +36,7 @@ from tests.test_engine.test_lrr.common import (
     get_default_game_engine,
     grant_all_units_unique_ids,
     make_basic_session_from_players,
+    make_centre_ring_with_player_token,
     make_player,
     make_session,
     make_tactical_action_movement_state,
@@ -57,7 +60,18 @@ def test_89_1_active_player_must_activate_system_without_their_command_token(
     expected_success: bool,
 ) -> None:
     player_a = make_player("A")
-    player_b = make_player("B")
+    player_b = make_player(
+        "B",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="B",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        )
+        if "B" in (token.player_name for token in tokens)
+        else None,
+    )
     system = System(id=0, command_tokens=tokens)
     session = make_basic_session_from_players(players=(player_a, player_b))
 
@@ -91,7 +105,16 @@ def test_89_1_a_that_system_is_the_active_system() -> None:
 
 def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
     player_a = make_player("A")
-    player_b = make_player("B")
+    player_b = make_player(
+        "B",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="B",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        ),
+    )
     system_with_b_token = System(id=0, command_tokens=(CommandToken(player_name=player_b.name),))
     session = make_basic_session_from_players(players=(player_a, player_b))
 
@@ -597,7 +620,7 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
         initial_state=make_tactical_action_movement_state(
             active_system_id=0,
             units=unique_ships,
-            systems=CENTRE_RING_OF_SYSTEMS,
+            systems=CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
         ),
         engine=get_default_game_engine(),
     )
@@ -612,7 +635,7 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
         )
 
     new_state = session.apply_command(
-        action_command(session.initial_state.get_player("A"), CommandType.END_MOVEMENT),
+        action_command(session.current_state.get_player("A"), CommandType.END_MOVEMENT),
     )
 
     for ship in unique_ships:
@@ -651,7 +674,7 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
         initial_state=make_tactical_action_movement_state(
             active_system_id=1,
             units=unique_units,
-            systems=CENTRE_RING_OF_SYSTEMS,
+            systems=make_centre_ring_with_player_token("A", 1),
         ),
         engine=get_default_game_engine(),
     )

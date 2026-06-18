@@ -48,7 +48,7 @@ def make_basic_session_from_players(
         initial_state=initial_state
         or GameState(
             players=players,
-            active_player=players[0],
+            active_player_name=players[0].name,
             phase=Phase.ACTION,
             galaxy=Galaxy({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
         ),
@@ -60,6 +60,8 @@ def make_player(
     name: str,
     strategy_cards: tuple[StrategyCard, ...] = (),
     command_sheet: CommandSheet | None = None,
+    *,
+    has_passed: bool = False,
 ) -> Player:
     return Player(
         name=name,
@@ -67,7 +69,7 @@ def make_player(
         command_sheet=command_sheet
         if command_sheet is not None
         else CommandSheet.make_from_int(name, tactic=3, fleet=3, strategy=2),
-        has_passed=False,
+        has_passed=has_passed,
     )
 
 
@@ -78,7 +80,18 @@ def make_tactical_action_movement_state(
     systems: Galaxy | None = None,
 ) -> GameState:
     if players is None:
-        players = (make_player("A"),)
+        players = (
+            make_player(
+                "A",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="A",
+                    tactic=2,
+                    fleet=3,
+                    strategy=2,
+                    reinforcements=8,
+                ),
+            ),
+        )
 
     if units is None:
         # Create default ship at system 0
@@ -105,7 +118,7 @@ def make_tactical_action_movement_state(
 
     return GameState(
         players=tuple(players),
-        active_player=players[0],
+        active_player_name=players[0].name,
         phase=Phase.ACTION,
         galaxy=systems,
         turn_context=TurnContext(
@@ -147,7 +160,7 @@ def build_game_state(
     )
     return GameState(
         players=players,
-        active_player=active_player,
+        active_player_name=active_player.name,
         phase=Phase.ACTION,
         galaxy=galaxy,
         turn_context=turn_context,
@@ -251,3 +264,24 @@ CENTRE_RING_OF_SYSTEMS = Galaxy(
         System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
     },
 )
+
+
+def make_centre_ring_with_player_token(player_name: str, system_id: int) -> Galaxy:
+    """Create a centre ring galaxy with a command token for a player in a specific system."""
+    return Galaxy(
+        {
+            System(
+                id=system.id,
+                command_tokens=(CommandToken(player_name=player_name),)
+                if system.id == system_id
+                else system.command_tokens,
+                coordinates=system.coordinates,
+                planets=system.planets,
+            )
+            for system in CENTRE_RING_OF_SYSTEMS
+        },
+    )
+
+
+# Convenience constants for common configurations
+CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN = make_centre_ring_with_player_token("A", 0)

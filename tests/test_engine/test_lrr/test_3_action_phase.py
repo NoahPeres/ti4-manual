@@ -10,7 +10,7 @@ from src.engine.core.player import CommandSheet, Player
 from src.engine.strategy_cards import StrategyCard
 from src.engine.turns.end_turn import EndTurnEvent
 
-from .common import make_basic_session_from_players
+from .common import make_basic_session_from_players, make_player
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -27,7 +27,7 @@ def _make_activate_command(player: Player, system_id: int = 0) -> ActivateComman
 def test_3_1_player_may_perform_one_action() -> None:
     player_a = Player(
         name="A",
-        command_sheet=CommandSheet.make_from_int("A", tactic=1, fleet=0, strategy=0),
+        command_sheet=CommandSheet.make_from_int("A", tactic=3, fleet=3, strategy=2),
     )
 
     session = make_basic_session_from_players(players=(player_a,))
@@ -53,11 +53,14 @@ def test_3_1_player_may_perform_one_action() -> None:
 
 
 def test_3_2_players_can_pass_then_end_turn() -> None:
-    player_a = Player(
+    player_a = make_player(
         name="A",
         strategy_cards=(StrategyCard(name="XXX", initiative=1, is_ready=False),),
     )
-    player_b = Player(name="B", strategy_cards=(StrategyCard(name="YYY", initiative=2),))
+    player_b = make_player(
+        name="B",
+        strategy_cards=(StrategyCard(name="YYY", initiative=2),),
+    )
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     class OnEndTurnEvent(Event):
@@ -81,7 +84,7 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     new_state: GameState = session.apply_command(
         command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
     )
-    new_player_a: Player = next(player for player in new_state.players if player.name == "A")
+    new_player_a: Player = new_state.get_player("A")
     assert new_player_a.has_passed
     assert any(type(event) is OnEndTurnEvent for event in session.history[-1].events)
     assert len(session.history[-1].events) >= 0
@@ -89,11 +92,11 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
 
 
 def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
-    player_a = Player(
+    player_a = make_player(
         name="A",
         strategy_cards=(StrategyCard(name="XXX", initiative=1, is_ready=False),),
     )
-    player_b = Player(name="B", strategy_cards=(StrategyCard(name="YYY", initiative=2),))
+    player_b = make_player(name="B", strategy_cards=(StrategyCard(name="YYY", initiative=2),))
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     new_state: GameState = session.apply_command(
@@ -119,12 +122,11 @@ def test_3_3_b_passed_players_can_do_secondary() -> None:
 
 
 def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
-    player_a = Player(
+    player_a = make_player(
         name="A",
         strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
-        command_sheet=CommandSheet.make_from_int("A", tactic=2, fleet=0, strategy=0),
     )
-    player_b = Player(
+    player_b = make_player(
         name="B",
         strategy_cards=(StrategyCard(name="Diplomacy", initiative=2, is_ready=False),),
         has_passed=True,
@@ -169,11 +171,11 @@ def test_3_4_a_cannot_pass_until_all_strategy_cards_used() -> None:
 
 
 def test_3_5_after_all_pass_proceed_to_status_phase() -> None:
-    player_a = Player(
+    player_a = make_player(
         name="A",
         strategy_cards=(StrategyCard(name="Leadership", initiative=1, is_ready=False),),
     )
-    player_b = Player(
+    player_b = make_player(
         name="B",
         strategy_cards=(StrategyCard(name="Diplomacy", initiative=2, is_ready=False),),
     )

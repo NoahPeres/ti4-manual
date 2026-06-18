@@ -32,7 +32,7 @@ class PassEvent(Event):
         return replace(
             previous_state,
             players=new_players,
-            active_player=passed_player,
+            active_player_name=passed_player.name,
             turn_context=TurnContext(has_initiated_action=False),
         )
 

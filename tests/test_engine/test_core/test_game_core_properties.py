@@ -75,7 +75,7 @@ def simple_game_state(draw: Callable[[st.SearchStrategy[Player]], Player]) -> Ga
     active_player: Player = draw(st.sampled_from(players))
     return GameState(
         players=players,
-        active_player=active_player,
+        active_player_name=active_player.name,
         phase=Phase.ACTION,
         galaxy=Galaxy(),
     )

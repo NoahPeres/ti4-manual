@@ -342,7 +342,7 @@ class CannotInferDefenderError(ValueError):
 @dataclass(frozen=True)
 class GameState:
     players: tuple[Player, ...]
-    active_player: Player
+    active_player_name: str
     phase: Phase
     galaxy: Galaxy
     turn_context: TurnContext = field(
@@ -350,6 +350,10 @@ class GameState:
     )
     units: frozenset[Unit] = frozenset()
     window_context: WindowContext = field(default_factory=WindowContext)
+
+    @property
+    def active_player(self) -> Player:
+        return self.get_player(self.active_player_name)
 
     @property
     def initiative_order(self) -> tuple[Player, ...]:
