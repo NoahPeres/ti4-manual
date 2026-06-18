@@ -145,7 +145,17 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
 
 
 def test_3_4_cannot_pass_until_strategic_action_taken() -> None:
-    player_a = Player(name="A", strategy_cards=(StrategyCard(name="Leadership", initiative=1),))
+    player_a = Player(
+        name="A",
+        strategy_cards=(StrategyCard(name="Leadership", initiative=1),),
+        command_sheet=CommandSheet.make_from_int(
+            "A",
+            tactic=3,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        ),
+    )
     session = make_basic_session_from_players(players=(player_a,))
     try_to_pass = session.engine.apply_command(
         state=session.initial_state,
@@ -160,6 +170,13 @@ def test_3_4_a_cannot_pass_until_all_strategy_cards_used() -> None:
         strategy_cards=(
             StrategyCard(name="Leadership", initiative=1),
             StrategyCard(name="Diplomacy", initiative=2, is_ready=False),
+        ),
+        command_sheet=CommandSheet.make_from_int(
+            "A",
+            tactic=3,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
         ),
     )
     session = make_basic_session_from_players(players=(player_a,))

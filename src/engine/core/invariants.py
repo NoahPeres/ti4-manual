@@ -78,7 +78,7 @@ class EachSystemHasAtMostOneCommandTokenPerPlayer(GameStateInvariant):
 
     def check(self, state: GameState) -> bool:
         for system in state.galaxy:
-            if len(set(system.command_tokens)) != len(
+            if len(system.command_tokens) != len(
                 {token.player_name for token in system.command_tokens},
             ):
                 return False

@@ -10,6 +10,8 @@ from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
     Galaxy,
+    GameState,
+    Phase,
     TacticalActionStep,
     TurnContext,
     Window,
@@ -84,14 +86,23 @@ def test_89_1_active_player_must_activate_system_without_their_command_token(
         else None,
     )
     system = System(id=0, command_tokens=tokens)
-    session = make_basic_session_from_players(players=(player_a, player_b))
-
-    result = session.engine.apply_command(
-        state=replace(session.current_state, galaxy=Galaxy({system})),
-        command=activate_command(actor=player_a, system_id=0),
+    session = make_basic_session_from_players(
+        players=(player_a, player_b),
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player_name=player_a.name,
+            phase=Phase.ACTION,
+            galaxy=Galaxy({system}),
+        ),
     )
 
-    assert result.success is expected_success
+    assert (
+        session.engine.apply_command(
+            state=session.current_state,
+            command=activate_command(actor=player_a, system_id=0),
+        ).success
+        is expected_success
+    )
 
 
 def test_89_1_a_active_player_places_token_from_tactic_pool() -> None:
@@ -127,14 +138,20 @@ def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
         ),
     )
     system_with_b_token = System(id=0, command_tokens=(CommandToken(player_name=player_b.name),))
-    session = make_basic_session_from_players(players=(player_a, player_b))
-
-    result = session.engine.apply_command(
-        state=replace(session.current_state, galaxy=Galaxy({system_with_b_token})),
-        command=activate_command(actor=player_a, system_id=0),
+    session = make_basic_session_from_players(
+        players=(player_a, player_b),
+        initial_state=GameState(
+            players=(player_a, player_b),
+            active_player_name=player_a.name,
+            phase=Phase.ACTION,
+            galaxy=Galaxy({system_with_b_token}),
+        ),
     )
 
-    assert result.success
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=activate_command(actor=player_a, system_id=0),
+    ).success
 
 
 def test_89_1_advance_to_movement_after_activation() -> None:
@@ -193,7 +210,16 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
 
 def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=1)
-    player_a = make_player("A")
+    player_a = make_player(
+        "A",
+        command_sheet=CommandSheet.make_from_int(
+            "A",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
+        ),
+    )
     session = make_session(
         players=(player_a,),
         galaxy=Galaxy(
