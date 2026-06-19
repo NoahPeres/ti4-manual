@@ -1124,6 +1124,12 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
         state: GameState,
         command: RemoveCommandTokenFromPoolCommand,
     ) -> ValidationResult:
+        if not state.window_context.is_window_active(
+            Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN
+        ):
+            return ValidationResult(
+                is_valid=False, info="Cannot only remove token from pool in proper window."
+            )
         retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
         if retreating_player_name is None:
             raise InvalidRetreatError
