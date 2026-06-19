@@ -165,6 +165,20 @@ class SpaceCombatContext:
     def set_hits_assignee(self, player: Player | None) -> Self:
         return replace(self, current_hits_assignee=player)
 
+    def reset_combat_round(self) -> Self:
+        return replace(
+            self,
+            assigned_hits=frozenset({}),
+            attacker_combat_rolls=(),
+            attacker_hits_assigned=0,
+            current_hits_assignee=None,
+            defender_combat_rolls=(),
+            defender_hits_assigned=0,
+            retreat_declaration=RetreatDeclaration(),
+            round_number=self.round_number + 1,
+            step=SpaceCombatStep.ANNOUNCE_RETREATS,
+        )
+
 
 class Phase(StrEnum):
     STRATEGY = "strategy"

@@ -47,6 +47,11 @@ START_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
     Window.START_OF_SPACE_COMBAT_ROUND,
 ]
 
+END_OF_COMBAT_ROUND_WINDOWS: list[Window] = [
+    Window.END_OF_SPACE_COMBAT,
+    Window.END_OF_SPACE_COMBAT_ROUND,
+]
+
 
 class StartSpaceCombatEvent(Event):
     def __repr__(self) -> str:
@@ -196,18 +201,20 @@ class AdvanceToRetreatStepEventRule(EventRule):
             and state.get_ships_in_system(state.get_active_system().id, player.name)
             for player in [combat_context.attacker, combat_context.defender]
         ):
+            if combat_context.declared_retreat_name is None:
+                return [OpenWindowEvent(Window.END_OF_SPACE_COMBAT_ROUND)]
             return [AdvanceToRetreatStepEvent()]
         return []
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent}
+        return {DestroyUnitEvent, AdvanceToAssignHitsStepEvent}
 
 
 class EndSpaceCombatEventRule(EventRule):
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent, EndAntiFighterBarrageStepEvent}
+        return {DestroyUnitEvent, EndAntiFighterBarrageStepEvent, ResolvePendingRetreatsEvent}
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
@@ -251,6 +258,28 @@ class PassStartOfCombatWindowCommandRule(CommandRule[Command]):
         return [PassStartOfCombatWindowEvent(player=command.actor)]
 
 
+class PassEndOfCombatWindowCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "PassEndOfCombatWindowCommandRule"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.PASS_END_OF_COMBAT_ROUND}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        del state, command
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
+        return [PassEndOfCombatWindowEvent(player=command.actor)]
+
+
 class PassStartOfCombatWindowEvent(Event):
     def __init__(self, player: Player) -> None:
         self.player = player
@@ -262,6 +291,24 @@ class PassStartOfCombatWindowEvent(Event):
         active_state = previous_state
         for window in previous_state.window_context.active_windows:
             if window in START_OF_COMBAT_ROUND_WINDOWS:
+                active_state = active_state.pass_on_window_for_player(
+                    player=self.player,
+                    window=window,
+                )
+        return active_state
+
+
+class PassEndOfCombatWindowEvent(Event):
+    def __init__(self, player: Player) -> None:
+        self.player = player
+
+    def __repr__(self) -> str:
+        return f"PassEndOfCombatWindowEvent:{self.player}"
+
+    def apply(self, previous_state: GameState) -> GameState:
+        active_state = previous_state
+        for window in previous_state.window_context.active_windows:
+            if window in END_OF_COMBAT_ROUND_WINDOWS:
                 active_state = active_state.pass_on_window_for_player(
                     player=self.player,
                     window=window,
@@ -289,6 +336,44 @@ class CloseStartOfSpaceCombatRoundWindowsEventRule(EventRule):
                 if window in START_OF_COMBAT_ROUND_WINDOWS
             ] + [OpenWindowEvent(window=Window.ANTI_FIGHTER_BARRAGE)]
         return []
+
+
+class CloseEndOfSpaceCombatRoundWindowsEventRule(EventRule):
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {PassEndOfCombatWindowEvent}
+
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        events: list[Event] = []
+        if all(
+            state.window_context.player_has_passed_on_window(
+                player,
+                window=Window.END_OF_SPACE_COMBAT_ROUND,
+            )
+            for player in state.players
+        ):
+            events += [
+                CloseWindowEvent(window=window)
+                for window in state.window_context.active_windows
+                if window in END_OF_COMBAT_ROUND_WINDOWS
+            ]
+            if (
+                len(
+                    {
+                        ship.unit_id
+                        for ship in state.get_ships_in_system(
+                            system_id=state.get_active_system().id,
+                        )
+                    },
+                )
+                > 1
+            ):
+                events += [
+                    ResetCombatToAnnounceRetreatStepEvent(),
+                    OpenWindowEvent(Window.START_OF_SPACE_COMBAT_ROUND),
+                ]
+        return events
 
 
 class ResolveAntiFighterBarrageEvent(Event):
@@ -1125,10 +1210,11 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
         command: RemoveCommandTokenFromPoolCommand,
     ) -> ValidationResult:
         if not state.window_context.is_window_active(
-            Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN
+            Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN,
         ):
             return ValidationResult(
-                is_valid=False, info="Cannot only remove token from pool in proper window."
+                is_valid=False,
+                info="Cannot only remove token from pool in proper window.",
             )
         retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
         if retreating_player_name is None:
@@ -1164,6 +1250,16 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
         ]
 
 
+class ResetCombatToAnnounceRetreatStepEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(
+            previous_state.turn_context.get_space_combat_context().reset_combat_round(),
+        )
+
+    def __repr__(self) -> str:
+        return "ResetCombatToAnnounceRetreatStepEvent"
+
+
 def get_command_rules() -> list[
     CommandRule[AssignHitCommand]
     | CommandRule[RetreatShipCommand]
@@ -1182,6 +1278,7 @@ def get_command_rules() -> list[
         RetreatShipCommandRule(),
         EndRetreatCommandRule(),
         ChoosePoolToRemoveCommandTokenCommandRule(),
+        PassEndOfCombatWindowCommandRule(),
     ]
 
 
@@ -1200,4 +1297,5 @@ def get_event_rules() -> list[EventRule]:
         SwitchAssigneeWhenFinishedAssigningEventRule(),
         RemoveAbandonedFightersAndGroundForcesEventRule(),
         PlaceCommandTokenInDestinationSystemIfAbleEventRule(),
+        CloseEndOfSpaceCombatRoundWindowsEventRule(),
     ]

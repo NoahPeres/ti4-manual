@@ -1,6 +1,6 @@
 from dataclasses import dataclass, replace
 from itertools import product
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 from hypothesis import given
@@ -20,6 +20,7 @@ from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
     Galaxy,
     GameState,
+    SpaceCombatContext,
     SpaceCombatStep,
     System,
     TacticalActionStep,
@@ -1252,9 +1253,8 @@ def test_78_6_destroy_one_ship_per_opponent_hit(n_hits: int) -> None:
         == max_hits - n_hits
     )
     if n_hits < max_hits:
-        assert (
-            session.current_state.turn_context.get_space_combat_context().step
-            == SpaceCombatStep.RETREAT
+        assert session.current_state.window_context.is_window_active(
+            Window.END_OF_SPACE_COMBAT_ROUND,
         )
 
 
@@ -1485,6 +1485,7 @@ def test_78_7_a_combat_immediately_ends_when_only_one_player_has_units() -> None
 def make_retreat_step_combat_state(
     b_assigns_hit_to: int,
     players: tuple[Player, ...] | None = None,
+    player_declared_retreat: Literal["A", "B"] | None = "B",
 ) -> GameSession:
     if players is None:
         players = (make_player("A"), make_player("B"))
@@ -1530,12 +1531,38 @@ def make_retreat_step_combat_state(
         ),
         dice_roller=FixedDiceRoller(5),
     )
-    session.apply_command(
-        command=Command(
-            actor=session.current_state.get_player("B"),
-            command_type=CommandType.ANNOUNCE_RETREAT,
-        ),
-    )
+    if (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    ):
+        if player_declared_retreat == "B":
+            session.apply_command(
+                command=Command(
+                    actor=session.current_state.get_player("B"),
+                    command_type=CommandType.ANNOUNCE_RETREAT,
+                ),
+            )
+        else:
+            session.apply_command(
+                command=Command(
+                    actor=session.current_state.get_player("B"),
+                    command_type=CommandType.PASS_ANNOUNCE_RETREAT,
+                ),
+            )
+            if player_declared_retreat == "A":
+                session.apply_command(
+                    command=Command(
+                        actor=session.current_state.get_player("A"),
+                        command_type=CommandType.ANNOUNCE_RETREAT,
+                    ),
+                )
+            else:
+                session.apply_command(
+                    command=Command(
+                        actor=session.current_state.get_player("A"),
+                        command_type=CommandType.PASS_ANNOUNCE_RETREAT,
+                    ),
+                )
     assert (
         session.current_state.turn_context.get_space_combat_context().step
         == SpaceCombatStep.ROLL_DICE
@@ -1814,3 +1841,65 @@ def test_78_7_d_retreating_player_must_place_command_token_even_if_none_in_reinf
         not in session.current_state.window_context.active_windows
     )
     assert session.current_state.galaxy.get_system(1).has_command_token(context.defender)
+
+
+def _is_context_clear_for_start_of_combat_round(context: SpaceCombatContext) -> bool:
+    return (
+        len(context.assigned_hits) == 0
+        and len(context.attacker_combat_rolls) == 0
+        and context.attacker_hits_assigned == 0
+        and context.current_hits_assignee is None
+        and context.declared_retreat_name is None
+        and len(context.defender_combat_rolls) == 0
+        and context.defender_hits_assigned == 0
+    )
+
+
+def test_78_8_return_to_annouce_retreats_step_if_ships_remaining_after_retreat_step() -> None:
+    session = make_retreat_step_combat_state(
+        b_assigns_hit_to=1,
+        players=(
+            make_player("A"),
+            make_player(
+                "B",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="B",
+                    tactic=8,
+                    fleet=8,
+                    strategy=0,
+                ),
+            ),
+        ),
+        player_declared_retreat=None,
+    )
+    assert (
+        len(
+            {
+                ship.unit_id
+                for ship in session.current_state.get_ships_in_system(
+                    system_id=session.current_state.get_active_system().id,
+                )
+            },
+        )
+        > 1
+    )
+    assert session.current_state.window_context.is_window_active(
+        Window.END_OF_SPACE_COMBAT_ROUND,
+    )
+    assert not session.current_state.window_context.is_window_active(
+        Window.END_OF_SPACE_COMBAT,
+    )  # both players have ships, combat has not ended
+    for player in session.current_state.players:
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_END_OF_COMBAT_ROUND),
+        )
+    assert len(session.failure_history) == 0
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    assert _is_context_clear_for_start_of_combat_round(
+        session.current_state.turn_context.get_space_combat_context(),
+    )
+    assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT_ROUND)
+    assert session.current_state.turn_context.get_space_combat_context().round_number > 1
