@@ -361,7 +361,7 @@ class CloseEndOfSpaceCombatRoundWindowsEventRule(EventRule):
             if (
                 len(
                     {
-                        ship.unit_id
+                        ship.owner_name
                         for ship in state.get_ships_in_system(
                             system_id=state.get_active_system().id,
                         )
@@ -1214,7 +1214,7 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
         ):
             return ValidationResult(
                 is_valid=False,
-                info="Cannot only remove token from pool in proper window.",
+                info="Can only remove token from pool in proper window.",
             )
         retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
         if retreating_player_name is None:
