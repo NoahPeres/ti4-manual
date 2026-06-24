@@ -42,7 +42,7 @@ class EndTurnEvent(Event):
             next_player = min(previous_state.initiative_order, key=lambda x: x.initiative)
         return dataclasses.replace(
             previous_state,
-            active_player=next_player,
+            active_player_name=next_player.name,
             turn_context=dataclasses.replace(
                 previous_state.turn_context,
                 has_initiated_action=False,

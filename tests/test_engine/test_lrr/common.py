@@ -14,14 +14,14 @@ from src.engine.core.game_state import (
 )
 from src.engine.core.invariants import make_all_invariants
 from src.engine.core.player import CommandSheet, Player
-from src.engine.core.system import HexCoord, System
+from src.engine.core.system import HexCoord, Planet, System
 from src.engine.core.ti4_rules_engine import TI4RulesEngine
-from src.engine.strategy_cards import StrategyCard
 from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 
 if TYPE_CHECKING:
     from src.engine.core.dice_roller import DiceRoller
+    from src.engine.strategy_cards import StrategyCard
 
 
 class InvalidPlayerCountError(ValueError):
@@ -48,7 +48,7 @@ def make_basic_session_from_players(
         initial_state=initial_state
         or GameState(
             players=players,
-            active_player=players[0],
+            active_player_name=players[0].name,
             phase=Phase.ACTION,
             galaxy=Galaxy({System(id=0, command_tokens=()), System(id=1, command_tokens=())}),
         ),
@@ -59,27 +59,40 @@ def make_basic_session_from_players(
 def make_player(
     name: str,
     strategy_cards: tuple[StrategyCard, ...] = (),
+    command_sheet: CommandSheet | None = None,
+    *,
+    has_passed: bool = False,
 ) -> Player:
     return Player(
         name=name,
         strategy_cards=strategy_cards,
-        command_sheet=CommandSheet.make_from_int(name, tactic=3, fleet=3, strategy=2),
-        has_passed=False,
+        command_sheet=command_sheet
+        if command_sheet is not None
+        else CommandSheet.make_from_int(name, tactic=3, fleet=3, strategy=2),
+        has_passed=has_passed,
     )
 
 
 def make_tactical_action_movement_state(
     active_system_id: int,
     units: frozenset[Unit] | None = None,
-    player_names: list[str] | None = None,
+    players: tuple[Player, ...] | None = None,
     systems: Galaxy | None = None,
 ) -> GameState:
-    if player_names is None:
-        player_names = ["A"]
-    players = [
-        make_player(name=name, strategy_cards=(StrategyCard(name="A", initiative=i),))
-        for i, name in enumerate(player_names)
-    ]
+    if players is None:
+        players = (
+            make_player(
+                "A",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="A",
+                    tactic=2,
+                    fleet=3,
+                    strategy=2,
+                    reinforcements=8,
+                ),
+            ),
+        )
+
     if units is None:
         # Create default ship at system 0
         default_ship = make_unit_with_id(
@@ -105,7 +118,7 @@ def make_tactical_action_movement_state(
 
     return GameState(
         players=tuple(players),
-        active_player=players[0],
+        active_player_name=players[0].name,
         phase=Phase.ACTION,
         galaxy=systems,
         turn_context=TurnContext(
@@ -125,6 +138,7 @@ def grant_all_units_unique_ids(units: frozenset[Unit]) -> frozenset[Unit]:
             owner_name=unit.owner_name,
             kind=unit.kind,
             system_id=unit.system_id,
+            planet_id=unit.cast_to_ground_force().planet_id if unit.is_ground_force else None,
         )
         for i, unit in enumerate(units)
     )
@@ -146,7 +160,7 @@ def build_game_state(
     )
     return GameState(
         players=players,
-        active_player=active_player,
+        active_player_name=active_player.name,
         phase=Phase.ACTION,
         galaxy=galaxy,
         turn_context=turn_context,
@@ -237,3 +251,37 @@ def pass_bombardment_window(session: GameSession, state: GameState) -> GameState
     return session.apply_command(
         command=action_command(state.active_player, CommandType.PASS_BOMBARDMENT),
     )
+
+
+CENTRE_RING_OF_SYSTEMS = Galaxy(
+    {
+        System(id=0, command_tokens=(), coordinates=HexCoord(0, 0), planets=frozenset({Planet(0)})),
+        System(id=1, command_tokens=(), coordinates=HexCoord(1, 0)),
+        System(id=2, command_tokens=(), coordinates=HexCoord(0, 1)),
+        System(id=3, command_tokens=(), coordinates=HexCoord(-1, 0)),
+        System(id=4, command_tokens=(), coordinates=HexCoord(0, -1)),
+        System(id=5, command_tokens=(), coordinates=HexCoord(1, 1)),
+        System(id=6, command_tokens=(), coordinates=HexCoord(-1, -1)),
+    },
+)
+
+
+def make_centre_ring_with_player_token(player_name: str, system_id: int) -> Galaxy:
+    """Create a centre ring galaxy with a command token for a player in a specific system."""
+    return Galaxy(
+        {
+            System(
+                id=system.id,
+                command_tokens=(CommandToken(player_name=player_name),)
+                if system.id == system_id
+                else system.command_tokens,
+                coordinates=system.coordinates,
+                planets=system.planets,
+            )
+            for system in CENTRE_RING_OF_SYSTEMS
+        },
+    )
+
+
+# Convenience constants for common configurations
+CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN = make_centre_ring_with_player_token("A", 0)

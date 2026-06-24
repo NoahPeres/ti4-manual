@@ -154,15 +154,18 @@ class GameEngine:
                 pending_events=events,
             )
 
+        self.check_invariants(new_state)
+        return CommandResult(new_state=new_state, success=True, events=resolved_events)
+
+    def check_invariants(self, state: GameState) -> None:
         failed_invariants: list[GameStateInvariant] = [
-            inv for inv in self.invariants if not inv.check(state=new_state)
+            inv for inv in self.invariants if not inv.check(state=state)
         ]
         if failed_invariants:
             raise InvariantViolationError(
                 "Game state invariants violated: "
                 + ", ".join(inv.description for inv in failed_invariants),
             )
-        return CommandResult(new_state=new_state, success=True, events=resolved_events)
 
     def _resolve_single_event(
         self,

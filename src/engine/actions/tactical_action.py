@@ -10,6 +10,7 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import Galaxy, GameState, TacticalActionStep
+from src.engine.core.player import CommandTokenPool
 from src.engine.tokens import CommandToken
 
 if TYPE_CHECKING:
@@ -44,9 +45,9 @@ class ActivateSystemEvent(Event):
         old_player = previous_state.get_player(name=self.player_id)
         new_player = replace(
             old_player,
-            command_sheet=replace(
-                old_player.command_sheet,
-                tactic=old_player.command_sheet.tactic[1:],
+            command_sheet=old_player.command_sheet.remove_token_from_pool(
+                command_token=CommandToken(player_name=old_player.name),
+                pool=CommandTokenPool.TACTIC,
             ),
         )
         players = tuple(

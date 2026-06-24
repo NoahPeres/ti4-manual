@@ -43,7 +43,7 @@ class ChangePlayerEvent(Event):
         new_player: Player = self.players[(current_index + 1) % len(self.players)]
         return GameState(
             players=previous_state.players,
-            active_player=new_player,
+            active_player_name=new_player.name,
             phase=Phase.ACTION,
             galaxy=Galaxy(),
         )
@@ -111,16 +111,16 @@ def _set_up_session(
     players: tuple[Player, ...],
     initial_player: Player = TEST_PLAYER,
     game_state_invariants: list[GameStateInvariant] | None = None,
-    initial_state: GameState | None = None,
     command_rules: Sequence[CommandRule[Command]] | None = None,
+    *,
+    check_invariants_on_init: bool = True,
 ) -> GameSession:
-    if initial_state is None:
-        initial_state = GameState(
-            players=players,
-            active_player=initial_player,
-            phase=Phase.ACTION,
-            galaxy=Galaxy(),
-        )
+    initial_state = GameState(
+        players=players,
+        active_player_name=initial_player.name,
+        phase=Phase.ACTION,
+        galaxy=Galaxy(),
+    )
     if game_state_invariants is None:
         game_state_invariants = []
     if command_rules is None:
@@ -129,7 +129,11 @@ def _set_up_session(
         invariants=game_state_invariants,
         rules_engine=TrivialRulesEngine(command_rules=command_rules),
     )
-    return GameSession(initial_state, engine=engine)
+    return GameSession(
+        initial_state,
+        engine=engine,
+        check_invariants_on_init=check_invariants_on_init,
+    )
 
 
 def test_when_command_invalid_no_event_applied() -> None:
@@ -173,6 +177,7 @@ def test_invariant_violation_prevents_state_change() -> None:
         initial_player=PLAYER_1,
         game_state_invariants=[FailingInvariant()],
         command_rules=[EndTurn()],
+        check_invariants_on_init=False,
     )
     with pytest.raises(expected_exception=InvariantViolationError):
         _: GameState = session.apply_command(command=end_turn_command)

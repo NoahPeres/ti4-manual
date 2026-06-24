@@ -27,7 +27,7 @@ def _make_player_with_strategy_card(name: str, strategy_card: StrategyCard) -> P
     return Player(
         name=name,
         strategy_cards=(strategy_card,),
-        command_sheet=CommandSheet.make_from_int(name, tactic=1, fleet=0, strategy=0),
+        command_sheet=CommandSheet.make_from_int(name, tactic=3, fleet=3, strategy=2),
     )
 
 
@@ -76,7 +76,7 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: list[PlayerInitiati
     player_3: Player = players_sorted_by_initiative[(player_1_idx + 2) % len(players)]
     initial_state = GameState(
         players=players,
-        active_player=player_1,
+        active_player_name=player_1.name,
         turn_context=TurnContext(has_initiated_action=False),
         phase=Phase.ACTION,
         galaxy=Galaxy({System(id=0, command_tokens=())}),

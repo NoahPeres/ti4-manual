@@ -8,7 +8,13 @@ if TYPE_CHECKING:
 
 
 class GameSession:
-    def __init__(self, initial_state: GameState, engine: GameEngine) -> None:
+    def __init__(
+        self,
+        initial_state: GameState,
+        engine: GameEngine,
+        *,
+        check_invariants_on_init: bool = True,
+    ) -> None:
         self.initial_state: GameState = initial_state
         self.engine: GameEngine = engine
         self.history: list[CommandResult] = []
@@ -19,6 +25,9 @@ class GameSession:
             events=[],
             info="Initial state",
         )
+
+        if check_invariants_on_init:
+            self.engine.check_invariants(self.current_state)
 
     @property
     def current_state(self) -> GameState:

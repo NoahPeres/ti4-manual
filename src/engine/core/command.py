@@ -37,6 +37,10 @@ class CommandType(enum.StrEnum):
     ASSIGN_HIT = "assign_hit"
     PASS_BEFORE_ASSIGN_HITS = "pass_before_assign_hits"
     USE_SUSTAIN_DAMAGE = "use_sustain_damage"
+    RETREAT_SHIP = "retreat_ship"
+    END_RETREAT = "end_retreat"
+    REMOVE_COMMAND_TOKEN_FROM_POOL = "remove_command_token_from_pool"
+    PASS_END_OF_COMBAT_ROUND = "pass_end_of_combat_round"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:
