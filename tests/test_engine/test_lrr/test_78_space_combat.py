@@ -1903,3 +1903,211 @@ def test_78_8_return_to_annouce_retreats_step_if_ships_remaining_after_retreat_s
     )
     assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT_ROUND)
     assert session.current_state.turn_context.get_space_combat_context().round_number > 1
+
+
+def _continue_to_next_round(session: GameSession) -> None:
+    if session.current_state.window_context.is_window_active(
+        Window.END_OF_SPACE_COMBAT_ROUND,
+    ):
+        for player in session.current_state.players:
+            if player.name in ("A", "B"):
+                session.apply_command(
+                    command=Command(
+                        actor=player,
+                        command_type=CommandType.PASS_END_OF_COMBAT_ROUND,
+                    ),
+                )
+
+
+def _get_combatant_count(session: GameSession, system_id: int) -> int:
+    attacker_ships = session.current_state.get_ships_in_system(system_id, player_name="A")
+    defender_ships = session.current_state.get_ships_in_system(system_id, player_name="B")
+    return sum([len(attacker_ships) > 0, len(defender_ships) > 0])
+
+
+def _simulate_combat_round(session: GameSession, system_id: int) -> bool:
+    def current_context() -> SpaceCombatContext:
+        return session.current_state.turn_context.get_space_combat_context()
+
+    attacker = current_context().attacker
+    defender = current_context().defender
+
+    # Make combat rolls
+    for player in [attacker, defender]:
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.MAKE_COMBAT_ROLLS),
+        )
+
+    if current_context().step != SpaceCombatStep.ASSIGN_HITS:
+        return False
+
+    if current_context().total_hits_for_player(current_context().defender):
+        # Pass sustain damage window and assign hits
+        session.apply_command(
+            command=Command(
+                actor=current_context().attacker,
+                command_type=CommandType.PASS_BEFORE_ASSIGN_HITS,
+            ),
+        )
+
+        # Assign defenders's hits to attacker
+        defender_hits = current_context().total_hits_for_player(current_context().defender)
+        attacker_ships = session.current_state.get_ships_in_system(
+            system_id,
+            player_name=attacker.name,
+        )
+        for i, ship in enumerate(attacker_ships):
+            if i < defender_hits:
+                session.apply_command(
+                    command=AssignHitCommand(
+                        actor=current_context().attacker,
+                        command_type=CommandType.ASSIGN_HIT,
+                        unit_id=ship.unit_id,
+                    ),
+                )
+                assert len(session.failure_history) == 0
+
+    if current_context().total_hits_for_player(current_context().attacker):
+        # Pass sustain damage window and assign hits
+        session.apply_command(
+            command=Command(
+                actor=current_context().defender,
+                command_type=CommandType.PASS_BEFORE_ASSIGN_HITS,
+            ),
+        )
+
+        # Assign attacker's hits to defender
+        attacker_hits = current_context().total_hits_for_player(current_context().attacker)
+        defender_ships = session.current_state.get_ships_in_system(
+            system_id,
+            player_name=defender.name,
+        )
+        for i, ship in enumerate(defender_ships):
+            if i < attacker_hits:
+                session.apply_command(
+                    command=AssignHitCommand(
+                        actor=current_context().defender,
+                        command_type=CommandType.ASSIGN_HIT,
+                        unit_id=ship.unit_id,
+                    ),
+                )
+                assert len(session.failure_history) == 0
+
+    assert len(session.failure_history) == 0
+    return True
+
+
+class RepeatingDiceRoller(DiceRoller):
+    """Dice roller that cycles through provided values."""
+
+    def __init__(self, values: list[int]) -> None:
+        self.values = values if values else [5]
+        self.call_count = 0
+
+    def roll(self, num_dice: int) -> list[int]:
+        result: list[int] = []
+        for _ in range(num_dice):
+            result.append(self.values[self.call_count % len(self.values)])
+            self.call_count += 1
+        return result
+
+
+@given(
+    attacker_ship_types=st.lists(
+        st.sampled_from([ShipKind.DESTROYER, ShipKind.CRUISER, ShipKind.DREADNOUGHT]),
+        min_size=1,
+        max_size=6,
+        unique=False,
+    ),
+    defender_ship_types=st.lists(
+        st.sampled_from([ShipKind.DESTROYER, ShipKind.CRUISER, ShipKind.DREADNOUGHT]),
+        min_size=1,
+        max_size=6,
+        unique=False,
+    ),
+    dice_values=st.lists(
+        st.integers(min_value=1, max_value=10),
+        min_size=1,
+        max_size=20,
+    ),
+)
+def test_78_9_space_combat_only_ends_when_there_are_fewer_than_2_players_ships(
+    attacker_ship_types: list[ShipKind],
+    defender_ship_types: list[ShipKind],
+    dice_values: list[int],
+) -> None:
+    min_players_for_combat = 2
+    max_rounds = 10
+    system_id = 0
+
+    # Build units from generated ship types
+    all_units = set[Unit]()
+    unit_id_counter = 0
+
+    # Add attacker ships
+    for ship_type in attacker_ship_types:
+        all_units.add(
+            make_unit_with_id(
+                unit_id=unit_id_counter,
+                owner_name="A",
+                kind=ship_type,
+                system_id=system_id,
+            ),
+        )
+        unit_id_counter += 1
+
+    # Add defender ships
+    for ship_type in defender_ship_types:
+        all_units.add(
+            make_unit_with_id(
+                unit_id=unit_id_counter,
+                owner_name="B",
+                kind=ship_type,
+                system_id=system_id,
+            ),
+        )
+        unit_id_counter += 1
+
+    # Set up combat session
+    session = make_roll_dice_step_state(
+        units=frozenset(all_units),
+        dice_roller=RepeatingDiceRoller(dice_values),
+    )
+
+    # Simulate combat rounds until it naturally ends
+    for _ in range(max_rounds):
+        # Check current player counts - invariant check
+        active_players = _get_combatant_count(session, system_id)
+
+        if active_players < min_players_for_combat:
+            assert session.current_state.window_context.is_window_active(
+                Window.END_OF_SPACE_COMBAT,
+            )
+            break
+
+        assert active_players == min_players_for_combat
+
+        # Simulate one round
+        if not _simulate_combat_round(session, system_id):
+            break
+
+        # Check end condition after round
+        active_players_after = _get_combatant_count(session, system_id)
+        if active_players_after < min_players_for_combat:
+            assert session.current_state.window_context.is_window_active(
+                Window.END_OF_SPACE_COMBAT,
+            )
+            break
+
+        # Continue to next round
+        _continue_to_next_round(session)
+
+        assert len(session.failure_history) == 0
+
+        if _get_combatant_count(session, system_id=0) <= 1:
+            assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
+
+    # Final assertion: if combat ended, exactly one player should have no ships
+    assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT) == (
+        _get_combatant_count(session, system_id=0) <= 1
+    )

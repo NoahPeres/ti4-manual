@@ -384,7 +384,9 @@ class GameState:
 
     @property
     def has_taken_turn(self) -> bool:
-        return self.turn_context.has_initiated_action or self.active_player.has_passed
+        return (
+            self.turn_context.has_initiated_action or self.active_player.has_passed
+        ) and self.turn_context.space_combat_context is None
 
     @property
     def active_system(self) -> System | None:

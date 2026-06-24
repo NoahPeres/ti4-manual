@@ -220,6 +220,7 @@ class EndSpaceCombatEventRule(EventRule):
         del event
         if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
             return []
+        combat_context = state.turn_context.get_space_combat_context()
         if (
             len(
                 {
@@ -228,6 +229,11 @@ class EndSpaceCombatEventRule(EventRule):
                 },
             )
             <= 1
+        ) and all(
+            [
+                has_finished_assigning_hits(state, combat_context.attacker),
+                has_finished_assigning_hits(state, combat_context.defender),
+            ]
         ):
             return [
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
