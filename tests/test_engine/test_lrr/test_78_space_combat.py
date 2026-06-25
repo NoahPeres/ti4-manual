@@ -2153,6 +2153,18 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
                 system_id=0,
                 planet_id=None,
             ),
+            make_unit_with_id(
+                unit_id=4,
+                owner_name="B",
+                kind=ShipKind.CARRIER,
+                system_id=1,
+            ),
+            make_unit_with_id(
+                unit_id=5,
+                owner_name="B",
+                kind=ShipKind.FIGHTER,
+                system_id=1,
+            ),
         },
     )
     session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=9))
@@ -2196,6 +2208,10 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
         state=session.current_state,
         command=RemoveUnitCommand(actor=attacker, command_type=CommandType.REMOVE_UNIT, unit_id=2),
     ).success  # Not their unit
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=RemoveUnitCommand(actor=defender, command_type=CommandType.REMOVE_UNIT, unit_id=5),
+    ).success  # Not in the system
     for unit_id in [2, 3]:
         session.apply_command(
             command=RemoveUnitCommand(

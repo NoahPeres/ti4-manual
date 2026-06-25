@@ -250,7 +250,10 @@ class CannotInferCombatWinnerError(ValueError):
 class AssignCombatWinnerEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
         remaining_ships_owners = {
-            ship.owner_name for ship in previous_state.get_ships_in_system(system_id=0)
+            ship.owner_name
+            for ship in previous_state.get_ships_in_system(
+                system_id=previous_state.get_active_system().id
+            )
         }
         if len(remaining_ships_owners) > 1:
             raise CannotInferCombatWinnerError
@@ -1318,6 +1321,10 @@ class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
                 is_valid=False,
                 info="Unit is not transportable: removal won't alleviate capacity.",
             )
+        if unit.system_id is None:
+            return ValidationResult(is_valid=False, info="Unit is not in any system.")
+        if not capacity_exceeded_in_system(state=state, system_id=unit.system_id):
+            return ValidationResult(is_valid=False, info="Unit is not exceeding capacity.")
 
         return ValidationResult(is_valid=True)
 
