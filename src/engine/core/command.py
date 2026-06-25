@@ -41,6 +41,7 @@ class CommandType(enum.StrEnum):
     END_RETREAT = "end_retreat"
     REMOVE_COMMAND_TOKEN_FROM_POOL = "remove_command_token_from_pool"
     PASS_END_OF_COMBAT_ROUND = "pass_end_of_combat_round"
+    REMOVE_UNIT = "remove_unit"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:

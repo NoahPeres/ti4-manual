@@ -233,7 +233,7 @@ class EndSpaceCombatEventRule(EventRule):
             [
                 has_finished_assigning_hits(state, combat_context.attacker),
                 has_finished_assigning_hits(state, combat_context.defender),
-            ]
+            ],
         ):
             return [
                 AssignCombatWinnerEvent(),
@@ -256,13 +256,13 @@ class AssignCombatWinnerEvent(Event):
             raise CannotInferCombatWinnerError
         if len(remaining_ships_owners) == 0:
             return previous_state.set_space_combat_context(
-                previous_state.turn_context.get_space_combat_context().set_winner(None)
+                previous_state.turn_context.get_space_combat_context().set_winner(None),
             )
         if len(remaining_ships_owners) == 1:
             return previous_state.set_space_combat_context(
                 previous_state.turn_context.get_space_combat_context().set_winner(
-                    remaining_ships_owners.pop()
-                )
+                    remaining_ships_owners.pop(),
+                ),
             )
         raise CannotInferCombatWinnerError
 
@@ -1294,10 +1294,113 @@ class ResetCombatToAnnounceRetreatStepEvent(Event):
         return "ResetCombatToAnnounceRetreatStepEvent"
 
 
+@dataclass(frozen=True)
+class RemoveUnitCommand(Command):
+    unit_id: int
+
+
+class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
+    def __repr__(self) -> str:
+        return "RemoveUnit"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.REMOVE_UNIT}
+
+    def validate_legality(self, state: GameState, command: RemoveUnitCommand) -> ValidationResult:
+        if not state.window_context.is_window_active(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY):
+            return ValidationResult(is_valid=False, info="No reason to remove units.")
+        unit = state.get_unit_from_id(command.unit_id)
+        if unit.owner_name != command.actor.name:
+            return ValidationResult(is_valid=False, info="You cannot remove another player's unit.")
+        if not unit.is_transportable:
+            return ValidationResult(
+                is_valid=False,
+                info="Unit is not transportable: removal won't alleviate capacity.",
+            )
+
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: RemoveUnitCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, engine_context
+        return [RemoveUnitEvent(unit_id=command.unit_id)]
+
+
+def capacity_exceeded_in_system(state: GameState, system_id: int) -> bool:
+    units_in_space = state.get_units_in_space_area_of_system(system_id=system_id)
+    if len({unit.owner_name for unit in units_in_space}) > 1:
+        raise ValueError
+    total_capacity = sum(
+        [unit.stats.capacity for unit in units_in_space if unit.stats.capacity is not None],
+    )
+    total_capacity_required = sum([1 for unit in units_in_space if unit.is_transportable])
+    return total_capacity_required > total_capacity
+
+
+class CheckCapacityAfterCombatEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        if not isinstance(event, CloseWindowEvent):
+            return []
+        if event.window != Window.END_OF_SPACE_COMBAT:
+            return []
+
+        if not capacity_exceeded_in_system(state=state, system_id=state.get_active_system().id):
+            return []
+        return [OpenWindowEvent(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY)]
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {CloseWindowEvent}
+
+
+class ClearCombatStateEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.set_space_combat_context(None)
+
+    def __repr__(self) -> str:
+        return "ClearCombatStateEvent"
+
+
+class ClearCombatStateAfterCombatEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del state
+        if not isinstance(event, CloseWindowEvent):
+            return []
+        if event.window != Window.END_OF_SPACE_COMBAT:
+            return []
+
+        return [ClearCombatStateEvent()]
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {CloseWindowEvent}
+
+
+class RecheckCapacityAfterRemovalEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        if not state.window_context.is_window_active(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY):
+            return []
+
+        if capacity_exceeded_in_system(state=state, system_id=state.get_active_system().id):
+            return []
+        return [CloseWindowEvent(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY)]
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {RemoveUnitEvent}
+
+
 def get_command_rules() -> list[
     CommandRule[AssignHitCommand]
     | CommandRule[RetreatShipCommand]
     | CommandRule[RemoveCommandTokenFromPoolCommand]
+    | CommandRule[RemoveUnitCommand]
 ]:
     return [
         EndSpaceCombatCommandRule(),
@@ -1313,6 +1416,7 @@ def get_command_rules() -> list[
         EndRetreatCommandRule(),
         ChoosePoolToRemoveCommandTokenCommandRule(),
         PassEndOfCombatWindowCommandRule(),
+        RemoveUnitDueToCapacityCommandRule(),
     ]
 
 
@@ -1332,4 +1436,7 @@ def get_event_rules() -> list[EventRule]:
         RemoveAbandonedFightersAndGroundForcesEventRule(),
         PlaceCommandTokenInDestinationSystemIfAbleEventRule(),
         CloseEndOfSpaceCombatRoundWindowsEventRule(),
+        CheckCapacityAfterCombatEventRule(),
+        RecheckCapacityAfterRemovalEventRule(),
+        ClearCombatStateAfterCombatEventRule(),
     ]

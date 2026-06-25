@@ -222,6 +222,7 @@ class Window(StrEnum):
     ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
     BEFORE_ASSIGNING_HITS = "before_assigning_hits"
     MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN = "must_choose_pool_for_remove_command_token"
+    MUST_REMOVE_UNITS_DUE_TO_CAPACITY = "must_remove_units_due_to_capacity"
 
 
 @dataclass(frozen=True)
@@ -499,7 +500,7 @@ class GameState:
             window_context=replace(self.window_context, active_windows=()),
         )
 
-    def set_space_combat_context(self, space_combat_context: SpaceCombatContext) -> Self:
+    def set_space_combat_context(self, space_combat_context: SpaceCombatContext | None) -> Self:
         return replace(
             self,
             turn_context=replace(self.turn_context, space_combat_context=space_combat_context),

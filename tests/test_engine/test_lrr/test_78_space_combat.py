@@ -10,6 +10,7 @@ from src.engine.actions.space_combat import (
     AssignHitCommand,
     CombatRoll,
     RemoveCommandTokenFromPoolCommand,
+    RemoveUnitCommand,
     RetreatShipCommand,
     RollDiceForUnitEvent,
 )
@@ -2122,3 +2123,90 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
             assert context.winner == remaining_ships_owners.pop()
         else:
             assert len(remaining_ships_owners) == 0
+
+
+def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.CARRIER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=2,
+                owner_name="B",
+                kind=ShipKind.FIGHTER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=3,
+                owner_name="B",
+                kind=GroundForceKind.INFANTRY,
+                system_id=0,
+                planet_id=None,
+            ),
+        },
+    )
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=9))
+    space_combat_context = session.current_state.turn_context.get_space_combat_context()
+    attacker = space_combat_context.attacker
+    defender = space_combat_context.defender
+    for player in (attacker, defender):
+        session.apply_command(
+            Command(
+                actor=player,
+                command_type=CommandType.MAKE_COMBAT_ROLLS,
+            ),
+        )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ASSIGN_HITS
+    )
+    session.apply_command(
+        command=Command(actor=attacker, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS),
+    )
+    session.apply_command(
+        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=0),
+    )
+    session.apply_command(
+        command=Command(actor=defender, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS),
+    )
+    session.apply_command(
+        command=AssignHitCommand(actor=defender, command_type=CommandType.ASSIGN_HIT, unit_id=1),
+    )  # this is the carrier, the other units are now stranded
+    assert len(session.failure_history) == 0
+    assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
+    for player in (attacker, defender):
+        session.apply_command(
+            Command(actor=player, command_type=CommandType.PASS_END_OF_COMBAT_ROUND),
+        )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.END_TURN),
+    ).success  # not legal, still units that need to be removed
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=RemoveUnitCommand(actor=attacker, command_type=CommandType.REMOVE_UNIT, unit_id=2),
+    ).success  # Not their unit
+    for unit_id in [2, 3]:
+        session.apply_command(
+            command=RemoveUnitCommand(
+                actor=defender,
+                command_type=CommandType.REMOVE_UNIT,
+                unit_id=unit_id,
+            ),
+        )
+    assert len(session.failure_history) == 0
+    assert len(session.current_state.get_units_in_space_area_of_system(0)) == 0
+    assert session.engine.apply_command(
+        state=session.current_state,
+        command=Command(actor=attacker, command_type=CommandType.END_TURN),
+    ).success
