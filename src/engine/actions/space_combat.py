@@ -236,10 +236,38 @@ class EndSpaceCombatEventRule(EventRule):
             ]
         ):
             return [
+                AssignCombatWinnerEvent(),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT_ROUND),
             ]
         return []
+
+
+class CannotInferCombatWinnerError(ValueError):
+    pass
+
+
+class AssignCombatWinnerEvent(Event):
+    def apply(self, previous_state: GameState) -> GameState:
+        remaining_ships_owners = {
+            ship.owner_name for ship in previous_state.get_ships_in_system(system_id=0)
+        }
+        if len(remaining_ships_owners) > 1:
+            raise CannotInferCombatWinnerError
+        if len(remaining_ships_owners) == 0:
+            return previous_state.set_space_combat_context(
+                previous_state.turn_context.get_space_combat_context().set_winner(None)
+            )
+        if len(remaining_ships_owners) == 1:
+            return previous_state.set_space_combat_context(
+                previous_state.turn_context.get_space_combat_context().set_winner(
+                    remaining_ships_owners.pop()
+                )
+            )
+        raise CannotInferCombatWinnerError
+
+    def __repr__(self) -> str:
+        return "AssignCombatWinnerEvent"
 
 
 class PassStartOfCombatWindowCommandRule(CommandRule[Command]):

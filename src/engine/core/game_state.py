@@ -88,6 +88,7 @@ class SpaceCombatContext:
     attacker_hits_assigned: int = 0
     defender_hits_assigned: int = 0
     current_hits_assignee: Player | None = None
+    winner: str | None = None
 
     def assign_hit(self, unit_id: int, player: Player) -> Self:
         participant = self.get_participant_by_player(player)
@@ -178,6 +179,9 @@ class SpaceCombatContext:
             round_number=self.round_number + 1,
             step=SpaceCombatStep.ANNOUNCE_RETREATS,
         )
+
+    def set_winner(self, winner: str | None) -> Self:
+        return replace(self, winner=winner)
 
 
 class Phase(StrEnum):

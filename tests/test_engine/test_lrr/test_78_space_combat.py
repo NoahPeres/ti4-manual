@@ -2031,7 +2031,7 @@ class RepeatingDiceRoller(DiceRoller):
         max_size=20,
     ),
 )
-def test_78_9_space_combat_only_ends_when_there_are_fewer_than_2_players_ships(
+def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ships_and_check_winner(
     attacker_ship_types: list[ShipKind],
     defender_ship_types: list[ShipKind],
     dice_values: list[int],
@@ -2111,3 +2111,14 @@ def test_78_9_space_combat_only_ends_when_there_are_fewer_than_2_players_ships(
     assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT) == (
         _get_combatant_count(session, system_id=0) <= 1
     )
+    # check winner
+    if session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT):
+        context = session.current_state.turn_context.get_space_combat_context()
+        remaining_ships_owners = {
+            ship.owner_name for ship in session.current_state.get_ships_in_system(system_id=0)
+        }
+        if context.winner is not None:
+            assert len(remaining_ships_owners) == 1
+            assert context.winner == remaining_ships_owners.pop()
+        else:
+            assert len(remaining_ships_owners) == 0
