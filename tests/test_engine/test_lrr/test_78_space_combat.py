@@ -1933,14 +1933,35 @@ def _simulate_combat_round(session: GameSession, system_id: int) -> bool:
     attacker = current_context().attacker
     defender = current_context().defender
 
+    for player in [attacker, defender]:
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+
+    if current_context().step == SpaceCombatStep.ANTI_FIGHTER_BARRAGE:
+        for player in [attacker, defender]:
+            session.apply_command(
+                command=Command(actor=player, command_type=CommandType.PASS_ANTI_FIGHTER_BARRAGE),
+            )
+    assert len(session.failure_history) == 0
+    assert current_context().step != SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    if current_context().step == SpaceCombatStep.ANNOUNCE_RETREATS:
+        for player in [defender, attacker]:
+            session.apply_command(
+                command=Command(actor=player, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+            )
     # Make combat rolls
     for player in [attacker, defender]:
         session.apply_command(
             command=Command(actor=player, command_type=CommandType.MAKE_COMBAT_ROLLS),
         )
 
+    assert len(session.failure_history) == 0
     if current_context().step != SpaceCombatStep.ASSIGN_HITS:
-        return False
+        assert session.current_state.window_context.is_window_active(
+            Window.END_OF_SPACE_COMBAT_ROUND,
+        )
+        return True
 
     if current_context().total_hits_for_player(current_context().defender):
         # Pass sustain damage window and assign hits

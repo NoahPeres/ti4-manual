@@ -360,6 +360,7 @@ class CloseStartOfSpaceCombatRoundWindowsEventRule(EventRule):
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
+        events: list[Event] = []
         if all(
             state.window_context.player_has_passed_on_window(
                 player,
@@ -367,12 +368,14 @@ class CloseStartOfSpaceCombatRoundWindowsEventRule(EventRule):
             )
             for player in state.players
         ):
-            return [
+            events += [
                 CloseWindowEvent(window=window)
                 for window in state.window_context.active_windows
                 if window in START_OF_COMBAT_ROUND_WINDOWS
-            ] + [OpenWindowEvent(window=Window.ANTI_FIGHTER_BARRAGE)]
-        return []
+            ]
+            if state.turn_context.get_space_combat_context().round_number == 1:
+                events += [OpenWindowEvent(window=Window.ANTI_FIGHTER_BARRAGE)]
+        return events
 
 
 class CloseEndOfSpaceCombatRoundWindowsEventRule(EventRule):
