@@ -342,6 +342,36 @@ def get_consumed_capacity_for_unit_id(moves: frozenset[Move], unit_id: int) -> i
     return len({move for move in moves if move.transported_by_id == unit_id})
 
 
+def _check_transport_legal(state: GameState, command: TransportUnitCommand) -> ValidationResult:
+    unit = state.get_unit_from_id(command.unit_id)
+    carrying_ship = state.selected_unit
+    if not unit.is_transportable:
+        return ValidationResult(is_valid=False, info="Unit is not transportable.")
+    if carrying_ship.owner_name != command.actor.name:
+        return ValidationResult(is_valid=False, info="Carrying ship belongs to another player.")
+    if unit.owner_name != command.actor.name:
+        return ValidationResult(is_valid=False, info="Cannot transport another player's units.")
+    if (
+        carrying_ship.stats.capacity is None
+        or carrying_ship.stats.capacity
+        <= get_consumed_capacity_for_unit_id(
+            moves=state.turn_context.pending_moves,
+            unit_id=carrying_ship.unit_id,
+        )
+    ):
+        return ValidationResult(is_valid=False, info="Carrying ship is already full.")
+    if unit.system_id != carrying_ship.system_id:
+        # NOTE: This is a simplification — once multi-step movement / path-finding is
+        # implemented, transports should be allowed to pick up units from any system
+        # along the carrier's path, not only its starting system.
+        return ValidationResult(
+            is_valid=False,
+            info="Cannot transport units that are not in the same system as the ship",
+        )
+
+    return ValidationResult(is_valid=True)
+
+
 class TransportUnitCommandRule(CommandRule[TransportUnitCommand], CandidateCommandProvider):
     def __repr__(self) -> str:
         return "TransportUnit"
@@ -368,32 +398,8 @@ class TransportUnitCommandRule(CommandRule[TransportUnitCommand], CandidateComma
     ) -> ValidationResult:
         if not state.window_context.is_window_active(Window.TRANSPORT_UNITS):
             return ValidationResult(is_valid=False, info="Cannot transport at this time.")
-        unit = state.get_unit_from_id(command.unit_id)
-        carrying_ship = state.selected_unit
-        if not unit.is_transportable:
-            return ValidationResult(is_valid=False, info="Unit is not transportable.")
-        if carrying_ship.owner_name != command.actor.name:
-            return ValidationResult(is_valid=False, info="Carrying ship belongs to another player.")
-        if unit.owner_name != command.actor.name:
-            return ValidationResult(is_valid=False, info="Cannot transport another player's units.")
-        if (
-            carrying_ship.stats.capacity is None
-            or carrying_ship.stats.capacity
-            <= get_consumed_capacity_for_unit_id(
-                moves=state.turn_context.pending_moves,
-                unit_id=carrying_ship.unit_id,
-            )
-        ):
-            return ValidationResult(is_valid=False, info="Carrying ship is already full.")
-        if unit.system_id != carrying_ship.system_id:
-            # NOTE: This is a simplification — once multi-step movement / path-finding is
-            # implemented, transports should be allowed to pick up units from any system
-            # along the carrier's path, not only its starting system.
-            return ValidationResult(
-                is_valid=False,
-                info="Cannot transport units that are not in the same system as the ship",
-            )
-        return ValidationResult(is_valid=True)
+
+        return _check_transport_legal(state=state, command=command)
 
     def derive_events(
         self,
