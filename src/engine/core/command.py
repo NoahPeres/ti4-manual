@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -42,6 +42,8 @@ class CommandType(enum.StrEnum):
     REMOVE_COMMAND_TOKEN_FROM_POOL = "remove_command_token_from_pool"
     PASS_END_OF_COMBAT_ROUND = "pass_end_of_combat_round"
     REMOVE_UNIT = "remove_unit"
+    TRANSPORT_UNIT = "transport_unit"
+    PASS_TRANSPORT_UNIT = "pass_transport_unit"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:
@@ -76,3 +78,9 @@ class CommandRule[C: Command](Protocol):
         command: C,
         engine_context: EngineContext,
     ) -> Sequence[Event]: ...
+
+
+@runtime_checkable
+class CandidateCommandProvider(Protocol):
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]: ...

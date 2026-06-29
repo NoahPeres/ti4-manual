@@ -12,6 +12,7 @@ from src.engine.actions.tactical_action import (
     AdvanceToSpaceCombatStepEvent,
 )
 from src.engine.core.command import (
+    CandidateCommandProvider,
     Command,
     CommandRule,
     CommandType,
@@ -252,7 +253,7 @@ class AssignCombatWinnerEvent(Event):
         remaining_ships_owners = {
             ship.owner_name
             for ship in previous_state.get_ships_in_system(
-                system_id=previous_state.get_active_system().id
+                system_id=previous_state.get_active_system().id,
             )
         }
         if len(remaining_ships_owners) > 1:
@@ -920,7 +921,7 @@ class AssignHitEvent(Event):
         )
 
 
-class AssignHitCommandRule(CommandRule[AssignHitCommand]):
+class AssignHitCommandRule(CommandRule[AssignHitCommand], CandidateCommandProvider):
     def __repr__(self) -> str:
         return "AssignHitCommandRule"
 
@@ -963,6 +964,18 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [AssignHitEvent(unit_id=command.unit_id, player_name=command.actor.name)]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return [
+            AssignHitCommand(
+                actor=state.get_player(unit.owner_name),
+                command_type=CommandType.ASSIGN_HIT,
+                unit_id=unit.unit_id,
+            )
+            for unit in state.units
+            if unit.system_id is not None
+        ]
 
 
 class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
@@ -1036,7 +1049,7 @@ def _ship_is_valid_for_retreat(
             is_valid=False,
             info=f"{command.ship_id} cannot move on its own.",
         )
-    if ship.unit_id in {move.ship_id for move in state.turn_context.pending_moves}:
+    if ship.unit_id in {move.unit_id for move in state.turn_context.pending_moves}:
         return ValidationResult(
             is_valid=False,
             info=f"This ship {ship.unit_id} already declared retreat.",
@@ -1087,9 +1100,8 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
         del state, engine_context
         return [
             AddMoveToPendingEvent(
-                ship_id=command.ship_id,
+                unit_id=command.ship_id,
                 to_system_id=command.to_system_id,
-                transported_unit_ids=command.transported_unit_ids,
             ),
         ]
 
@@ -1143,7 +1155,7 @@ class EndRetreatCommandRule(CommandRule[Command]):
             )
             if ship.stats.move is not None
         }
-        pending_retreats = {move.ship_id for move in state.turn_context.pending_moves}
+        pending_retreats = {move.unit_id for move in state.turn_context.pending_moves}
         if len(ships_in_active_system_with_move_value - pending_retreats) > 0:
             return ValidationResult(
                 is_valid=False,

@@ -1,14 +1,20 @@
+import itertools
 import logging
 from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from src.engine.core.command import CommandRule, CommandType, EngineContext
+from src.engine.core.command import (
+    CandidateCommandProvider,
+    Command,
+    CommandRule,
+    CommandType,
+    EngineContext,
+)
 from src.engine.core.dice_roller import DiceRoller, UniformDiceRoller
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from src.engine.core.command import Command
     from src.engine.core.event import Event, EventRule
     from src.engine.core.game_state import GameState
     from src.engine.core.rules_engine import RulesEngine
@@ -187,3 +193,26 @@ class GameEngine:
                 raise IllegalStateMutationError(repr(event)) from e
             pending_events = list(new_events) + pending_events
         return new_state, pending_events
+
+    def get_legal_commands(
+        self,
+        state: GameState,
+    ) -> list[Command]:
+        legal: list[Command] = []
+
+        for rule in self.rules_engine.command_rules:
+            if isinstance(rule, CandidateCommandProvider):
+                candidates = rule.candidate_commands(state)
+
+            else:
+                candidates = [
+                    Command(actor=player, command_type=command_type)
+                    for command_type, player in itertools.product(
+                        rule.handles_command_types(), state.players,
+                    )
+                ]
+            for command in candidates:
+                if rule.validate_legality(state, command).is_valid:
+                    legal.append(command)
+
+        return legal

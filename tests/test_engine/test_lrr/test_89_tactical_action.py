@@ -39,6 +39,7 @@ from tests.test_engine.test_lrr.common import (
     grant_all_units_unique_ids,
     make_basic_session_from_players,
     make_centre_ring_with_player_token,
+    make_movement_session,
     make_player,
     make_session,
     make_tactical_action_movement_state,
@@ -182,7 +183,7 @@ def test_89_2_only_active_player_moves_ships() -> None:
 
     result = session.engine.apply_command(
         state=session.current_state,
-        command=move_command(actor=player_b, ship_id=0, to_system_id=0),
+        command=move_command(actor=player_b, ship_id=0, to_system_id=0)[0],
     )
 
     assert not result.success
@@ -202,7 +203,7 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
 
     result = session.engine.apply_command(
         state=session.current_state,
-        command=move_command(actor=player_a, ship_id=0, to_system_id=active_system.id),
+        command=move_command(actor=player_a, ship_id=0, to_system_id=active_system.id)[0],
     )
 
     assert not result.success
@@ -236,7 +237,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
 
     result = session.engine.apply_command(
         state=session.current_state,
-        command=move_command(actor=player_a, ship_id=0, to_system_id=active_system.id),
+        command=move_command(actor=player_a, ship_id=0, to_system_id=active_system.id)[0],
     )
 
     assert not result.success
@@ -248,7 +249,7 @@ def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=2),
+        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=2)[0],
     )
 
     assert not result.success
@@ -261,7 +262,7 @@ def test_89_2_ship_with_sufficient_move_may_move() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=1),
+        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=1)[0],
     )
 
     assert result.success
@@ -274,7 +275,7 @@ def test_89_2_move_into_active_system() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=1),
+        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=1)[0],
     )
 
     move = next(iter(result.new_state.turn_context.pending_moves))
@@ -287,7 +288,7 @@ def test_89_2_cannot_move_into_non_active_system() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=2),
+        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=2)[0],
     )
 
     assert not result.success
@@ -295,8 +296,6 @@ def test_89_2_cannot_move_into_non_active_system() -> None:
 
 
 def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
-    state = make_tactical_action_movement_state(active_system_id=1)
-    engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
     ground_force = make_unit_with_id(
         unit_id=1,
@@ -304,25 +303,23 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
         kind=GroundForceKind.INFANTRY,
         system_id=0,
     )
-
-    result = engine.apply_command(
-        state=replace(state, units=frozenset({ship, ground_force})),
-        command=move_command(
-            actor=state.get_player("A"),
-            ship_id=0,
-            to_system_id=1,
-            transported_unit_ids=frozenset({ground_force.unit_id}),
-        ),
+    session = make_movement_session(
+        units=frozenset({ship, ground_force}), galaxy=CENTRE_RING_OF_SYSTEMS,
     )
 
-    assert result.success
-    assert len(result.new_state.turn_context.pending_moves) == 1
-    (move,) = result.new_state.turn_context.pending_moves
-    assert len(move.transported_unit_ids) == 1
+    for command in move_command(
+        actor=session.current_state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset({ground_force.unit_id}),
+    ):
+        session.apply_command(command=command)
+
+        assert len(session.failure_history) == 0
+    assert len(session.current_state.turn_context.pending_moves) == len({ship, ground_force})
 
 
 def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
-    state = make_tactical_action_movement_state(active_system_id=1)
     engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=0)
     ground_force = make_unit_with_id(
@@ -331,19 +328,25 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
         kind=GroundForceKind.INFANTRY,
         system_id=0,
     )
+    session = make_movement_session(
+        units=frozenset({ship, ground_force}), galaxy=CENTRE_RING_OF_SYSTEMS,
+    )
+
+    move_attempt = move_command(
+        actor=session.current_state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset({ground_force.unit_id}),
+    )
+    session.apply_command(command=move_attempt[0])
+    assert len(session.failure_history) == 0
 
     result = engine.apply_command(
-        state=replace(state, units=frozenset({ship, ground_force})),
-        command=move_command(
-            actor=state.get_player("A"),
-            ship_id=0,
-            to_system_id=1,
-            transported_unit_ids=frozenset({ground_force.unit_id}),
-        ),
+        state=session.current_state,
+        command=move_attempt[1],
     )
 
     assert not result.success
-    assert len(result.new_state.turn_context.pending_moves) == 0
 
 
 def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
@@ -357,19 +360,19 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
         system_id=0,
     )
     fighter = make_unit_with_id(unit_id=2, owner_name="A", kind=ShipKind.FIGHTER, system_id=0)
-
-    result = engine.apply_command(
-        state=replace(state, units=frozenset({ship, ground_force, fighter})),
-        command=move_command(
-            actor=state.get_player("A"),
-            ship_id=0,
-            to_system_id=1,
-            transported_unit_ids=frozenset({ground_force.unit_id, fighter.unit_id}),
-        ),
+    state = replace(state, units=frozenset({ship, ground_force, fighter}))
+    move_attempt = move_command(
+        actor=state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset({ground_force.unit_id, fighter.unit_id}),
     )
-
-    assert not result.success
-    assert len(result.new_state.turn_context.pending_moves) == 0
+    result = engine.apply_command(state=state, command=move_attempt[0])
+    assert result.success  # Dread is fine
+    result = engine.apply_command(state=result.new_state, command=move_attempt[1])
+    assert result.success  # first capacity is fine
+    result = engine.apply_command(state=result.new_state, command=move_attempt[2])
+    assert not result.success  # Dread only has a single capacity
 
 
 @given(transported_unit_kind=st.sampled_from(list(ShipKind) + list(GroundForceKind)))
@@ -386,50 +389,47 @@ def test_89_2_a_valid_unit_types_for_transport(
         kind=transported_unit_kind,
         system_id=0,
     )
+    state = replace(state, units=frozenset({ship, transported_unit}))
+    attempted_move = move_command(
+        actor=state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset({transported_unit.unit_id}),
+    )
     result = engine.apply_command(
-        state=replace(state, units=frozenset({ship, transported_unit})),
-        command=move_command(
-            actor=state.get_player("A"),
-            ship_id=0,
-            to_system_id=1,
-            transported_unit_ids=frozenset({transported_unit.unit_id}),
-        ),
+        state=state,
+        command=attempted_move[0],
+    )
+    final_result = engine.apply_command(
+        state=result.new_state,
+        command=attempted_move[1],
     )
 
     if transported_unit_kind == ShipKind.FIGHTER or isinstance(
         transported_unit_kind,
         GroundForceKind,
     ):
-        assert result.success
-        assert len(result.new_state.turn_context.pending_moves) == 1
-        (move,) = result.new_state.turn_context.pending_moves
-        assert len(move.transported_unit_ids) == 1
+        assert final_result.success
     else:
-        assert not result.success
-        assert len(result.new_state.turn_context.pending_moves) == 0
+        assert not final_result.success
 
 
 def test_89_2_a_player_may_transport_no_units() -> None:
-    state = make_tactical_action_movement_state(active_system_id=1)
-    engine = get_default_game_engine()
     ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DESTROYER, system_id=0)
 
-    result = engine.apply_command(
-        state=replace(state, units=frozenset({ship})),
+    session = make_movement_session(units=frozenset({ship}), galaxy=CENTRE_RING_OF_SYSTEMS)
+
+    session.apply_command(
         command=move_command(
-            actor=state.get_player("A"),
+            actor=session.current_state.get_player("A"),
             ship_id=0,
             to_system_id=1,
-            transported_unit_ids=frozenset(),
-        ),
+        )[0],
     )
 
-    assert result.success
-    assert len(result.new_state.turn_context.pending_moves) == 1
-    assert (
-        len(next(move for move in result.new_state.turn_context.pending_moves).transported_unit_ids)
-        == 0
-    )
+    assert len(session.failure_history) == 0
+    assert not session.current_state.window_context.is_window_active(Window.TRANSPORT_UNITS)
+    assert len(session.current_state.turn_context.pending_moves) == 1
 
 
 def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
@@ -464,21 +464,26 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
         units=frozenset({ship, friendly_ground_force, enemy_ground_force}),
     )
     engine = get_default_game_engine()
-
-    result = engine.apply_command(
-        state=state,
-        command=move_command(
-            actor=state.get_player("A"),
-            ship_id=0,
-            to_system_id=1,
-            transported_unit_ids=frozenset(
-                {friendly_ground_force.unit_id, enemy_ground_force.unit_id},
-            ),
+    move_attempt = move_command(
+        actor=state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset(
+            {friendly_ground_force.unit_id, enemy_ground_force.unit_id},
         ),
     )
+    current_state = state
 
-    assert not result.success
-    assert len(result.new_state.turn_context.pending_moves) == 0
+    for command in move_attempt:
+        result = engine.apply_command(
+            state=current_state,
+            command=command,
+        )
+        if not result.success:
+            return
+        current_state = result.new_state
+
+    pytest.fail("Expect enemy unit to break success criterion.")
 
 
 def test_89_2_a_cannot_transport_units_not_on_path() -> None:
@@ -491,19 +496,22 @@ def test_89_2_a_cannot_transport_units_not_on_path() -> None:
         kind=GroundForceKind.INFANTRY,
         system_id=2,
     )
-
-    result = engine.apply_command(
-        state=replace(state, units=frozenset({ship, ground_force})),
-        command=move_command(
-            actor=state.get_player("A"),
-            ship_id=0,
-            to_system_id=1,
-            transported_unit_ids=frozenset({ground_force.unit_id}),
-        ),
+    state = replace(state, units=frozenset({ship, ground_force}))
+    move_attempt = move_command(
+        actor=state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset({ground_force.unit_id}),
     )
 
+    result = engine.apply_command(
+        state=state,
+        command=move_attempt[0],
+    )
+    assert result.success
+    result = engine.apply_command(state=result.new_state, command=move_attempt[1])
+
     assert not result.success
-    assert len(result.new_state.turn_context.pending_moves) == 0
 
 
 def test_89_2_b_active_player_may_move_no_ships() -> None:
@@ -668,8 +676,16 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
                 actor=session.initial_state.get_player("A"),
                 ship_id=ship.unit_id,
                 to_system_id=0,
-            ),
+            )[0],
         )
+        if session.current_state.window_context.is_window_active(Window.TRANSPORT_UNITS):
+            session.apply_command(
+                command=Command(
+                    session.initial_state.get_player("A"),
+                    command_type=CommandType.PASS_TRANSPORT_UNIT,
+                ),
+            )
+        assert len(session.failure_history) == 0
 
     new_state = session.apply_command(
         action_command(session.current_state.get_player("A"), CommandType.END_MOVEMENT),
@@ -722,14 +738,13 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
     for unit in session.current_state.units:
         if unit.is_ground_force:
             assert unit.cast_to_ground_force().planet_id is not None
-    new_state = session.apply_command(
-        command=move_command(
-            actor=session.initial_state.get_player("A"),
-            ship_id=ship.unit_id,
-            to_system_id=1,
-            transported_unit_ids=transported_unit_ids,
-        ),
-    )
+    for command in move_command(
+        actor=session.initial_state.get_player("A"),
+        ship_id=ship.unit_id,
+        to_system_id=1,
+        transported_unit_ids=transported_unit_ids,
+    ):
+        new_state = session.apply_command(command)
     assert len(session.failure_history) == 0
 
     new_state = session.apply_command(
@@ -768,7 +783,7 @@ def test_89_3_if_one_player_has_ships_skip_space_combat(*, opponent_has_ground_f
             actor=session.current_state.get_player("A"),
             ship_id=0,
             to_system_id=1,
-        ),
+        )[0],
     )
     new_state = session.apply_command(
         command=action_command(new_state.active_player, CommandType.END_MOVEMENT),
@@ -805,7 +820,7 @@ def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None
             actor=session.current_state.get_player("A"),
             ship_id=0,
             to_system_id=1,
-        ),
+        )[0],
     )
     new_state = session.apply_command(
         command=action_command(new_state.active_player, CommandType.END_MOVEMENT),

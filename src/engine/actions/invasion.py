@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -6,6 +7,7 @@ from src.engine.actions.tactical_action import (
     AdvanceToProductionStepEvent,
 )
 from src.engine.core.command import (
+    CandidateCommandProvider,
     Command,
     CommandRule,
     CommandType,
@@ -168,13 +170,32 @@ class AddInvasionCommitToPendingEvent(Event):
         )
 
 
-class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
+class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand], CandidateCommandProvider):
     def __repr__(self) -> str:
         return "CommitGroundForceCommandRule"
 
     @staticmethod
     def handles_command_types() -> set[CommandType]:
         return {CommandType.COMMIT_GROUND_FORCE}
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return [
+            CommitGroundForceCommand(
+                actor=state.active_player,
+                command_type=CommandType.COMMIT_GROUND_FORCE,
+                ground_force_id=i,
+                to_planet_id=j,
+            )
+            for i, j in itertools.product(
+                [
+                    unit.unit_id
+                    for unit in state.units
+                    if (unit.owner_name == state.active_player) and unit.is_ground_force
+                ],
+                [planet.planet_id for planet in state.get_active_system().planets],
+            )
+        ]
 
     def validate_legality(
         self,
@@ -274,7 +295,7 @@ class AdvanceToProductionStepEventRule(EventRule):
         return [AdvanceToProductionStepEvent()]
 
 
-def get_command_rules() -> list[CommandRule[CommitGroundForceCommand]]:
+def get_command_rules() -> list[CommandRule[CommitGroundForceCommand] | CommandRule[Command]]:
     return [
         ResolveBombardmentCommandRule(),
         PassBombardmentCommandRule(),
