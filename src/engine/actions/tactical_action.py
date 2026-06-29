@@ -2,6 +2,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from src.engine.core.command import (
+    CandidateCommandProvider,
     Command,
     CommandRule,
     CommandType,
@@ -100,7 +101,7 @@ class TacticalActionInitiatedEvent(Event):
         )
 
 
-class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
+class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand], CandidateCommandProvider):
     def __repr__(self) -> str:
         return "InitiateTacticalAction"
 
@@ -143,6 +144,17 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionInitiatedEvent(),
             AdvanceToMovementStepEvent(),
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return [
+            ActivateCommand(
+                actor=state.active_player,
+                command_type=CommandType.INITIATE_TACTICAL_ACTION,
+                system_id=system.id,
+            )
+            for system in state.galaxy
         ]
 
 
