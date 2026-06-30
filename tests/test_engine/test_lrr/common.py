@@ -152,7 +152,12 @@ def build_game_state(
     units: frozenset[Unit] | None = None,
 ) -> GameState:
     active_player = active_player or players[0]
-    galaxy = galaxy or Galaxy({System(id=0, command_tokens=()), System(id=1, command_tokens=())})
+    galaxy = galaxy or Galaxy(
+        {
+            System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
+            System(id=1, command_tokens=(), coordinates=HexCoord(0, 1)),
+        },
+    )
     turn_context = turn_context or TurnContext(
         has_initiated_action=True,
         tactical_action_step=TacticalActionStep.MOVEMENT,

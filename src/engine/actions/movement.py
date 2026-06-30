@@ -344,15 +344,30 @@ def get_consumed_capacity_for_unit_id(moves: frozenset[Move], unit_id: int) -> i
     return len({move for move in moves if move.transported_by_id == unit_id})
 
 
+def _check_transport_ownership(
+    command: TransportUnitCommand,
+    unit: Unit,
+    carrying_ship: Unit,
+) -> ValidationResult:
+    if carrying_ship.owner_name != command.actor.name:
+        return ValidationResult(is_valid=False, info="Carrying ship belongs to another player.")
+    if unit.owner_name != command.actor.name:
+        return ValidationResult(is_valid=False, info="Cannot transport another player's units.")
+    return ValidationResult(is_valid=True)
+
+
 def _check_transport_legal(state: GameState, command: TransportUnitCommand) -> ValidationResult:
     unit = state.get_unit_from_id(command.unit_id)
     carrying_ship = state.selected_unit
     if not unit.is_transportable:
         return ValidationResult(is_valid=False, info="Unit is not transportable.")
-    if carrying_ship.owner_name != command.actor.name:
-        return ValidationResult(is_valid=False, info="Carrying ship belongs to another player.")
-    if unit.owner_name != command.actor.name:
-        return ValidationResult(is_valid=False, info="Cannot transport another player's units.")
+    ownership_result = _check_transport_ownership(
+        command=command,
+        unit=unit,
+        carrying_ship=carrying_ship,
+    )
+    if not ownership_result.is_valid:
+        return ownership_result
     if (
         carrying_ship.stats.capacity is None
         or carrying_ship.stats.capacity
@@ -370,6 +385,8 @@ def _check_transport_legal(state: GameState, command: TransportUnitCommand) -> V
             is_valid=False,
             info="Cannot transport units that are not in the same system as the ship",
         )
+    if unit.unit_id in {move.unit_id for move in state.turn_context.pending_moves}:
+        return ValidationResult(is_valid=False, info="Unit has already been moved.")
 
     return ValidationResult(is_valid=True)
 

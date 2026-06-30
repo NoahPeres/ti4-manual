@@ -516,6 +516,41 @@ def test_89_2_a_cannot_transport_units_not_on_path() -> None:
     assert not result.success
 
 
+def test_89_2_cannot_transport_unit_twice() -> None:
+    engine = get_default_game_engine()
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.CARRIER, system_id=0)
+    ship2 = make_unit_with_id(unit_id=2, owner_name="A", kind=ShipKind.CARRIER, system_id=0)
+    ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="A",
+        kind=GroundForceKind.INFANTRY,
+        system_id=0,
+    )
+    session = make_movement_session(units=frozenset({ship, ship2, ground_force}))
+    move_attempt = move_command(
+        actor=session.current_state.get_player("A"),
+        ship_id=0,
+        to_system_id=1,
+        transported_unit_ids=frozenset({ground_force.unit_id}),
+    )
+    for command in move_attempt:
+        session.apply_command(command)
+    move_other_ship = move_command(
+        actor=session.current_state.get_player("A"),
+        ship_id=2,
+        to_system_id=1,
+        transported_unit_ids=frozenset({ground_force.unit_id}),
+    )
+    session.apply_command(
+        command=move_other_ship[0],
+    )
+    result = engine.apply_command(
+        state=session.current_state,
+        command=move_other_ship[1],
+    )
+    assert not result.success
+
+
 def test_89_2_b_active_player_may_move_no_ships() -> None:
     player_a = make_player("A")
     session = make_session(
