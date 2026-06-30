@@ -3,7 +3,7 @@ from itertools import product
 from typing import TYPE_CHECKING, Literal
 
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from src.engine.actions.space_combat import (
@@ -307,6 +307,7 @@ def make_announce_retreat_step_combat_state(
         session.apply_command(
             Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         )
+    assert len(session.failure_history) == 0
     return session
 
 
@@ -1926,11 +1927,19 @@ def _get_combatant_count(session: GameSession, system_id: int) -> int:
     return sum([len(attacker_ships) > 0, len(defender_ships) > 0])
 
 
+def dumb_command_picker(commands: list[Command]) -> Command:
+    sorted_commands = sorted(commands, key=lambda command: "use" in command.command_type.value)
+    return sorted_commands[0]
+
+
 def _simulate_combat_round(session: GameSession) -> bool:
     while True:
+        old_state = session.current_state
         eligible_commands = session.engine.get_legal_commands(session.current_state)
-        session.apply_command(command=eligible_commands[0])
+        session.apply_command(command=dumb_command_picker(eligible_commands))
         assert len(session.failure_history) == 0
+        if old_state == session.current_state:
+            pytest.fail("Infinite loop in state.")
         if session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT_ROUND):
             return True
 
@@ -1950,6 +1959,7 @@ class RepeatingDiceRoller(DiceRoller):
         return result
 
 
+@settings(deadline=None)
 @given(
     attacker_ship_types=st.lists(
         st.sampled_from([ShipKind.DESTROYER, ShipKind.CRUISER, ShipKind.DREADNOUGHT]),

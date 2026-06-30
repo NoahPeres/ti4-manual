@@ -180,6 +180,8 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand], Candid
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.tactical_action_step != TacticalActionStep.INVASION:
+            return []
         return [
             CommitGroundForceCommand(
                 actor=state.active_player,

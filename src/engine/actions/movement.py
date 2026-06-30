@@ -578,9 +578,17 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand], CandidateCommandProvider
                     actor=player,
                     command_type=CommandType.MOVE_SHIP,
                     ship_id=unit.unit_id,
-                    to_system_id=state.turn_context.get_retreat_system_id(),
+                    to_system_id=system.id,
                 )
-                for player, unit in itertools.product(state.players, state.units)
+                for player, unit, system in itertools.product(
+                    state.players,
+                    state.units,
+                    (
+                        system
+                        for system in state.galaxy
+                        if system.is_adjacent_to(state.get_active_system())
+                    ),
+                )
                 if unit.is_ship and unit.owner_name == player.name
             ]
         return []

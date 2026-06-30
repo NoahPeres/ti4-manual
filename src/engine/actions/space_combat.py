@@ -1,5 +1,5 @@
-from dataclasses import dataclass, replace
 import itertools
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Callable, Final
 
 from src.engine.actions.movement import (
@@ -102,34 +102,6 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
         ):
             return [AdvanceToInvasionStepEvent()]
         return [AdvanceToSpaceCombatStepEvent()]
-
-
-class EndSpaceCombatCommandRule(CommandRule[Command]):
-    def __repr__(self) -> str:
-        return "EndSpaceCombatCommandRule"
-
-    @staticmethod
-    def handles_command_types() -> set[CommandType]:
-        return {CommandType.END_SPACE_COMBAT}
-
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if state.active_player != command.actor:
-            return ValidationResult(is_valid=False, info="Only active player can end space combat.")
-        if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
-            return ValidationResult(
-                is_valid=False,
-                info="Can only end space combat during space combat window.",
-            )
-        return ValidationResult(is_valid=True)
-
-    def derive_events(
-        self,
-        state: GameState,
-        command: Command,
-        engine_context: EngineContext,
-    ) -> list[Event]:
-        del state, command, engine_context
-        return [AdvanceToInvasionStepEvent()]
 
 
 class DestroyUnitEvent(Event):
@@ -284,7 +256,16 @@ class PassStartOfCombatWindowCommandRule(CommandRule[Command]):
         return {CommandType.PASS_START_OF_COMBAT_ROUND}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if not state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT_ROUND):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass at the start of a round of combat.",
+            )
+        if state.window_context.player_has_passed_on_window(
+            player=command.actor,
+            window=Window.START_OF_SPACE_COMBAT_ROUND,
+        ):
+            return ValidationResult(is_valid=False, info="You already passed on this window.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -306,7 +287,16 @@ class PassEndOfCombatWindowCommandRule(CommandRule[Command]):
         return {CommandType.PASS_END_OF_COMBAT_ROUND}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if not state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT_ROUND):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass at the end of a round of combat.",
+            )
+        if state.window_context.player_has_passed_on_window(
+            player=command.actor,
+            window=Window.END_OF_SPACE_COMBAT_ROUND,
+        ):
+            return ValidationResult(is_valid=False, info="You already passed on this window.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -497,7 +487,16 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
         return {CommandType.PASS_ANTI_FIGHTER_BARRAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if not state.window_context.is_window_active(Window.ANTI_FIGHTER_BARRAGE):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass during Anti-fighter barrage step.",
+            )
+        if state.window_context.player_has_passed_on_window(
+            player=command.actor,
+            window=Window.ANTI_FIGHTER_BARRAGE,
+        ):
+            return ValidationResult(is_valid=False, info="You already passed on this window.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -992,7 +991,10 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand], CandidateCommandProvid
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
+        if (
+            state.turn_context.space_combat_context is None
+            or state.turn_context.get_space_combat_context().step != SpaceCombatStep.ASSIGN_HITS
+        ):
             return []
         return [
             AssignHitCommand(
@@ -1052,7 +1054,16 @@ class SustainDamageCommandRule(CommandRule[Command]):
         return {CommandType.USE_SUSTAIN_DAMAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
+            return ValidationResult(
+                is_valid=False,
+                info="This is not your assign hits window.",
+            )
+        if state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only use SUSTAIN DAMAGE before assigning hits.",
+            )
         # TODO: Proper sustain damage logic
         return ValidationResult(is_valid=True)
 
@@ -1158,7 +1169,9 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand], CandidateCommandPr
             system
             for system in state.galaxy
             if _is_eligible_retreat_system_for_player(
-                system=system, state=state, player=retreating_player
+                system=system,
+                state=state,
+                player=retreating_player,
             )
         }
         return [
@@ -1255,7 +1268,7 @@ class EndRetreatCommandRule(CommandRule[Command], CandidateCommandProvider):
             Command(
                 actor=retreating_player,
                 command_type=CommandType.END_RETREAT,
-            )
+            ),
         ]
 
 
@@ -1510,7 +1523,6 @@ def get_command_rules() -> list[
     | CommandRule[RemoveUnitCommand]
 ]:
     return [
-        EndSpaceCombatCommandRule(),
         AssignHitCommandRule(),
         UseAntiFighterBarrageCommandRule(),
         PassAntiFighterBarrageCommandRule(),

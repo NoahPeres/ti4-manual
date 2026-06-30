@@ -208,11 +208,20 @@ class GameEngine:
                 candidates = [
                     Command(actor=player, command_type=command_type)
                     for command_type, player in itertools.product(
-                        rule.handles_command_types(), state.players,
+                        rule.handles_command_types(),
+                        state.players,
                     )
                 ]
             for command in candidates:
-                if rule.validate_legality(state, command).is_valid:
+                if (
+                    any(
+                        command.command_type in self.rules_engine.allowed_commands_by_window[window]
+                        for window in state.window_context.active_windows
+                    )
+                    or (len(state.window_context.active_windows) == 0)
+                ) and rule.validate_legality(state, command).is_valid:
                     legal.append(command)
 
+        if len(legal) == 0:
+            raise RuntimeError
         return legal

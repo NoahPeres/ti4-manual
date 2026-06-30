@@ -304,7 +304,8 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
         system_id=0,
     )
     session = make_movement_session(
-        units=frozenset({ship, ground_force}), galaxy=CENTRE_RING_OF_SYSTEMS,
+        units=frozenset({ship, ground_force}),
+        galaxy=CENTRE_RING_OF_SYSTEMS,
     )
 
     for command in move_command(
@@ -329,7 +330,8 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
         system_id=0,
     )
     session = make_movement_session(
-        units=frozenset({ship, ground_force}), galaxy=CENTRE_RING_OF_SYSTEMS,
+        units=frozenset({ship, ground_force}),
+        galaxy=CENTRE_RING_OF_SYSTEMS,
     )
 
     move_attempt = move_command(

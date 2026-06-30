@@ -56,6 +56,8 @@ class PassCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="All strategy cards must be exhausted to pass",
             )
+        if state.turn_context.space_combat_context is not None:
+            return ValidationResult(is_valid=False, info="Finish resolving space combat first.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
