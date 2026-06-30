@@ -286,11 +286,13 @@ class AddMoveToPendingEvent(Event):
         return f"AddMoveToPendingEvent:{self.unit_id}:{self.to_system_id}:{self.transported_by_id}"
 
     def apply(self, previous_state: GameState) -> GameState:
-        active_system = previous_state.get_active_system()
+        from_system_id = previous_state.get_unit_from_id(self.unit_id).system_id
+        if from_system_id is None:
+            raise ConflictingMoveError(self.unit_id)
         move_set = previous_state.turn_context.pending_moves | {
             Move(
                 unit_id=self.unit_id,
-                from_system_id=active_system.id,
+                from_system_id=from_system_id,
                 to_system_id=self.to_system_id,
                 transported_by_id=self.transported_by_id,
             ),
