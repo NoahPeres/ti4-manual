@@ -450,9 +450,10 @@ class PassTransportUnitCommandRule(CommandRule[Command]):
         return {CommandType.PASS_TRANSPORT_UNIT}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del command
         if not state.window_context.is_window_active(Window.TRANSPORT_UNITS):
             return ValidationResult(is_valid=False, info="You are not in a capacity window.")
+        if state.selected_unit.owner_name != command.actor.name:
+            return ValidationResult(is_valid=False, info="This transport is not yours.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
