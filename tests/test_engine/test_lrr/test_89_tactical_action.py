@@ -937,6 +937,44 @@ def test_89_4_player_may_commit_ground_forces() -> None:
     assert ground_force_after_commit.planet_id == 0
 
 
+def test_89_4_player_cannot_commit_if_not_in_active_system() -> None:
+    player_a = make_player("A")
+    player_b = make_player("B")
+    ship = make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.DREADNOUGHT, system_id=0)
+    ground_force = make_unit_with_id(
+        unit_id=1,
+        owner_name="A",
+        kind=GroundForceKind.INFANTRY,
+        system_id=1,
+    )
+    session = make_session(
+        players=(player_a, player_b),
+        galaxy=Galaxy(
+            {
+                System(id=0, command_tokens=(), planets=frozenset({Planet(0)})),
+                System(id=1, command_tokens=(), planets=frozenset({Planet(1)})),
+            },
+        ),
+        units=frozenset({ship, ground_force}),
+    )
+
+    invaded_state = begin_invasion(session, session.current_state)
+    assert invaded_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
+
+    invaded_state = session.apply_command(action_command(player_a, CommandType.PASS_BOMBARDMENT))
+    assert session.last_command_result.success
+
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=CommitGroundForceCommand(
+            actor=session.current_state.get_player("A"),
+            command_type=CommandType.COMMIT_GROUND_FORCE,
+            ground_force_id=ground_force.unit_id,
+            to_planet_id=0,
+        ),
+    ).success
+
+
 def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
     player_a = make_player("A")
     player_b = make_player("B")

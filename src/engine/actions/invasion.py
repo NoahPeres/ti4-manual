@@ -214,10 +214,16 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand], Candid
                 is_valid=False,
                 info="Can only commit ground forces during invasion step of tactical action.",
             )
-        if state.get_ground_force_from_id(command.ground_force_id).owner_name != command.actor.name:
+        ground_force = state.get_ground_force_from_id(command.ground_force_id)
+        if ground_force.owner_name != command.actor.name:
             return ValidationResult(
                 is_valid=False,
                 info="Can only commit ground forces you control.",
+            )
+        if ground_force.system_id != state.get_active_system().id:
+            return ValidationResult(
+                is_valid=False,
+                info="Ground force is not in the active system.",
             )
         return ValidationResult(is_valid=True)
 
