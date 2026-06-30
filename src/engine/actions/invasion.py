@@ -192,7 +192,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand], Candid
             for i, j in itertools.product(
                 [
                     unit.unit_id
-                    for unit in state.units
+                    for unit in state.get_units_in_system(state.get_active_system().id)
                     if (unit.owner_name == state.active_player) and unit.is_ground_force
                 ],
                 [planet.planet_id for planet in state.get_active_system().planets],
