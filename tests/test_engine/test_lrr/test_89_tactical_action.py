@@ -535,6 +535,7 @@ def test_89_2_cannot_transport_unit_twice() -> None:
     )
     for command in move_attempt:
         session.apply_command(command)
+        assert len(session.failure_history) == 0
     move_other_ship = move_command(
         actor=session.current_state.get_player("A"),
         ship_id=2,
@@ -544,6 +545,7 @@ def test_89_2_cannot_transport_unit_twice() -> None:
     session.apply_command(
         command=move_other_ship[0],
     )
+    assert len(session.failure_history) == 0
     result = engine.apply_command(
         state=session.current_state,
         command=move_other_ship[1],

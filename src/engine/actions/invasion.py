@@ -207,7 +207,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
                 [
                     unit.unit_id
                     for unit in state.get_units_in_system(state.get_active_system().id)
-                    if (unit.owner_name == state.active_player) and unit.is_ground_force
+                    if (unit.owner_name == state.active_player.name) and unit.is_ground_force
                 ],
                 [planet.planet_id for planet in state.get_active_system().planets],
             )
@@ -238,6 +238,13 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
             return ValidationResult(
                 is_valid=False,
                 info="Ground force is not in the active system.",
+            )
+        if command.to_planet_id not in {
+            planet.planet_id for planet in state.get_active_system().planets
+        }:
+            return ValidationResult(
+                is_valid=False,
+                info="Target planet is not in the active system.",
             )
         return ValidationResult(is_valid=True)
 
