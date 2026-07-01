@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -66,6 +66,9 @@ class EngineContext:
     dice_roller: DiceRoller
 
 
+CommandT = TypeVar("CommandT", bound=Command)
+
+
 class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
@@ -90,3 +93,14 @@ def make_command_candidates_for_all_players(
         for player in state.players
         for cmd_type in command_rule.handles_command_types()
     ]
+
+
+def make_command_candidates_only_during_space_combat(
+    state: GameState,
+    command_generator: Callable[[GameState], list[CommandT]],
+) -> list[CommandT]:
+    if state.turn_context.space_combat_context is None:
+        return []
+    return command_generator(
+        state,
+    )

@@ -1,5 +1,6 @@
 import itertools
 from dataclasses import dataclass, replace
+from functools import partial
 from typing import TYPE_CHECKING, Callable, Final
 
 from src.engine.actions.movement import (
@@ -19,6 +20,7 @@ from src.engine.core.command import (
     EngineContext,
     ValidationResult,
     make_command_candidates_for_all_players,
+    make_command_candidates_only_during_space_combat,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
@@ -493,9 +495,12 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return make_command_candidates_for_all_players(
+        return make_command_candidates_only_during_space_combat(
             state=state,
-            command_rule=UseAntiFighterBarrageCommandRule,
+            command_generator=partial(
+                make_command_candidates_for_all_players,
+                command_rule=UseAntiFighterBarrageCommandRule,
+            ),
         )
 
 
@@ -531,9 +536,12 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return make_command_candidates_for_all_players(
+        return make_command_candidates_only_during_space_combat(
             state=state,
-            command_rule=PassAntiFighterBarrageCommandRule,
+            command_generator=partial(
+                make_command_candidates_for_all_players,
+                command_rule=PassAntiFighterBarrageCommandRule,
+            ),
         )
 
 
@@ -719,9 +727,7 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
         ]
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
-            return []
+    def _candidate_commands_for_state(state: GameState) -> list[Command]:
         return [
             Command(actor=player, command_type=command_type)
             for command_type, player in itertools.product(
@@ -729,6 +735,13 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
                 state.players,
             )
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_only_during_space_combat(
+            state=state,
+            command_generator=AnnounceRetreatCommandRule._candidate_commands_for_state,
+        )
 
 
 class AdvanceToRollDiceStepEvent(Event):
@@ -857,9 +870,7 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
         ]
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
-            return []
+    def _candidate_commands_for_state(state: GameState) -> list[Command]:
         return [
             Command(actor=player, command_type=command_type)
             for command_type, player in itertools.product(
@@ -867,6 +878,13 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
                 state.players,
             )
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_only_during_space_combat(
+            state=state,
+            command_generator=MakeCombatRollsCommandRule._candidate_commands_for_state,
+        )
 
 
 class AdvanceToAssignHitsStepEvent(Event):
@@ -1030,11 +1048,8 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         return [AssignHitEvent(unit_id=command.unit_id, player_name=command.actor.name)]
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[AssignHitCommand]:
-        if (
-            state.turn_context.space_combat_context is None
-            or state.turn_context.get_space_combat_context().step != SpaceCombatStep.ASSIGN_HITS
-        ):
+    def _candidate_commands_for_state(state: GameState) -> list[AssignHitCommand]:
+        if state.turn_context.get_space_combat_context().step != SpaceCombatStep.ASSIGN_HITS:
             return []
         return [
             AssignHitCommand(
@@ -1045,6 +1060,13 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
             for unit in state.units
             if unit.system_id is not None
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[AssignHitCommand]:
+        return make_command_candidates_only_during_space_combat(
+            state=state,
+            command_generator=AssignHitCommandRule._candidate_commands_for_state,
+        )
 
 
 class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
@@ -1084,9 +1106,12 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return make_command_candidates_for_all_players(
+        return make_command_candidates_only_during_space_combat(
             state=state,
-            command_rule=PassBeforeAssignHitsCommandRule,
+            command_generator=partial(
+                make_command_candidates_for_all_players,
+                command_rule=PassBeforeAssignHitsCommandRule,
+            ),
         )
 
 
@@ -1123,9 +1148,12 @@ class SustainDamageCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return make_command_candidates_for_all_players(
+        return make_command_candidates_only_during_space_combat(
             state=state,
-            command_rule=SustainDamageCommandRule,
+            command_generator=partial(
+                make_command_candidates_for_all_players,
+                command_rule=SustainDamageCommandRule,
+            ),
         )
 
 
@@ -1208,16 +1236,13 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
         ]
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[RetreatShipCommand]:
-        if state.turn_context.space_combat_context is None:
-            return []
+    def _candidate_commands_for_state(state: GameState) -> list[RetreatShipCommand]:
         retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
-
         if retreating_player_name is None:
             return []
-        retreating_player = state.get_player(retreating_player_name)
 
-        eligible_systmes = {
+        retreating_player = state.get_player(retreating_player_name)
+        eligible_systems = {
             system
             for system in state.galaxy
             if _is_eligible_retreat_system_for_player(
@@ -1235,8 +1260,15 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
             )
             for ship in state.get_ships_in_system(state.get_active_system().id)
             if ship.owner_name == retreating_player.name
-            for system in eligible_systmes
+            for system in eligible_systems
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[RetreatShipCommand]:
+        return make_command_candidates_only_during_space_combat(
+            state=state,
+            command_generator=RetreatShipCommandRule._candidate_commands_for_state,
+        )
 
 
 def resolve_pending_retreats(previous_state: GameState) -> GameState:
@@ -1307,21 +1339,23 @@ class EndRetreatCommandRule(CommandRule[Command]):
         return [ResolvePendingRetreatsEvent()]
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
-            return []
+    def _candidate_commands_for_state(state: GameState) -> list[Command]:
         retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
-
         if retreating_player_name is None:
             return []
-        retreating_player = state.get_player(retreating_player_name)
-
         return [
             Command(
-                actor=retreating_player,
+                actor=state.get_player(retreating_player_name),
                 command_type=CommandType.END_RETREAT,
             ),
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_only_during_space_combat(
+            state=state,
+            command_generator=EndRetreatCommandRule._candidate_commands_for_state,
+        )
 
 
 class RemoveUnitEvent(Event):
@@ -1452,7 +1486,7 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
         ]
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[RemoveCommandTokenFromPoolCommand]:
+    def _candidate_commands_for_state(state: GameState) -> list[RemoveCommandTokenFromPoolCommand]:
         return [
             RemoveCommandTokenFromPoolCommand(
                 actor=player,
@@ -1462,6 +1496,13 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
             for player in state.players
             for pool in CommandTokenPool
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[RemoveCommandTokenFromPoolCommand]:
+        return make_command_candidates_only_during_space_combat(
+            state=state,
+            command_generator=ChoosePoolToRemoveCommandTokenCommandRule._candidate_commands_for_state,
+        )
 
 
 class ResetCombatToAnnounceRetreatStepEvent(Event):
