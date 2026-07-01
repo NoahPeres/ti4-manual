@@ -109,10 +109,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
         return {CommandType.INITIATE_TACTICAL_ACTION}
 
     def validate_legality(self, state: GameState, command: ActivateCommand) -> ValidationResult:
-        try:
-            system = state.galaxy.get_system(system_id=command.system_id)
-        except ValueError:
-            return ValidationResult(is_valid=False, info="System not found")
+        system = state.galaxy.get_system(system_id=command.system_id)
         if not state.is_active_player(command.actor):
             return ValidationResult(
                 is_valid=False,
@@ -120,6 +117,11 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
             )
         if state.has_taken_turn:
             return ValidationResult(is_valid=False, info="Player has already taken a turn")
+        if state.turn_context.space_combat_context is not None:
+            return ValidationResult(
+                is_valid=False,
+                info="Cannot initiate a tactical action during space combat",
+            )
         if system.has_command_token(command.actor):
             return ValidationResult(
                 is_valid=False,
@@ -143,6 +145,17 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
             ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
             TacticalActionInitiatedEvent(),
             AdvanceToMovementStepEvent(),
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[ActivateCommand]:
+        return [
+            ActivateCommand(
+                actor=state.active_player,
+                command_type=CommandType.INITIATE_TACTICAL_ACTION,
+                system_id=system.id,
+            )
+            for system in state.galaxy
         ]
 
 

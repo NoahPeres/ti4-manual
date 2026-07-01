@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,7 @@ from src.engine.core.command import (
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
@@ -86,6 +88,13 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [ResolveBombardmentEvent()]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=ResolveBombardmentCommandRule,
+        )
+
 
 class PassBombardmentCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -113,6 +122,13 @@ class PassBombardmentCommandRule(CommandRule[Command]):
     ) -> list[Event]:
         del state, command, engine_context
         return [PassBombardmentEvent()]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassBombardmentCommandRule,
+        )
 
 
 class PassBombardmentEvent(Event):
@@ -176,6 +192,27 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
     def handles_command_types() -> set[CommandType]:
         return {CommandType.COMMIT_GROUND_FORCE}
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[CommitGroundForceCommand]:
+        if state.turn_context.tactical_action_step != TacticalActionStep.INVASION:
+            return []
+        return [
+            CommitGroundForceCommand(
+                actor=state.active_player,
+                command_type=CommandType.COMMIT_GROUND_FORCE,
+                ground_force_id=i,
+                to_planet_id=j,
+            )
+            for i, j in itertools.product(
+                [
+                    unit.unit_id
+                    for unit in state.get_units_in_system(state.get_active_system().id)
+                    if (unit.owner_name == state.active_player.name) and unit.is_ground_force
+                ],
+                [planet.planet_id for planet in state.get_active_system().planets],
+            )
+        ]
+
     def validate_legality(
         self,
         state: GameState,
@@ -191,10 +228,23 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
                 is_valid=False,
                 info="Can only commit ground forces during invasion step of tactical action.",
             )
-        if state.get_ground_force_from_id(command.ground_force_id).owner_name != command.actor.name:
+        ground_force = state.get_ground_force_from_id(command.ground_force_id)
+        if ground_force.owner_name != command.actor.name:
             return ValidationResult(
                 is_valid=False,
                 info="Can only commit ground forces you control.",
+            )
+        if ground_force.system_id != state.get_active_system().id:
+            return ValidationResult(
+                is_valid=False,
+                info="Ground force is not in the active system.",
+            )
+        if command.to_planet_id not in {
+            planet.planet_id for planet in state.get_active_system().planets
+        }:
+            return ValidationResult(
+                is_valid=False,
+                info="Target planet is not in the active system.",
             )
         return ValidationResult(is_valid=True)
 
@@ -262,6 +312,13 @@ class EndInvasionCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [ResolvePendingInvasionCommitsEvent()]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=EndInvasionCommandRule,
+        )
+
 
 class AdvanceToProductionStepEventRule(EventRule):
     @staticmethod
@@ -274,7 +331,7 @@ class AdvanceToProductionStepEventRule(EventRule):
         return [AdvanceToProductionStepEvent()]
 
 
-def get_command_rules() -> list[CommandRule[CommitGroundForceCommand]]:
+def get_command_rules() -> list[CommandRule[CommitGroundForceCommand] | CommandRule[Command]]:
     return [
         ResolveBombardmentCommandRule(),
         PassBombardmentCommandRule(),

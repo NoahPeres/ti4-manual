@@ -28,6 +28,7 @@ _ALLOWED_COMMANDS_BY_WINDOW: dict[Window, tuple[CommandType, ...]] = {
     ),
     Window.MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN: (CommandType.REMOVE_COMMAND_TOKEN_FROM_POOL,),
     Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY: (CommandType.REMOVE_UNIT,),
+    Window.TRANSPORT_UNITS: (CommandType.TRANSPORT_UNIT, CommandType.PASS_TRANSPORT_UNIT),
 }
 
 

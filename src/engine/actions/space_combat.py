@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Callable, Final
 
@@ -17,6 +18,7 @@ from src.engine.core.command import (
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
@@ -100,34 +102,6 @@ class SkipSpaceCombatIfOnlyOnePlayerHasShips(EventRule):
         ):
             return [AdvanceToInvasionStepEvent()]
         return [AdvanceToSpaceCombatStepEvent()]
-
-
-class EndSpaceCombatCommandRule(CommandRule[Command]):
-    def __repr__(self) -> str:
-        return "EndSpaceCombatCommandRule"
-
-    @staticmethod
-    def handles_command_types() -> set[CommandType]:
-        return {CommandType.END_SPACE_COMBAT}
-
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if state.active_player != command.actor:
-            return ValidationResult(is_valid=False, info="Only active player can end space combat.")
-        if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
-            return ValidationResult(
-                is_valid=False,
-                info="Can only end space combat during space combat window.",
-            )
-        return ValidationResult(is_valid=True)
-
-    def derive_events(
-        self,
-        state: GameState,
-        command: Command,
-        engine_context: EngineContext,
-    ) -> list[Event]:
-        del state, command, engine_context
-        return [AdvanceToInvasionStepEvent()]
 
 
 class DestroyUnitEvent(Event):
@@ -252,7 +226,7 @@ class AssignCombatWinnerEvent(Event):
         remaining_ships_owners = {
             ship.owner_name
             for ship in previous_state.get_ships_in_system(
-                system_id=previous_state.get_active_system().id
+                system_id=previous_state.get_active_system().id,
             )
         }
         if len(remaining_ships_owners) > 1:
@@ -282,7 +256,16 @@ class PassStartOfCombatWindowCommandRule(CommandRule[Command]):
         return {CommandType.PASS_START_OF_COMBAT_ROUND}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if not state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT_ROUND):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass at the start of a round of combat.",
+            )
+        if state.window_context.player_has_passed_on_window(
+            player=command.actor,
+            window=Window.START_OF_SPACE_COMBAT_ROUND,
+        ):
+            return ValidationResult(is_valid=False, info="You already passed on this window.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -294,6 +277,13 @@ class PassStartOfCombatWindowCommandRule(CommandRule[Command]):
         del state, engine_context
         return [PassStartOfCombatWindowEvent(player=command.actor)]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassStartOfCombatWindowCommandRule,
+        )
+
 
 class PassEndOfCombatWindowCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -304,7 +294,16 @@ class PassEndOfCombatWindowCommandRule(CommandRule[Command]):
         return {CommandType.PASS_END_OF_COMBAT_ROUND}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if not state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT_ROUND):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass at the end of a round of combat.",
+            )
+        if state.window_context.player_has_passed_on_window(
+            player=command.actor,
+            window=Window.END_OF_SPACE_COMBAT_ROUND,
+        ):
+            return ValidationResult(is_valid=False, info="You already passed on this window.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -315,6 +314,13 @@ class PassEndOfCombatWindowCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [PassEndOfCombatWindowEvent(player=command.actor)]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassEndOfCombatWindowCommandRule,
+        )
 
 
 class PassStartOfCombatWindowEvent(Event):
@@ -485,6 +491,15 @@ class UseAntiFighterBarrageCommandRule(CommandRule[Command]):
         del state, engine_context
         return [ResolveAntiFighterBarrageEvent(player=command.actor)]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=UseAntiFighterBarrageCommandRule,
+        )
+
 
 class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -495,7 +510,16 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
         return {CommandType.PASS_ANTI_FIGHTER_BARRAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if not state.window_context.is_window_active(Window.ANTI_FIGHTER_BARRAGE):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass during Anti-fighter barrage step.",
+            )
+        if state.window_context.player_has_passed_on_window(
+            player=command.actor,
+            window=Window.ANTI_FIGHTER_BARRAGE,
+        ):
+            return ValidationResult(is_valid=False, info="You already passed on this window.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
@@ -506,6 +530,15 @@ class PassAntiFighterBarrageCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [PassAntiFighterBarrageEvent(player=command.actor)]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassAntiFighterBarrageCommandRule,
+        )
 
 
 class EndAntiFighterBarrageStepEvent(Event):
@@ -689,6 +722,25 @@ class AnnounceRetreatCommandRule(CommandRule[Command]):
             self._make_event_from_command(command_type=command.command_type, player=command.actor),
         ]
 
+    @staticmethod
+    def _candidate_commands_for_state(state: GameState) -> list[Command]:
+        return [
+            Command(actor=player, command_type=command_type)
+            for command_type, player in itertools.product(
+                AnnounceRetreatCommandRule.handles_command_types(),
+                state.players,
+            )
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=AnnounceRetreatCommandRule,
+        )
+
 
 class AdvanceToRollDiceStepEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
@@ -815,6 +867,25 @@ class MakeCombatRollsCommandRule(CommandRule[Command]):
             and unit.owner_name == command.actor.name
         ]
 
+    @staticmethod
+    def _candidate_commands_for_state(state: GameState) -> list[Command]:
+        return [
+            Command(actor=player, command_type=command_type)
+            for command_type, player in itertools.product(
+                MakeCombatRollsCommandRule.handles_command_types(),
+                state.players,
+            )
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=MakeCombatRollsCommandRule,
+        )
+
 
 class AdvanceToAssignHitsStepEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
@@ -920,6 +991,26 @@ class AssignHitEvent(Event):
         )
 
 
+def _legal_hit_assignment(state: GameState, command: AssignHitCommand) -> ValidationResult:
+    unit = state.get_unit_from_id(unit_id=command.unit_id)
+    if unit.system_id != state.get_active_system().id:
+        return ValidationResult(
+            is_valid=False,
+            info=f"Ship {unit.unit_id} is not in the active system.",
+        )
+    if not unit.is_ship:
+        return ValidationResult(
+            is_valid=False,
+            info=f"Unit {unit.unit_id} is not a ship, cannot be assigned hits in space combat.",
+        )
+    if unit.owner_name != command.actor.name:
+        return ValidationResult(
+            is_valid=False,
+            info="You can only assign hits to your own units.",
+        )
+    return ValidationResult(is_valid=True)
+
+
 class AssignHitCommandRule(CommandRule[AssignHitCommand]):
     def __repr__(self) -> str:
         return "AssignHitCommandRule"
@@ -935,17 +1026,9 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
                 is_valid=False,
                 info="Can only assign hits during assign hit step.",
             )
-        unit = state.get_unit_from_id(unit_id=command.unit_id)
-        if unit.system_id != state.get_active_system().id:
-            return ValidationResult(
-                is_valid=False,
-                info=f"Ship {unit.unit_id} is not in the active system.",
-            )
-        if unit.owner_name != command.actor.name:
-            return ValidationResult(
-                is_valid=False,
-                info="You can only assign hits to your own units.",
-            )
+        legal_assignment_result = _legal_hit_assignment(state=state, command=command)
+        if not legal_assignment_result.is_valid:
+            return legal_assignment_result
         if has_finished_assigning_hits(state=state, player=command.actor):
             return ValidationResult(is_valid=False, info="No more hits to assign.")
         if command.actor == space_combat_context.defender and not has_finished_assigning_hits(
@@ -964,6 +1047,26 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         del state, engine_context
         return [AssignHitEvent(unit_id=command.unit_id, player_name=command.actor.name)]
 
+    @staticmethod
+    def _candidate_commands_for_state(state: GameState) -> list[AssignHitCommand]:
+        if state.turn_context.get_space_combat_context().step != SpaceCombatStep.ASSIGN_HITS:
+            return []
+        return [
+            AssignHitCommand(
+                actor=state.get_player(unit.owner_name),
+                command_type=CommandType.ASSIGN_HIT,
+                unit_id=unit.unit_id,
+            )
+            for unit in state.units
+            if unit.system_id is not None
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[AssignHitCommand]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return AssignHitCommandRule._candidate_commands_for_state(state=state)
+
 
 class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -974,10 +1077,20 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
         return {CommandType.PASS_BEFORE_ASSIGN_HITS}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if state.turn_context.space_combat_context is None:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass before assigning hits during space combat.",
+            )
         if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
             return ValidationResult(
                 is_valid=False,
                 info="This is not your assign hits window to pass.",
+            )
+        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass before assigning hits.",
             )
         return ValidationResult(is_valid=True)
 
@@ -990,6 +1103,15 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [CloseWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassBeforeAssignHitsCommandRule,
+        )
+
 
 class SustainDamageCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -1000,7 +1122,16 @@ class SustainDamageCommandRule(CommandRule[Command]):
         return {CommandType.USE_SUSTAIN_DAMAGE}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        del state, command
+        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
+            return ValidationResult(
+                is_valid=False,
+                info="This is not your assign hits window.",
+            )
+        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only use SUSTAIN DAMAGE before assigning hits.",
+            )
         # TODO: Proper sustain damage logic
         return ValidationResult(is_valid=True)
 
@@ -1012,6 +1143,15 @@ class SustainDamageCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, command, engine_context
         return []
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=SustainDamageCommandRule,
+        )
 
 
 @dataclass(frozen=True)
@@ -1036,7 +1176,7 @@ def _ship_is_valid_for_retreat(
             is_valid=False,
             info=f"{command.ship_id} cannot move on its own.",
         )
-    if ship.unit_id in {move.ship_id for move in state.turn_context.pending_moves}:
+    if ship.unit_id in {move.unit_id for move in state.turn_context.pending_moves}:
         return ValidationResult(
             is_valid=False,
             info=f"This ship {ship.unit_id} already declared retreat.",
@@ -1087,11 +1227,44 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
         del state, engine_context
         return [
             AddMoveToPendingEvent(
-                ship_id=command.ship_id,
+                unit_id=command.ship_id,
                 to_system_id=command.to_system_id,
-                transported_unit_ids=command.transported_unit_ids,
             ),
         ]
+
+    @staticmethod
+    def _candidate_commands_for_state(state: GameState) -> list[RetreatShipCommand]:
+        retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
+        if retreating_player_name is None:
+            return []
+
+        retreating_player = state.get_player(retreating_player_name)
+        eligible_systems = {
+            system
+            for system in state.galaxy
+            if _is_eligible_retreat_system_for_player(
+                system=system,
+                state=state,
+                player=retreating_player,
+            )
+        }
+        return [
+            RetreatShipCommand(
+                actor=retreating_player,
+                command_type=CommandType.RETREAT_SHIP,
+                ship_id=ship.unit_id,
+                to_system_id=system.id,
+            )
+            for ship in state.get_ships_in_system(state.get_active_system().id)
+            if ship.owner_name == retreating_player.name
+            for system in eligible_systems
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[RetreatShipCommand]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return RetreatShipCommandRule._candidate_commands_for_state(state=state)
 
 
 def resolve_pending_retreats(previous_state: GameState) -> GameState:
@@ -1143,7 +1316,7 @@ class EndRetreatCommandRule(CommandRule[Command]):
             )
             if ship.stats.move is not None
         }
-        pending_retreats = {move.ship_id for move in state.turn_context.pending_moves}
+        pending_retreats = {move.unit_id for move in state.turn_context.pending_moves}
         if len(ships_in_active_system_with_move_value - pending_retreats) > 0:
             return ValidationResult(
                 is_valid=False,
@@ -1160,6 +1333,24 @@ class EndRetreatCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, command, engine_context
         return [ResolvePendingRetreatsEvent()]
+
+    @staticmethod
+    def _candidate_commands_for_state(state: GameState) -> list[Command]:
+        retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
+        if retreating_player_name is None:
+            return []
+        return [
+            Command(
+                actor=state.get_player(retreating_player_name),
+                command_type=CommandType.END_RETREAT,
+            ),
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return EndRetreatCommandRule._candidate_commands_for_state(state=state)
 
 
 class RemoveUnitEvent(Event):
@@ -1289,6 +1480,24 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
             ),
         ]
 
+    @staticmethod
+    def _candidate_commands_for_state(state: GameState) -> list[RemoveCommandTokenFromPoolCommand]:
+        return [
+            RemoveCommandTokenFromPoolCommand(
+                actor=player,
+                command_type=CommandType.REMOVE_COMMAND_TOKEN_FROM_POOL,
+                pool=pool,
+            )
+            for player in state.players
+            for pool in CommandTokenPool
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[RemoveCommandTokenFromPoolCommand]:
+        if state.turn_context.space_combat_context is None:
+            return []
+        return ChoosePoolToRemoveCommandTokenCommandRule._candidate_commands_for_state(state=state)
+
 
 class ResetCombatToAnnounceRetreatStepEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
@@ -1339,6 +1548,23 @@ class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [RemoveUnitEvent(unit_id=command.unit_id)]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[RemoveUnitCommand]:
+        if not state.window_context.is_window_active(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY):
+            return []
+        units = {
+            unit for unit in state.units if unit.is_transportable and unit.system_id is not None
+        }
+        return [
+            RemoveUnitCommand(
+                actor=state.get_player(unit.owner_name),
+                command_type=CommandType.REMOVE_UNIT,
+                unit_id=unit.unit_id,
+            )
+            for unit in units
+            if unit.is_transportable
+        ]
 
 
 def capacity_exceeded_in_system(state: GameState, system_id: int) -> bool:
@@ -1411,9 +1637,9 @@ def get_command_rules() -> list[
     | CommandRule[RetreatShipCommand]
     | CommandRule[RemoveCommandTokenFromPoolCommand]
     | CommandRule[RemoveUnitCommand]
+    | CommandRule[Command]
 ]:
     return [
-        EndSpaceCombatCommandRule(),
         AssignHitCommandRule(),
         UseAntiFighterBarrageCommandRule(),
         PassAntiFighterBarrageCommandRule(),

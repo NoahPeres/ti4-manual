@@ -80,6 +80,10 @@ class EndTurn(CommandRule[Command]):
         del state, command, engine_context
         return [EndTurnEvent()]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return [Command(actor=state.active_player, command_type=CommandType.END_TURN)]
+
 
 def get_command_rules() -> list[CommandRule[Command]]:
     return [EndTurn()]
