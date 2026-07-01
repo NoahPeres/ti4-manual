@@ -1069,7 +1069,7 @@ class SustainDamageCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="This is not your assign hits window.",
             )
-        if state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
             return ValidationResult(
                 is_valid=False,
                 info="Can only use SUSTAIN DAMAGE before assigning hits.",
