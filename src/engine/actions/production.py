@@ -7,6 +7,7 @@ from src.engine.core.command import (
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, TacticalActionStep
@@ -62,6 +63,13 @@ class ResolveProductionCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [TacticalActionCompletedEvent()]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=ResolveProductionCommandRule,
+        )
+
 
 class PassProductionCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -89,6 +97,13 @@ class PassProductionCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, command, engine_context
         return [TacticalActionCompletedEvent()]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassProductionCommandRule,
+        )
 
 
 def get_command_rules() -> list[CommandRule[Command]]:

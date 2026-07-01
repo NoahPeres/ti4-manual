@@ -7,12 +7,12 @@ from src.engine.actions.tactical_action import (
     AdvanceToProductionStepEvent,
 )
 from src.engine.core.command import (
-    CandidateCommandProvider,
     Command,
     CommandRule,
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
@@ -88,6 +88,13 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [ResolveBombardmentEvent()]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=ResolveBombardmentCommandRule,
+        )
+
 
 class PassBombardmentCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -115,6 +122,13 @@ class PassBombardmentCommandRule(CommandRule[Command]):
     ) -> list[Event]:
         del state, command, engine_context
         return [PassBombardmentEvent()]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassBombardmentCommandRule,
+        )
 
 
 class PassBombardmentEvent(Event):
@@ -170,7 +184,7 @@ class AddInvasionCommitToPendingEvent(Event):
         )
 
 
-class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand], CandidateCommandProvider):
+class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
     def __repr__(self) -> str:
         return "CommitGroundForceCommandRule"
 
@@ -179,7 +193,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand], Candid
         return {CommandType.COMMIT_GROUND_FORCE}
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
+    def candidate_commands(state: GameState) -> list[CommitGroundForceCommand]:
         if state.turn_context.tactical_action_step != TacticalActionStep.INVASION:
             return []
         return [
@@ -290,6 +304,13 @@ class EndInvasionCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, command, engine_context
         return [ResolvePendingInvasionCommitsEvent()]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=EndInvasionCommandRule,
+        )
 
 
 class AdvanceToProductionStepEventRule(EventRule):

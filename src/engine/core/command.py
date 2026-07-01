@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -77,9 +77,16 @@ class CommandRule[C: Command](Protocol):
         command: C,
         engine_context: EngineContext,
     ) -> Sequence[Event]: ...
-
-
-@runtime_checkable
-class CandidateCommandProvider(Protocol):
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]: ...
+    def candidate_commands(state: GameState) -> list[C]: ...
+
+
+def make_command_candidates_for_all_players(
+    state: GameState,
+    command_rule: type[CommandRule[Command]],
+) -> list[Command]:
+    return [
+        Command(actor=player, command_type=cmd_type)
+        for player in state.players
+        for cmd_type in command_rule.handles_command_types()
+    ]

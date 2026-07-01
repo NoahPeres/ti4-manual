@@ -8,6 +8,7 @@ from src.engine.core.command import (
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event
 from src.engine.core.game_engine import (
@@ -72,6 +73,10 @@ class TrivialCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [TrivialEvent(payload="test")]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(state, command_rule=TrivialCommandRule)
+
 
 class EndTurn(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -96,6 +101,10 @@ class EndTurn(CommandRule[Command]):
         if command.command_type == CommandType.END_TURN:
             return [ChangePlayerEvent(players=state.players)]
         return []
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return [Command(actor=state.active_player, command_type=CommandType.END_TURN)]
 
 
 class TrivialRulesEngine(RulesEngine):

@@ -1,10 +1,8 @@
-import itertools
 import logging
 from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from src.engine.core.command import (
-    CandidateCommandProvider,
     Command,
     CommandRule,
     CommandType,
@@ -185,17 +183,7 @@ class GameEngine:
         legal: list[Command] = []
 
         for rule in self.rules_engine.command_rules:
-            if isinstance(rule, CandidateCommandProvider):
-                candidates = rule.candidate_commands(state)
-
-            else:
-                candidates = [
-                    Command(actor=player, command_type=command_type)
-                    for command_type, player in itertools.product(
-                        rule.handles_command_types(),
-                        state.players,
-                    )
-                ]
+            candidates = rule.candidate_commands(state)
             for command in candidates:
                 if command in legal:
                     continue

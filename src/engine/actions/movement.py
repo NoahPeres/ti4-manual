@@ -3,12 +3,12 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from src.engine.core.command import (
-    CandidateCommandProvider,
     Command,
     CommandRule,
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
@@ -127,6 +127,13 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
             ),
         ]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=ResolveSpaceCannonOffenseCommandRule,
+        )
+
 
 class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -168,6 +175,13 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [PassSpaceCannonEvent(player=command.actor)]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassSpaceCannonOffenseCommandRule,
+        )
 
 
 class PassSpaceCannonEvent(Event):
@@ -212,6 +226,13 @@ class EndMovementCommandRule(CommandRule[Command]):
         return [
             ResolvePendingMovesEvent(),
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=EndMovementCommandRule,
+        )
 
 
 class SpaceCannonOffenseAfterMovementEventRule(EventRule):
@@ -391,7 +412,7 @@ def _check_transport_legal(state: GameState, command: TransportUnitCommand) -> V
     return ValidationResult(is_valid=True)
 
 
-class TransportUnitCommandRule(CommandRule[TransportUnitCommand], CandidateCommandProvider):
+class TransportUnitCommandRule(CommandRule[TransportUnitCommand]):
     def __repr__(self) -> str:
         return "TransportUnit"
 
@@ -400,7 +421,7 @@ class TransportUnitCommandRule(CommandRule[TransportUnitCommand], CandidateComma
         return {CommandType.TRANSPORT_UNIT}
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
+    def candidate_commands(state: GameState) -> list[TransportUnitCommand]:
         return [
             TransportUnitCommand(
                 actor=player,
@@ -467,6 +488,13 @@ class PassTransportUnitCommandRule(CommandRule[Command]):
             CloseWindowEvent(Window.TRANSPORT_UNITS),
             SelectUnitEvent(None),
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassTransportUnitCommandRule,
+        )
 
 
 @dataclass(frozen=True)
@@ -568,7 +596,7 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
     return ValidationResult(is_valid=True)
 
 
-class MoveShipCommandRule(CommandRule[MoveShipCommand], CandidateCommandProvider):
+class MoveShipCommandRule(CommandRule[MoveShipCommand]):
     def __repr__(self) -> str:
         return "MoveShip"
 
@@ -577,7 +605,7 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand], CandidateCommandProvider
         return {CommandType.MOVE_SHIP}
 
     @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
+    def candidate_commands(state: GameState) -> list[MoveShipCommand]:
         if state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT:
             return [
                 MoveShipCommand(

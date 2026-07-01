@@ -69,6 +69,10 @@ class PassCommandRule(CommandRule[Command]):
         del state, command, engine_context
         return [PassEvent(), EndTurnEvent()]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return [Command(actor=state.active_player, command_type=CommandType.PASS_ACTION)]
+
 
 class AdvanceActionToStatusPhase(Event):
     def __repr__(self) -> str:
