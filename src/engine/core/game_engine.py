@@ -9,6 +9,7 @@ from src.engine.core.command import (
     EngineContext,
 )
 from src.engine.core.dice_roller import DiceRoller, UniformDiceRoller
+from src.engine.core.game_state import ComponentNotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -108,7 +109,10 @@ class GameEngine:
                 return False, f"Command {command} may not be made during window {window.value}"
 
         for rule in self._command_type_to_rules.get(command.command_type, []):
-            validation_result = rule.validate_legality(state, command)
+            try:
+                validation_result = rule.validate_legality(state, command)
+            except ComponentNotFoundError as e:
+                return False, f"Error occurred while validating command {command}: {e}"
             if not validation_result.is_valid:
                 reason = validation_result.info or "<no reason provided>"
                 return False, f"Command invalid: {command}. Reason: {reason}"
