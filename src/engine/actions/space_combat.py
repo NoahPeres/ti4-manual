@@ -945,6 +945,26 @@ class AssignHitEvent(Event):
         )
 
 
+def _legal_hit_assignment(state: GameState, command: AssignHitCommand) -> ValidationResult:
+    unit = state.get_unit_from_id(unit_id=command.unit_id)
+    if unit.system_id != state.get_active_system().id:
+        return ValidationResult(
+            is_valid=False,
+            info=f"Ship {unit.unit_id} is not in the active system.",
+        )
+    if not unit.is_ship:
+        return ValidationResult(
+            is_valid=False,
+            info=f"Unit {unit.unit_id} is not a ship, cannot be assigned hits in space combat.",
+        )
+    if unit.owner_name != command.actor.name:
+        return ValidationResult(
+            is_valid=False,
+            info="You can only assign hits to your own units.",
+        )
+    return ValidationResult(is_valid=True)
+
+
 class AssignHitCommandRule(CommandRule[AssignHitCommand], CandidateCommandProvider):
     def __repr__(self) -> str:
         return "AssignHitCommandRule"
@@ -960,22 +980,9 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand], CandidateCommandProvid
                 is_valid=False,
                 info="Can only assign hits during assign hit step.",
             )
-        unit = state.get_unit_from_id(unit_id=command.unit_id)
-        if unit.system_id != state.get_active_system().id:
-            return ValidationResult(
-                is_valid=False,
-                info=f"Ship {unit.unit_id} is not in the active system.",
-            )
-        if not unit.is_ship:
-            return ValidationResult(
-                is_valid=False,
-                info=f"Unit {unit.unit_id} is not a ship, cannot be assigned hits in space combat.",
-            )
-        if unit.owner_name != command.actor.name:
-            return ValidationResult(
-                is_valid=False,
-                info="You can only assign hits to your own units.",
-            )
+        legal_assignment_result = _legal_hit_assignment(state=state, command=command)
+        if not legal_assignment_result.is_valid:
+            return legal_assignment_result
         if has_finished_assigning_hits(state=state, player=command.actor):
             return ValidationResult(is_valid=False, info="No more hits to assign.")
         if command.actor == space_combat_context.defender and not has_finished_assigning_hits(
