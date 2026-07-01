@@ -1282,6 +1282,12 @@ def test_78_6_assign_hit_legality_edge_cases() -> None:
                 system_id=0,
             ),
             make_unit_with_id(
+                unit_id=6,
+                owner_name="A",
+                kind=GroundForceKind.INFANTRY,
+                system_id=0,
+            ),
+            make_unit_with_id(
                 unit_id=1,
                 owner_name="B",
                 kind=ShipKind.DREADNOUGHT,
@@ -1312,6 +1318,14 @@ def test_78_6_assign_hit_legality_edge_cases() -> None:
                 command_type=CommandType.MAKE_COMBAT_ROLLS,
             ),
         )
+    for player in (attacker, defender):
+        if session.current_state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+            session.apply_command(
+                Command(
+                    actor=player,
+                    command_type=CommandType.PASS_BEFORE_ASSIGN_HITS,
+                ),
+            )
     assert (
         session.current_state.turn_context.get_space_combat_context().step
         == SpaceCombatStep.ASSIGN_HITS
@@ -1324,9 +1338,14 @@ def test_78_6_assign_hit_legality_edge_cases() -> None:
         state=session.current_state,
         command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=2),
     ).success  # not in active system
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=6),
+    ).success  # not a ship
     session.apply_command(
         command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=0),
     )
+    assert len(session.failure_history) == 0
     assert not session.engine.apply_command(
         state=session.current_state,
         command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=0),

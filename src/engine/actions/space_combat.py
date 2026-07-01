@@ -966,6 +966,11 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand], CandidateCommandProvid
                 is_valid=False,
                 info=f"Ship {unit.unit_id} is not in the active system.",
             )
+        if not unit.is_ship:
+            return ValidationResult(
+                is_valid=False,
+                info=f"Unit {unit.unit_id} is not a ship, cannot be assigned hits in space combat.",
+            )
         if unit.owner_name != command.actor.name:
             return ValidationResult(
                 is_valid=False,
