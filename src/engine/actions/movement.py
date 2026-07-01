@@ -619,6 +619,7 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
             ]
         if (
             state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+            and state.turn_context.space_combat_context is not None
             and state.turn_context.get_space_combat_context().step == SpaceCombatStep.RETREAT
         ):
             return [
