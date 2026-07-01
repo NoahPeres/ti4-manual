@@ -1033,6 +1033,11 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command], CandidateCommandProv
                 is_valid=False,
                 info="This is not your assign hits window to pass.",
             )
+        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass before assigning hits.",
+            )
         return ValidationResult(is_valid=True)
 
     def derive_events(
