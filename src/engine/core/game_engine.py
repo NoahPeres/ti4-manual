@@ -205,5 +205,6 @@ class GameEngine:
                     legal.append(command)
 
         if len(legal) == 0:
-            raise RuntimeError
+            msg = f"No legal commands found. Active windows: {state.window_context.active_windows}"
+            raise RuntimeError(msg)
         return legal
