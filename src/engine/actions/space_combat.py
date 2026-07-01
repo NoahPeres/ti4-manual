@@ -1019,7 +1019,7 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand], CandidateCommandProvid
         ]
 
 
-class PassBeforeAssignHitsCommandRule(CommandRule[Command], CandidateCommandProvider):
+class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
         return "PassBeforeAssignHitsCommandRule"
 
@@ -1028,6 +1028,11 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command], CandidateCommandProv
         return {CommandType.PASS_BEFORE_ASSIGN_HITS}
 
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if state.turn_context.space_combat_context is None:
+            return ValidationResult(
+                is_valid=False,
+                info="Can only pass before assigning hits during space combat.",
+            )
         if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
             return ValidationResult(
                 is_valid=False,
@@ -1048,18 +1053,6 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command], CandidateCommandProv
     ) -> Sequence[Event]:
         del state, command, engine_context
         return [CloseWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
-
-    @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
-            return []
-        return [
-            Command(actor=player, command_type=command_type)
-            for command_type, player in itertools.product(
-                PassBeforeAssignHitsCommandRule.handles_command_types(),
-                state.players,
-            )
-        ]
 
 
 class SustainDamageCommandRule(CommandRule[Command]):
