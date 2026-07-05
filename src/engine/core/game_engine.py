@@ -187,7 +187,10 @@ class GameEngine:
         legal: list[Command] = []
 
         for rule in self.rules_engine.command_rules:
-            candidates = rule.candidate_commands(state)
+            try:
+                candidates = rule.candidate_commands(state)
+            except ComponentNotFoundError:
+                continue  # If a component is missing, we can't generate candidates for this rule
             for command in candidates:
                 if command in legal:
                     continue
