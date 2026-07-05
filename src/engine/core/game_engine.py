@@ -2,13 +2,18 @@ import logging
 from dataclasses import FrozenInstanceError, dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from src.engine.core.command import CommandRule, CommandType, EngineContext
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandType,
+    EngineContext,
+)
 from src.engine.core.dice_roller import DiceRoller, UniformDiceRoller
+from src.engine.core.game_state import ComponentNotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from src.engine.core.command import Command
     from src.engine.core.event import Event, EventRule
     from src.engine.core.game_state import GameState
     from src.engine.core.rules_engine import RulesEngine
@@ -89,54 +94,41 @@ class GameEngine:
         all_types = set(CommandType.all_command_types())
         return all_types - self.get_implemented_command_types()
 
-    def apply_command(self, state: GameState, command: Command) -> CommandResult:
+    def _is_command_legal(self, state: GameState, command: Command) -> tuple[bool, str]:
         if command.command_type == CommandType.ALWAYS_INVALID:
-            return CommandResult(
-                new_state=state,
-                success=False,
-                events=[],
-                info="Command invalid: ALWAYS_INVALID",
-            )
-        # Check if command type is implemented
+            return False, "Command invalid: ALWAYS_INVALID"
+
         if command.command_type not in self.get_implemented_command_types():
-            return CommandResult(
-                new_state=state,
-                success=False,
-                events=[],
-                info=f"Command type not implemented: {command.command_type}",
-            )
+            return False, f"Command type not implemented: {command.command_type}"
 
         for window in state.window_context.active_windows:
             if command.command_type not in self.rules_engine.allowed_commands_by_window.get(
                 window,
                 (),
             ):
-                return CommandResult(
-                    new_state=state,
-                    success=False,
-                    events=[],
-                    info=f"Command {command} may not be made during window {window.value}",
-                )
+                return False, f"Command {command} may not be made during window {window.value}"
 
-        # Get relevant rules for this command type
-        relevant_rules = self._command_type_to_rules.get(command.command_type, [])
-
-        # Validate command legality with all relevant rules
-        for rule in relevant_rules:
-            validation_result = rule.validate_legality(state, command)
+        for rule in self._command_type_to_rules.get(command.command_type, []):
+            try:
+                validation_result = rule.validate_legality(state, command)
+            except ComponentNotFoundError as e:
+                return False, f"Error occurred while validating command {command}: {e}"
             if not validation_result.is_valid:
                 reason = validation_result.info or "<no reason provided>"
-                return CommandResult(
-                    new_state=state,
-                    success=False,
-                    events=[],
-                    info=f"Command invalid: {command}. Reason: {reason}",
-                )
+                return False, f"Command invalid: {command}. Reason: {reason}"
+
+        return True, ""
+
+    def apply_command(self, state: GameState, command: Command) -> CommandResult:
+        is_legal, reason = self._is_command_legal(state=state, command=command)
+        if not is_legal:
+            return CommandResult(new_state=state, success=False, events=[], info=reason)
+
         # Derive events from command
         new_state: GameState = state
         events: list[Event] = []
         resolved_events: list[Event] = []
-        for rule in relevant_rules:
+        for rule in self._command_type_to_rules.get(command.command_type, []):
             events += rule.derive_events(
                 state,
                 command,
@@ -187,3 +179,24 @@ class GameEngine:
                 raise IllegalStateMutationError(repr(event)) from e
             pending_events = list(new_events) + pending_events
         return new_state, pending_events
+
+    def get_legal_commands(
+        self,
+        state: GameState,
+    ) -> list[Command]:
+        legal: list[Command] = []
+
+        for rule in self.rules_engine.command_rules:
+            candidates = rule.candidate_commands(state)
+            for command in candidates:
+                if command in legal:
+                    continue
+
+                is_legal, _ = self._is_command_legal(state=state, command=command)
+                if is_legal:
+                    legal.append(command)
+
+        if len(legal) == 0:
+            msg = f"No legal commands found. Active windows: {state.window_context.active_windows}"
+            raise RuntimeError(msg)
+        return legal

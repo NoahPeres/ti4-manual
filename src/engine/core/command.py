@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -18,7 +18,6 @@ class CommandType(enum.StrEnum):
     INITIATE_TACTICAL_ACTION = "initiate_tactical_action"
     PASS_ACTION = "pass_action"
     END_MOVEMENT = "end_movement"
-    END_SPACE_COMBAT = "end_space_combat"
     MOVE_SHIP = "move_ship"
     COMMIT_GROUND_FORCE = "commit_ground_force"
     USE_SPACE_CANNON = "use_space_cannon"
@@ -41,6 +40,9 @@ class CommandType(enum.StrEnum):
     END_RETREAT = "end_retreat"
     REMOVE_COMMAND_TOKEN_FROM_POOL = "remove_command_token_from_pool"
     PASS_END_OF_COMBAT_ROUND = "pass_end_of_combat_round"
+    REMOVE_UNIT = "remove_unit"
+    TRANSPORT_UNIT = "transport_unit"
+    PASS_TRANSPORT_UNIT = "pass_transport_unit"
 
     @staticmethod
     def all_command_types() -> list[CommandType]:
@@ -64,6 +66,9 @@ class EngineContext:
     dice_roller: DiceRoller
 
 
+CommandT = TypeVar("CommandT", bound=Command)
+
+
 class CommandRule[C: Command](Protocol):
     def __repr__(self) -> str: ...
     @staticmethod
@@ -75,3 +80,16 @@ class CommandRule[C: Command](Protocol):
         command: C,
         engine_context: EngineContext,
     ) -> Sequence[Event]: ...
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[C]: ...
+
+
+def make_command_candidates_for_all_players(
+    state: GameState,
+    command_rule: type[CommandRule[Command]],
+) -> list[Command]:
+    return [
+        Command(actor=player, command_type=cmd_type)
+        for player in state.players
+        for cmd_type in command_rule.handles_command_types()
+    ]

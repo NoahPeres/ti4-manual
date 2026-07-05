@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
@@ -7,12 +8,14 @@ from src.engine.core.command import (
     CommandType,
     EngineContext,
     ValidationResult,
+    make_command_candidates_for_all_players,
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
     Ability,
     GameState,
     Move,
+    SpaceCombatStep,
     TacticalActionStep,
     Window,
 )
@@ -30,7 +33,6 @@ if TYPE_CHECKING:
 class MoveShipCommand(Command):
     ship_id: int
     to_system_id: int
-    transported_unit_ids: frozenset[int] = frozenset()
 
 
 class ConflictingMoveError(ValueError):
@@ -41,19 +43,13 @@ class ConflictingMoveError(ValueError):
 def resolve_pending_moves(previous_state: GameState) -> GameState:
     moved_units_by_id: dict[int, Unit] = {}
     for move in previous_state.turn_context.pending_moves:
-        ship = previous_state.get_ship_from_id(move.ship_id)
-        if ship.unit_id in moved_units_by_id:
-            raise ConflictingMoveError(ship.unit_id)
-        new_ship = ship.set_system_id(move.to_system_id)
-        moved_units_by_id[new_ship.unit_id] = new_ship
-        for transported_unit_id in move.transported_unit_ids:
-            if transported_unit_id in moved_units_by_id:
-                raise ConflictingMoveError(transported_unit_id)
-            unit = previous_state.get_unit_from_id(transported_unit_id)
-            new_unit = unit.set_system_id(move.to_system_id)
-            if unit.is_ground_force:
-                new_unit = new_unit.cast_to_ground_force().set_planet_id(None)
-            moved_units_by_id[new_unit.unit_id] = new_unit
+        unit = previous_state.get_unit_from_id(move.unit_id)
+        if unit.unit_id in moved_units_by_id:
+            raise ConflictingMoveError(unit.unit_id)
+        new_unit = unit.set_system_id(move.to_system_id)
+        if new_unit.is_ground_force:
+            new_unit = new_unit.cast_to_ground_force().set_planet_id(None)
+        moved_units_by_id[new_unit.unit_id] = new_unit
     new_units = frozenset(
         {unit for unit in previous_state.units if unit.unit_id not in moved_units_by_id}
         | set(moved_units_by_id.values()),
@@ -131,6 +127,13 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
             ),
         ]
 
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=ResolveSpaceCannonOffenseCommandRule,
+        )
+
 
 class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
     def __repr__(self) -> str:
@@ -172,6 +175,13 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [PassSpaceCannonEvent(player=command.actor)]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassSpaceCannonOffenseCommandRule,
+        )
 
 
 class PassSpaceCannonEvent(Event):
@@ -216,6 +226,13 @@ class EndMovementCommandRule(CommandRule[Command]):
         return [
             ResolvePendingMovesEvent(),
         ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=EndMovementCommandRule,
+        )
 
 
 class SpaceCannonOffenseAfterMovementEventRule(EventRule):
@@ -278,32 +295,205 @@ class SpaceCombatAfterSpaceCannonOffenseEventRule(EventRule):
 class AddMoveToPendingEvent(Event):
     def __init__(
         self,
-        ship_id: int,
+        unit_id: int,
         to_system_id: int,
-        transported_unit_ids: frozenset[int] = frozenset(),
+        transported_by_id: int | None = None,
     ) -> None:
-        self.ship_id = ship_id
+        self.unit_id = unit_id
         self.to_system_id = to_system_id
-        self.transported_unit_ids = transported_unit_ids
+        self.transported_by_id = transported_by_id
 
     def __repr__(self) -> str:
-        return (
-            f"AddMoveToPendingEvent:{self.ship_id}:{self.to_system_id}:{self.transported_unit_ids}"
-        )
+        return f"AddMoveToPendingEvent:{self.unit_id}:{self.to_system_id}:{self.transported_by_id}"
 
     def apply(self, previous_state: GameState) -> GameState:
-        active_system = previous_state.get_active_system()
+        from_system_id = previous_state.get_unit_from_id(self.unit_id).system_id
+        if from_system_id is None:
+            raise ConflictingMoveError(self.unit_id)
         move_set = previous_state.turn_context.pending_moves | {
             Move(
-                ship_id=self.ship_id,
-                from_system_id=active_system.id,
+                unit_id=self.unit_id,
+                from_system_id=from_system_id,
                 to_system_id=self.to_system_id,
-                transported_unit_ids=self.transported_unit_ids,
+                transported_by_id=self.transported_by_id,
             ),
         }
         return replace(
             previous_state,
             turn_context=replace(previous_state.turn_context, pending_moves=move_set),
+        )
+
+
+class SelectUnitEvent(Event):
+    def __init__(self, ship_id: int | None) -> None:
+        self.ship_id = ship_id
+
+    def apply(self, previous_state: GameState) -> GameState:
+        return previous_state.select_unit(unit_id=self.ship_id)
+
+    def __repr__(self) -> str:
+        return f"SelectUnitEvent:{self.ship_id}"
+
+
+class CapacityShipMoveEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        if (
+            isinstance(event, AddMoveToPendingEvent)
+            and state.get_unit_from_id(event.unit_id).stats.capacity is not None
+        ):
+            return [
+                SelectUnitEvent(event.unit_id),
+                OpenWindowEvent(Window.TRANSPORT_UNITS),
+            ]
+        return []
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {AddMoveToPendingEvent}
+
+
+@dataclass(frozen=True)
+class TransportUnitCommand(Command):
+    unit_id: int
+
+
+def get_move_for_unit_id(moves: frozenset[Move], unit_id: int) -> Move:
+    return {move for move in moves if move.unit_id == unit_id}.pop()
+
+
+def get_consumed_capacity_for_unit_id(moves: frozenset[Move], unit_id: int) -> int:
+    return len({move for move in moves if move.transported_by_id == unit_id})
+
+
+def _check_transport_ownership(
+    command: TransportUnitCommand,
+    unit: Unit,
+    carrying_ship: Unit,
+) -> ValidationResult:
+    if carrying_ship.owner_name != command.actor.name:
+        return ValidationResult(is_valid=False, info="Carrying ship belongs to another player.")
+    if unit.owner_name != command.actor.name:
+        return ValidationResult(is_valid=False, info="Cannot transport another player's units.")
+    return ValidationResult(is_valid=True)
+
+
+def _check_transport_legal(state: GameState, command: TransportUnitCommand) -> ValidationResult:
+    unit = state.get_unit_from_id(command.unit_id)
+    carrying_ship = state.selected_unit
+    if not unit.is_transportable:
+        return ValidationResult(is_valid=False, info="Unit is not transportable.")
+    ownership_result = _check_transport_ownership(
+        command=command,
+        unit=unit,
+        carrying_ship=carrying_ship,
+    )
+    if not ownership_result.is_valid:
+        return ownership_result
+    if (
+        carrying_ship.stats.capacity is None
+        or carrying_ship.stats.capacity
+        <= get_consumed_capacity_for_unit_id(
+            moves=state.turn_context.pending_moves,
+            unit_id=carrying_ship.unit_id,
+        )
+    ):
+        return ValidationResult(is_valid=False, info="Carrying ship is already full.")
+    if unit.system_id != carrying_ship.system_id:
+        # NOTE: This is a simplification — once multi-step movement / path-finding is
+        # implemented, transports should be allowed to pick up units from any system
+        # along the carrier's path, not only its starting system.
+        return ValidationResult(
+            is_valid=False,
+            info="Cannot transport units that are not in the same system as the ship",
+        )
+    if unit.unit_id in {move.unit_id for move in state.turn_context.pending_moves}:
+        return ValidationResult(is_valid=False, info="Unit has already been moved.")
+
+    return ValidationResult(is_valid=True)
+
+
+class TransportUnitCommandRule(CommandRule[TransportUnitCommand]):
+    def __repr__(self) -> str:
+        return "TransportUnit"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.TRANSPORT_UNIT}
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[TransportUnitCommand]:
+        return [
+            TransportUnitCommand(
+                actor=player,
+                command_type=CommandType.TRANSPORT_UNIT,
+                unit_id=unit.unit_id,
+            )
+            for player, unit in itertools.product(state.players, state.units)
+        ]
+
+    def validate_legality(
+        self,
+        state: GameState,
+        command: TransportUnitCommand,
+    ) -> ValidationResult:
+        if not state.window_context.is_window_active(Window.TRANSPORT_UNITS):
+            return ValidationResult(is_valid=False, info="Cannot transport at this time.")
+
+        return _check_transport_legal(state=state, command=command)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: TransportUnitCommand,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del engine_context
+        carrier_move = get_move_for_unit_id(
+            state.turn_context.pending_moves,
+            unit_id=state.get_selected_unit_id(),
+        )
+
+        return [
+            AddMoveToPendingEvent(
+                unit_id=command.unit_id,
+                to_system_id=carrier_move.to_system_id,
+                transported_by_id=carrier_move.unit_id,
+            ),
+        ]
+
+
+class PassTransportUnitCommandRule(CommandRule[Command]):
+    def __repr__(self) -> str:
+        return "PassTransportUnit"
+
+    @staticmethod
+    def handles_command_types() -> set[CommandType]:
+        return {CommandType.PASS_TRANSPORT_UNIT}
+
+    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+        if not state.window_context.is_window_active(Window.TRANSPORT_UNITS):
+            return ValidationResult(is_valid=False, info="You are not in a capacity window.")
+        if state.selected_unit.owner_name != command.actor.name:
+            return ValidationResult(is_valid=False, info="This transport is not yours.")
+        return ValidationResult(is_valid=True)
+
+    def derive_events(
+        self,
+        state: GameState,
+        command: Command,
+        engine_context: EngineContext,
+    ) -> Sequence[Event]:
+        del state, command, engine_context
+        return [
+            CloseWindowEvent(Window.TRANSPORT_UNITS),
+            SelectUnitEvent(None),
+        ]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(
+            state=state,
+            command_rule=PassTransportUnitCommandRule,
         )
 
 
@@ -313,7 +503,6 @@ class MoveProperties:
     owner: Player
     active_system: System
     current_system: System
-    transported_units: frozenset[Unit] = frozenset()
 
 
 def _check_valid_objects(
@@ -334,18 +523,11 @@ def _check_valid_objects(
     current_system = state.get_current_system(ship)
     if current_system is None:
         return ValidationResult(is_valid=False, info="Ship is not in any system"), None
-    try:
-        transported_units = frozenset(
-            state.get_unit_from_id(unit_id=unit_id) for unit_id in command.transported_unit_ids
-        )
-    except ValueError:
-        return ValidationResult(is_valid=False, info="Invalid transported unit ID"), None
     return ValidationResult(is_valid=True), MoveProperties(
         ship=ship,
         owner=owner,
         active_system=active_system,
         current_system=current_system,
-        transported_units=transported_units,
     )
 
 
@@ -411,66 +593,6 @@ def _validate_tactical_action_move(state: GameState, command: MoveShipCommand) -
     if not basic_spatial_result.is_valid:
         return basic_spatial_result
 
-    capacity_validation_result = _validate_capacity_for_transport(
-        move_properties.ship,
-        move_properties.transported_units,
-    )
-    if not capacity_validation_result.is_valid:
-        return capacity_validation_result
-
-    return ValidationResult(is_valid=True)
-
-
-def _check_single_ship_capacity(ship: Ship, transported_units: frozenset[Unit]) -> ValidationResult:
-    if ship.stats.capacity is None:
-        return ValidationResult(
-            is_valid=False,
-            info="Cannot transport units with a ship that has no capacity",
-        )
-    if len(transported_units) > ship.stats.capacity:
-        return ValidationResult(
-            is_valid=False,
-            info=f"Cannot transport {len(transported_units)} units with"
-            f" capacity {ship.stats.capacity}",
-        )
-    if any(unit.owner_name != ship.owner_name for unit in transported_units):
-        return ValidationResult(
-            is_valid=False,
-            info="Cannot transport units that do not belong to the same player as the ship",
-        )
-    return ValidationResult(is_valid=True)
-
-
-def _validate_capacity_for_transport(
-    ship: Ship,
-    transported_units: frozenset[Unit],
-) -> ValidationResult:
-    if len(transported_units) == 0:
-        return ValidationResult(is_valid=True)
-    basic_capacity_checks = _check_single_ship_capacity(
-        ship=ship,
-        transported_units=transported_units,
-    )
-    if not basic_capacity_checks.is_valid:
-        return basic_capacity_checks
-
-    not_transportable_units = frozenset(
-        unit for unit in transported_units if not unit.is_transportable
-    )
-    if not_transportable_units:
-        return ValidationResult(
-            is_valid=False,
-            info="Cannot transport non-transportable units: "
-            f"{[unit.kind for unit in not_transportable_units]}",
-        )
-    if any(unit.system_id != ship.system_id for unit in transported_units):
-        # NOTE: This is a simplification — once multi-step movement / path-finding is
-        # implemented, transports should be allowed to pick up units from any system
-        # along the carrier's path, not only its starting system.
-        return ValidationResult(
-            is_valid=False,
-            info="Cannot transport units that are not in the same system as the ship",
-        )
     return ValidationResult(is_valid=True)
 
 
@@ -481,6 +603,44 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
     @staticmethod
     def handles_command_types() -> set[CommandType]:
         return {CommandType.MOVE_SHIP}
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[MoveShipCommand]:
+        if state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT:
+            return [
+                MoveShipCommand(
+                    actor=player,
+                    command_type=CommandType.MOVE_SHIP,
+                    ship_id=unit.unit_id,
+                    to_system_id=state.get_active_system().id,
+                )
+                for player, unit in itertools.product(state.players, state.units)
+                if unit.is_ship and unit.owner_name == player.name
+            ]
+        if (
+            state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
+            and state.turn_context.space_combat_context is not None
+            and state.turn_context.get_space_combat_context().step == SpaceCombatStep.RETREAT
+        ):
+            return [
+                MoveShipCommand(
+                    actor=player,
+                    command_type=CommandType.MOVE_SHIP,
+                    ship_id=unit.unit_id,
+                    to_system_id=system.id,
+                )
+                for player, unit, system in itertools.product(
+                    state.players,
+                    state.units,
+                    (
+                        system
+                        for system in state.galaxy
+                        if system.is_adjacent_to(state.get_active_system())
+                    ),
+                )
+                if unit.is_ship and unit.owner_name == player.name
+            ]
+        return []
 
     def validate_legality(self, state: GameState, command: MoveShipCommand) -> ValidationResult:
         return _validate_tactical_action_move(state, command)
@@ -494,19 +654,22 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
         del state, engine_context
         return [
             AddMoveToPendingEvent(
-                ship_id=command.ship_id,
+                unit_id=command.ship_id,
                 to_system_id=command.to_system_id,
-                transported_unit_ids=command.transported_unit_ids,
             ),
         ]
 
 
-def get_command_rules() -> list[CommandRule[MoveShipCommand]]:
+def get_command_rules() -> list[
+    CommandRule[MoveShipCommand] | CommandRule[Command] | CommandRule[TransportUnitCommand]
+]:
     return [
         EndMovementCommandRule(),
         MoveShipCommandRule(),
         ResolveSpaceCannonOffenseCommandRule(),
         PassSpaceCannonOffenseCommandRule(),
+        TransportUnitCommandRule(),
+        PassTransportUnitCommandRule(),
     ]
 
 
@@ -515,4 +678,5 @@ def get_event_rules() -> list[EventRule]:
         SpaceCannonOffenseAfterMovementEventRule(),
         SpaceCombatAfterSpaceCannonOffenseEventRule(),
         CloseSpaceCannonOffenseWindowEventRule(),
+        CapacityShipMoveEventRule(),
     ]

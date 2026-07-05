@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from src.engine.actions.movement import MoveShipCommand
+from src.engine.actions.movement import MoveShipCommand, TransportUnitCommand
 from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command
 from src.engine.core.game_engine import CommandType, GameEngine
@@ -152,7 +152,12 @@ def build_game_state(
     units: frozenset[Unit] | None = None,
 ) -> GameState:
     active_player = active_player or players[0]
-    galaxy = galaxy or Galaxy({System(id=0, command_tokens=()), System(id=1, command_tokens=())})
+    galaxy = galaxy or Galaxy(
+        {
+            System(id=0, command_tokens=(), coordinates=HexCoord(0, 0)),
+            System(id=1, command_tokens=(), coordinates=HexCoord(0, 1)),
+        },
+    )
     turn_context = turn_context or TurnContext(
         has_initiated_action=True,
         tactical_action_step=TacticalActionStep.MOVEMENT,
@@ -200,13 +205,42 @@ def move_command(
     ship_id: int,
     to_system_id: int,
     transported_unit_ids: frozenset[int] = frozenset(),
-) -> MoveShipCommand:
-    return MoveShipCommand(
-        actor=actor,
-        command_type=CommandType.MOVE_SHIP,
-        ship_id=ship_id,
-        to_system_id=to_system_id,
-        transported_unit_ids=transported_unit_ids,
+) -> list[Command]:
+    commands: list[Command] = [
+        MoveShipCommand(
+            actor=actor,
+            command_type=CommandType.MOVE_SHIP,
+            ship_id=ship_id,
+            to_system_id=to_system_id,
+        ),
+    ]
+    if len(transported_unit_ids) > 0:
+        commands.extend(
+            [
+                TransportUnitCommand(
+                    actor=actor,
+                    command_type=CommandType.TRANSPORT_UNIT,
+                    unit_id=unit_id,
+                )
+                for unit_id in transported_unit_ids
+            ]
+            + [Command(actor=actor, command_type=CommandType.PASS_TRANSPORT_UNIT)],
+        )
+    return commands
+
+
+def make_movement_session(units: frozenset[Unit], galaxy: Galaxy | None = None) -> GameSession:
+    players = (make_player("A"), make_player("B"))
+    return make_session(
+        players=players,
+        active_player=players[0],
+        turn_context=TurnContext(
+            has_initiated_action=True,
+            tactical_action_step=TacticalActionStep.MOVEMENT,
+            active_system_id=1,
+        ),
+        units=units,
+        galaxy=galaxy,
     )
 
 

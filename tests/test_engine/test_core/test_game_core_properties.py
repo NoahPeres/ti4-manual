@@ -5,7 +5,13 @@ import hypothesis.strategies as st
 import pytest
 from hypothesis import given
 
-from src.engine.core.command import Command, CommandRule, CommandType, ValidationResult
+from src.engine.core.command import (
+    Command,
+    CommandRule,
+    CommandType,
+    ValidationResult,
+    make_command_candidates_for_all_players,
+)
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_engine import (
     CommandResult,
@@ -67,6 +73,10 @@ class MutatingCommandRule(CommandRule[Command]):
     ) -> Sequence[Event]:
         del state, command, engine_context
         return [TrivialEvent(payload="Does nothing"), MutatingEvent()]
+
+    @staticmethod
+    def candidate_commands(state: GameState) -> list[Command]:
+        return make_command_candidates_for_all_players(state, command_rule=MutatingCommandRule)
 
 
 @st.composite

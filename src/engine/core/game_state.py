@@ -88,6 +88,7 @@ class SpaceCombatContext:
     attacker_hits_assigned: int = 0
     defender_hits_assigned: int = 0
     current_hits_assignee: Player | None = None
+    winner: str | None = None
 
     def assign_hit(self, unit_id: int, player: Player) -> Self:
         participant = self.get_participant_by_player(player)
@@ -179,6 +180,9 @@ class SpaceCombatContext:
             step=SpaceCombatStep.ANNOUNCE_RETREATS,
         )
 
+    def set_winner(self, winner: str | None) -> Self:
+        return replace(self, winner=winner)
+
 
 class Phase(StrEnum):
     STRATEGY = "strategy"
@@ -189,10 +193,10 @@ class Phase(StrEnum):
 
 @dataclass(frozen=True)
 class Move:
-    ship_id: int
+    unit_id: int
     from_system_id: int
     to_system_id: int
-    transported_unit_ids: frozenset[int] = frozenset()
+    transported_by_id: int | None
 
 
 @dataclass(frozen=True)
@@ -218,6 +222,8 @@ class Window(StrEnum):
     ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
     BEFORE_ASSIGNING_HITS = "before_assigning_hits"
     MUST_CHOOSE_POOL_FOR_REMOVE_COMMAND_TOKEN = "must_choose_pool_for_remove_command_token"
+    MUST_REMOVE_UNITS_DUE_TO_CAPACITY = "must_remove_units_due_to_capacity"
+    TRANSPORT_UNITS = "transport_units"
 
 
 @dataclass(frozen=True)
@@ -364,6 +370,7 @@ class GameState:
     )
     units: frozenset[Unit] = frozenset()
     window_context: WindowContext = field(default_factory=WindowContext)
+    selected_unit_id: int | None = None
 
     @property
     def active_player(self) -> Player:
@@ -384,7 +391,9 @@ class GameState:
 
     @property
     def has_taken_turn(self) -> bool:
-        return self.turn_context.has_initiated_action or self.active_player.has_passed
+        return (
+            self.turn_context.has_initiated_action or self.active_player.has_passed
+        ) and self.turn_context.space_combat_context is None
 
     @property
     def active_system(self) -> System | None:
@@ -493,7 +502,7 @@ class GameState:
             window_context=replace(self.window_context, active_windows=()),
         )
 
-    def set_space_combat_context(self, space_combat_context: SpaceCombatContext) -> Self:
+    def set_space_combat_context(self, space_combat_context: SpaceCombatContext | None) -> Self:
         return replace(
             self,
             turn_context=replace(self.turn_context, space_combat_context=space_combat_context),
@@ -598,3 +607,17 @@ class GameState:
                 },
             ),
         )
+
+    def select_unit(self, unit_id: int | None) -> Self:
+        return replace(self, selected_unit_id=unit_id)
+
+    @property
+    def selected_unit(self) -> Unit:
+        if self.selected_unit_id is None:
+            raise ComponentNotFoundError("selected_unit")
+        return self.get_unit_from_id(self.selected_unit_id)
+
+    def get_selected_unit_id(self) -> int:
+        if self.selected_unit_id is None:
+            raise ComponentNotFoundError("selected_unit_id")
+        return self.selected_unit_id
