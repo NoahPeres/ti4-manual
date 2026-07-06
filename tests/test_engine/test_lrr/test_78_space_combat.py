@@ -2113,9 +2113,43 @@ class PassOnSustainDamage(OptionalCommandPolicy):
         return None
 
 
-dumb_space_combat_agent = PriorityPolicy(
-    sub_policies=[DoCommandIfOnlyOneLegal(), PassOnSustainDamage()]
-)
+class SelectFirstLegalCommand(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        for command in legal_commands:
+            return command
+        return None
+
+
+DEFAULT_PRIORITIES: list[OptionalCommandPolicy] = [DoCommandIfOnlyOneLegal(), PassOnSustainDamage()]
+
+
+def make_dumb_space_combat_agent(
+    additional_policies: list[OptionalCommandPolicy],
+    *,
+    select_first_legal_command: bool = False,
+) -> PriorityPolicy:
+    policies = DEFAULT_PRIORITIES + additional_policies
+    if select_first_legal_command:
+        policies.append(SelectFirstLegalCommand())
+    return PriorityPolicy(sub_policies=policies)
+
+
+class AssignHitsInOrder(OptionalCommandPolicy):
+    def __init__(self, unit_ids: list[int]) -> None:
+        self.unit_ids = unit_ids
+
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        for unit_id in self.unit_ids:
+            for command in legal_commands:
+                if (
+                    isinstance(command, AssignHitCommand)
+                    and command.unit_id == unit_id
+                    and command.command_type == CommandType.ASSIGN_HIT
+                ):
+                    return command
+        return None
 
 
 def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
@@ -2164,40 +2198,13 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     space_combat_context = session.current_state.turn_context.get_space_combat_context()
     attacker = space_combat_context.attacker
     defender = space_combat_context.defender
-    driver = GameDriver(policy=dumb_space_combat_agent)
+    driver = GameDriver(policy=make_dumb_space_combat_agent([AssignHitsInOrder([0, 1])]))
     session = driver.play_until(
         session=session,
         stop_condition=lambda state: state.window_context.is_window_active(
             Window.END_OF_SPACE_COMBAT_ROUND,
         ),
     )
-    assert False
-
-    for player in (attacker, defender):
-        session.apply_command(
-            Command(
-                actor=player,
-                command_type=CommandType.MAKE_COMBAT_ROLLS,
-            ),
-        )
-    assert (
-        session.current_state.turn_context.get_space_combat_context().step
-        == SpaceCombatStep.ASSIGN_HITS
-    )
-    session.apply_command(
-        command=Command(actor=attacker, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS),
-    )
-    session.apply_command(
-        command=AssignHitCommand(actor=attacker, command_type=CommandType.ASSIGN_HIT, unit_id=0),
-    )
-    session.apply_command(
-        command=Command(actor=defender, command_type=CommandType.PASS_BEFORE_ASSIGN_HITS),
-    )
-    session.apply_command(
-        command=AssignHitCommand(actor=defender, command_type=CommandType.ASSIGN_HIT, unit_id=1),
-    )  # this is the carrier, the other units are now stranded
-    assert len(session.failure_history) == 0
-    assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
     for player in (attacker, defender):
         session.apply_command(
             Command(actor=player, command_type=CommandType.PASS_END_OF_COMBAT_ROUND),
@@ -2214,17 +2221,14 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
         state=session.current_state,
         command=RemoveUnitCommand(actor=defender, command_type=CommandType.REMOVE_UNIT, unit_id=5),
     ).success  # Not in the system
-    for unit_id in [2, 3]:
-        session.apply_command(
-            command=RemoveUnitCommand(
-                actor=defender,
-                command_type=CommandType.REMOVE_UNIT,
-                unit_id=unit_id,
-            ),
-        )
+    driver = GameDriver(
+        policy=make_dumb_space_combat_agent(
+            [AssignHitsInOrder([2, 3])],
+            select_first_legal_command=True,
+        ),
+    )
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: len(state.get_units_in_space_area_of_system(0)) == 0,
+    )
     assert len(session.failure_history) == 0
-    assert len(session.current_state.get_units_in_space_area_of_system(0)) == 0
-    assert session.engine.apply_command(
-        state=session.current_state,
-        command=Command(actor=attacker, command_type=CommandType.END_TURN),
-    ).success
