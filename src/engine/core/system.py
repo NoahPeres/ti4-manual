@@ -23,8 +23,8 @@ class System:
     coordinates: HexCoord | None = None
     planets: frozenset[Planet] = field(default_factory=frozenset[Planet])
 
-    def has_command_token(self, player: Player) -> bool:
-        return any(token.player_name == player.name for token in self.command_tokens)
+    def has_command_token(self, player_name: str) -> bool:
+        return any(token.player_name == player_name for token in self.command_tokens)
 
     def is_adjacent_to(self, system: System) -> bool:
         return calculate_move_distance(self, system) == 1

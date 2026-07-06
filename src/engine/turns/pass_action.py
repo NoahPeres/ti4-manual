@@ -71,7 +71,7 @@ class PassCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return [Command(actor=state.active_player, command_type=CommandType.PASS_ACTION)]
+        return [Command(actor=state.active_player.name, command_type=CommandType.PASS_ACTION)]
 
 
 class AdvanceActionToStatusPhase(Event):

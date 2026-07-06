@@ -104,7 +104,7 @@ class EndTurn(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return [Command(actor=state.active_player, command_type=CommandType.END_TURN)]
+        return [Command(actor=state.active_player.name, command_type=CommandType.END_TURN)]
 
 
 class TrivialRulesEngine(RulesEngine):
@@ -146,7 +146,7 @@ def _set_up_session(
 
 
 def test_when_command_invalid_no_event_applied() -> None:
-    invalid_command = Command(actor=TEST_PLAYER, command_type=CommandType.ALWAYS_INVALID)
+    invalid_command = Command(actor=TEST_PLAYER.name, command_type=CommandType.ALWAYS_INVALID)
     session: GameSession = _set_up_session(
         players=(TEST_PLAYER,),
         initial_player=TEST_PLAYER,
@@ -158,7 +158,7 @@ def test_when_command_invalid_no_event_applied() -> None:
 
 
 def test_when_command_is_valid_we_apply_events() -> None:
-    valid_command = Command(actor=TEST_PLAYER, command_type=CommandType.ALWAYS_VALID)
+    valid_command = Command(actor=TEST_PLAYER.name, command_type=CommandType.ALWAYS_VALID)
     session: GameSession = _set_up_session(
         players=(TEST_PLAYER,),
         initial_player=TEST_PLAYER,
@@ -174,13 +174,13 @@ def test_end_turn_changes_active_player() -> None:
         initial_player=PLAYER_1,
         command_rules=[EndTurn()],
     )
-    end_turn_command = Command(actor=PLAYER_1, command_type=CommandType.END_TURN)
+    end_turn_command = Command(actor=PLAYER_1.name, command_type=CommandType.END_TURN)
     new_state: GameState = session.apply_command(command=end_turn_command)
     assert new_state.active_player == PLAYER_2
 
 
 def test_invariant_violation_prevents_state_change() -> None:
-    end_turn_command = Command(actor=PLAYER_1, command_type=CommandType.END_TURN)
+    end_turn_command = Command(actor=PLAYER_1.name, command_type=CommandType.END_TURN)
     session: GameSession = _set_up_session(
         players=(PLAYER_1, PLAYER_2),
         initial_player=PLAYER_1,
@@ -198,7 +198,7 @@ def test_undo_end_turn() -> None:
         initial_player=PLAYER_1,
         command_rules=[EndTurn()],
     )
-    end_turn_command = Command(actor=PLAYER_1, command_type=CommandType.END_TURN)
+    end_turn_command = Command(actor=PLAYER_1.name, command_type=CommandType.END_TURN)
     state_after_end_turn: GameState = session.apply_command(command=end_turn_command)
     assert state_after_end_turn.active_player == PLAYER_2
 

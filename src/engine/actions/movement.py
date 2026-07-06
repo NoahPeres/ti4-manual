@@ -71,17 +71,17 @@ class ResolvePendingMovesEvent(Event):
 
 
 class ResolveSpaceCannonOffenseEvent(Event):
-    def __init__(self, player: Player, active_system: System) -> None:
-        self.player = player
+    def __init__(self, player_name: str, active_system: System) -> None:
+        self.player_name = player_name
         self.active_system = active_system
 
     def __repr__(self) -> str:
-        return f"ResolveSpaceCannonOffenseEvent:{self.player}:{self.active_system}"
+        return f"ResolveSpaceCannonOffenseEvent:{self.player_name}:{self.active_system}"
 
     def apply(self, previous_state: GameState) -> GameState:
         # TODO actually implement space cannon here
         return previous_state.use_ability_for_player(
-            player=self.player,
+            player_name=self.player_name,
             ability=Ability.SPACE_CANNON,
         )
 
@@ -109,7 +109,7 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         ):
             return ValidationResult(
                 is_valid=False,
-                info=f"{command.actor.name} has no units with SPACE CANNON",
+                info=f"{command.actor} has no units with SPACE CANNON",
             )
         return ValidationResult(is_valid=True)
 
@@ -122,7 +122,7 @@ class ResolveSpaceCannonOffenseCommandRule(CommandRule[Command]):
         del engine_context
         return [
             ResolveSpaceCannonOffenseEvent(
-                player=command.actor,
+                player_name=command.actor,
                 active_system=state.get_active_system(),
             ),
         ]
@@ -158,12 +158,12 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
         ):
             return ValidationResult(
                 is_valid=False,
-                info=f"{command.actor.name} has already passed on space cannon.",
+                info=f"{command.actor} has already passed on space cannon.",
             )
         if state.player_has_resolved_ability_in_current_window(command.actor, Ability.SPACE_CANNON):
             return ValidationResult(
                 is_valid=False,
-                info=f"{command.actor.name} has already used space cannon.",
+                info=f"{command.actor} has already used space cannon.",
             )
         return ValidationResult(is_valid=True)
 
@@ -174,7 +174,7 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
         engine_context: EngineContext,
     ) -> Sequence[Event]:
         del state, engine_context
-        return [PassSpaceCannonEvent(player=command.actor)]
+        return [PassSpaceCannonEvent(player_name=command.actor)]
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
@@ -185,15 +185,15 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
 
 
 class PassSpaceCannonEvent(Event):
-    def __init__(self, player: Player) -> None:
-        self.player = player
+    def __init__(self, player_name: str) -> None:
+        self.player_name = player_name
 
     def __repr__(self) -> str:
-        return f"PassSpaceCannonEvent:{self.player}"
+        return f"PassSpaceCannonEvent:{self.player_name}"
 
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.pass_on_window_for_player(
-            player=self.player,
+            player_name=self.player_name,
             window=Window.AFTER_MOVE_SHIPS_STEP,
         )  # No state change needed to pass on space cannon offense.
 
@@ -244,7 +244,7 @@ class SpaceCannonOffenseAfterMovementEventRule(EventRule):
         del event
         if any(
             state.player_may_resolve_space_cannon_in_system(
-                player,
+                player.name,
                 system_id=state.get_active_system().id,
             )
             for player in state.players
@@ -262,7 +262,7 @@ class CloseSpaceCannonOffenseWindowEventRule(EventRule):
         del event
         if (state.active_system is None) or all(
             not state.player_may_resolve_space_cannon_in_system(
-                player=player,
+                player_name=player.name,
                 system_id=state.active_system.id,
             )
             for player in state.players
@@ -370,9 +370,9 @@ def _check_transport_ownership(
     unit: Unit,
     carrying_ship: Unit,
 ) -> ValidationResult:
-    if carrying_ship.owner_name != command.actor.name:
+    if carrying_ship.owner_name != command.actor:
         return ValidationResult(is_valid=False, info="Carrying ship belongs to another player.")
-    if unit.owner_name != command.actor.name:
+    if unit.owner_name != command.actor:
         return ValidationResult(is_valid=False, info="Cannot transport another player's units.")
     return ValidationResult(is_valid=True)
 
@@ -424,7 +424,7 @@ class TransportUnitCommandRule(CommandRule[TransportUnitCommand]):
     def candidate_commands(state: GameState) -> list[TransportUnitCommand]:
         return [
             TransportUnitCommand(
-                actor=player,
+                actor=player.name,
                 command_type=CommandType.TRANSPORT_UNIT,
                 unit_id=unit.unit_id,
             )
@@ -473,7 +473,7 @@ class PassTransportUnitCommandRule(CommandRule[Command]):
     def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
         if not state.window_context.is_window_active(Window.TRANSPORT_UNITS):
             return ValidationResult(is_valid=False, info="You are not in a capacity window.")
-        if state.selected_unit.owner_name != command.actor.name:
+        if state.selected_unit.owner_name != command.actor:
             return ValidationResult(is_valid=False, info="This transport is not yours.")
         return ValidationResult(is_valid=True)
 
@@ -555,7 +555,7 @@ def _check_basic_spatial_properties(
 ) -> ValidationResult:
     if command.to_system_id != move_properties.active_system.id:
         return ValidationResult(is_valid=False, info="Can only move ships to the active system")
-    if move_properties.current_system.has_command_token(state.active_player):
+    if move_properties.current_system.has_command_token(state.active_player.name):
         return ValidationResult(
             is_valid=False,
             info="Cannot move ships from a system with your command token",
@@ -609,7 +609,7 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
         if state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT:
             return [
                 MoveShipCommand(
-                    actor=player,
+                    actor=player.name,
                     command_type=CommandType.MOVE_SHIP,
                     ship_id=unit.unit_id,
                     to_system_id=state.get_active_system().id,
@@ -624,7 +624,7 @@ class MoveShipCommandRule(CommandRule[MoveShipCommand]):
         ):
             return [
                 MoveShipCommand(
-                    actor=player,
+                    actor=player.name,
                     command_type=CommandType.MOVE_SHIP,
                     ship_id=unit.unit_id,
                     to_system_id=system.id,

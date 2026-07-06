@@ -85,14 +85,14 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: list[PlayerInitiati
     player_1_action = ENGINE.apply_command(
         state=initial_state,
         command=ActivateCommand(
-            actor=player_1,
+            actor=player_1.name,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
             system_id=0,
         ),
     ).new_state
     state_after_p1: GameState = ENGINE.apply_command(
         state=player_1_action,
-        command=Command(actor=player_1, command_type=CommandType.END_TURN),
+        command=Command(actor=player_1.name, command_type=CommandType.END_TURN),
     ).new_state
 
     assert state_after_p1.active_player == player_2
@@ -100,28 +100,28 @@ def test_48_2_turn_respects_initiative_order(player_shuffle: list[PlayerInitiati
     player_2_action = ENGINE.apply_command(
         state=state_after_p1,
         command=ActivateCommand(
-            actor=player_2,
+            actor=player_2.name,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
             system_id=0,
         ),
     ).new_state
     state_after_p2: GameState = ENGINE.apply_command(
         state=player_2_action,
-        command=Command(actor=player_2, command_type=CommandType.END_TURN),
+        command=Command(actor=player_2.name, command_type=CommandType.END_TURN),
     ).new_state
     assert state_after_p2.active_player == player_3
     # Player 3 ends turn
     player_3_action = ENGINE.apply_command(
         state=state_after_p2,
         command=ActivateCommand(
-            actor=player_3,
+            actor=player_3.name,
             command_type=CommandType.INITIATE_TACTICAL_ACTION,
             system_id=0,
         ),
     ).new_state
     state_after_p3: GameState = ENGINE.apply_command(
         state=player_3_action,
-        command=Command(actor=player_3, command_type=CommandType.END_TURN),
+        command=Command(actor=player_3.name, command_type=CommandType.END_TURN),
     ).new_state
     assert state_after_p3.active_player == player_1  # Back to Player 1
 

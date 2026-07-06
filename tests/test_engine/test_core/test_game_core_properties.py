@@ -130,7 +130,7 @@ class CustomRulesEngine(TI4RulesEngine):
     actor=st.sampled_from(PLAYERS),
     command_type=st.sampled_from(DETERMINISTIC_COMMANDS),
 )
-def test_engine_determinism(state: GameState, actor: Player, command_type: CommandType) -> None:
+def test_engine_determinism(state: GameState, actor: str, command_type: CommandType) -> None:
     state1: GameState = deepcopy(x=state)
     state2: GameState = deepcopy(x=state)
     engine = GameEngine(rules_engine=TI4RulesEngine())
@@ -149,12 +149,12 @@ def test_engine_determinism(state: GameState, actor: Player, command_type: Comma
 
 @given(
     state=simple_game_state(),
-    actor=st.sampled_from(PLAYERS),
+    actor=st.sampled_from([player.name for player in PLAYERS]),
     command_type=st.sampled_from(DETERMINISTIC_COMMANDS),
 )
 def test_state_is_immutable_during_apply(
     state: GameState,
-    actor: Player,
+    actor: str,
     command_type: CommandType,
 ):
     initial_state: GameState = deepcopy(x=state)
@@ -171,10 +171,10 @@ def test_state_is_immutable_during_apply(
 
 @given(
     state=simple_game_state(),
-    actor=st.sampled_from(PLAYERS),
+    actor=st.sampled_from([player.name for player in PLAYERS]),
     command_type=st.sampled_from(DETERMINISTIC_COMMANDS),
 )
-def test_rules_cannot_mutate_state(state: GameState, actor: Player, command_type: CommandType):
+def test_rules_cannot_mutate_state(state: GameState, actor: str, command_type: CommandType):
     initial_state: GameState = deepcopy(x=state)
     snapshot: GameState = deepcopy(x=initial_state)
 

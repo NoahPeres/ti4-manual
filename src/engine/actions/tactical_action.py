@@ -127,7 +127,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
                 is_valid=False,
                 info="Cannot activate a system with your command token",
             )
-        if len(command.actor.command_sheet.tactic) == 0:
+        if len(state.get_player(command.actor).command_sheet.tactic) == 0:
             return ValidationResult(
                 is_valid=False,
                 info="Player must have tokens in their tactic pool to perform tactical action",
@@ -142,7 +142,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
     ) -> Sequence[Event]:
         del state, engine_context
         return [
-            ActivateSystemEvent(player_id=command.actor.name, system_id=command.system_id),
+            ActivateSystemEvent(player_id=command.actor, system_id=command.system_id),
             TacticalActionInitiatedEvent(),
             AdvanceToMovementStepEvent(),
         ]
@@ -151,7 +151,7 @@ class InitiateTacticalActionCommandRule(CommandRule[ActivateCommand]):
     def candidate_commands(state: GameState) -> list[ActivateCommand]:
         return [
             ActivateCommand(
-                actor=state.active_player,
+                actor=state.active_player.name,
                 command_type=CommandType.INITIATE_TACTICAL_ACTION,
                 system_id=system.id,
             )

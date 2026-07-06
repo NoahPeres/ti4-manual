@@ -1,11 +1,12 @@
 from dataclasses import dataclass, replace
 from itertools import product
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Iterable, Literal
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from src.driver.game_driver import GameDriver, OptionalCommandPolicy, PriorityPolicy
 from src.engine.actions.space_combat import (
     AssignHitCommand,
     CombatRoll,
@@ -120,7 +121,7 @@ def test_78_1_space_combat_must_occur_iff_more_than_one_player_has_ships_after_s
         ),
     )
     session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+        command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
     )
     pass_space_cannon_window(session=session, state=session.current_state)
     assert session.current_state.turn_context.tactical_action_step == expected_tactical_action_step
@@ -174,12 +175,12 @@ def test_78_2_ability_at_start_of_space_combat_occurs_before_afb() -> None:
         ),
     )
     session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+        command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
     )
     pass_space_cannon_window(session=session, state=session.current_state)
     for player in (player_a, player_b):
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
     assert session.current_state.turn_context.space_combat_context is not None
     assert (
@@ -227,7 +228,7 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
         ),
     )
     session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+        command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
     )
     pass_space_cannon_window(session=session, state=session.current_state)
     assert session.current_state.window_context.is_window_active(
@@ -286,7 +287,7 @@ def make_start_of_space_combat_state(
         dice_roller=dice_roller,
     )
     session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.END_MOVEMENT),
+        command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
     )
     pass_space_cannon_window(session=session, state=session.current_state)
     return session
@@ -301,11 +302,11 @@ def make_announce_retreat_step_combat_state(
     player_b = session.current_state.get_player("B")
     for player in session.current_state.players:
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
     for player in (player_a, player_b):
         session.apply_command(
-            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+            Command(actor=player.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         )
     assert len(session.failure_history) == 0
     return session
@@ -345,7 +346,7 @@ def test_78_3_a_space_combat_ends_if_one_or_both_players_have_no_ships_after_afb
     player_b = session.current_state.get_player("B")
     for player in (player_a, player_b):
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
     assert (
         session.current_state.turn_context.get_space_combat_context().step
@@ -360,7 +361,7 @@ def test_78_3_a_space_combat_ends_if_one_or_both_players_have_no_ships_after_afb
     )
     for player in (player_a, player_b):
         session.apply_command(
-            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+            Command(actor=player.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         )
     assert session.current_state.window_context.is_window_active(window=Window.END_OF_SPACE_COMBAT)
 
@@ -389,7 +390,11 @@ def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window()
         ),
     )
     session.apply_command(
-        command=AssignHitCommand(actor=player_b, command_type=CommandType.ASSIGN_HIT, unit_id=2),
+        command=AssignHitCommand(
+            actor=player_b.name,
+            command_type=CommandType.ASSIGN_HIT,
+            unit_id=2,
+        ),
     )
     assert len(session.current_state.get_ships_in_system(0)) == 1
     assert session.current_state.window_context.is_window_active(
@@ -413,7 +418,7 @@ def test_78_3_b_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
     )
     for player in (player_a, player_b):
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
 
     for player, command_type in product(
@@ -422,7 +427,7 @@ def test_78_3_b_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
     ):
         assert session.engine.apply_command(
             state=session.current_state,
-            command=Command(actor=player, command_type=command_type),
+            command=Command(actor=player.name, command_type=command_type),
         ).success
 
     second_round = replace(
@@ -439,7 +444,7 @@ def test_78_3_b_players_may_roll_afb_iff_the_first_round_of_combat() -> None:
     for player in (player_a, player_b):
         assert not session.engine.apply_command(
             state=second_round,
-            command=Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+            command=Command(actor=player.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         ).success
 
 
@@ -459,11 +464,11 @@ def test_78_3_c_afb_still_occurs_when_no_fighters_present() -> None:
     )
     for player in (player_a, player_b):
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
     assert session.engine.apply_command(
         state=session.current_state,
-        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        command=Command(actor=player_a.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
     ).success
 
 
@@ -477,14 +482,14 @@ def test_78_3_only_use_afb_once() -> None:
     )
     for player in (player_a, player_b):
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
     _ = session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        command=Command(actor=player_a.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
     )
     assert not session.engine.apply_command(
         state=session.current_state,
-        command=Command(actor=player_a, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        command=Command(actor=player_a.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
     ).success
 
 
@@ -494,7 +499,7 @@ def test_78_3_advance_to_announce_retreats_step() -> None:
     player_b = session.current_state.get_player("B")
     for player in (player_a, player_b):
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
         )
     assert (
         session.current_state.turn_context.get_space_combat_context().step
@@ -502,7 +507,7 @@ def test_78_3_advance_to_announce_retreats_step() -> None:
     )
     for player in (player_a, player_b):
         session.apply_command(
-            Command(actor=player, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+            Command(actor=player.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
         )
     assert (
         session.current_state.turn_context.get_space_combat_context().step
@@ -534,7 +539,7 @@ def test_78_4_each_player_may_announce_beginning_with_defender() -> None:
     assert not session.failure_history
     assert (
         session.current_state.turn_context.get_space_combat_context().declared_retreat_name
-        == attacker.name
+        == attacker
     )
 
 
@@ -558,7 +563,7 @@ def test_78_4_a_retreat_does_not_happen_immediately() -> None:
     )
     assert (
         session.current_state.turn_context.get_space_combat_context().declared_retreat_name
-        == attacker.name
+        == attacker
     )
     assert ships_before == session.current_state.get_ships_in_system(
         session.current_state.get_active_system().id,
@@ -763,7 +768,7 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(
     )
     defender = session.current_state.turn_context.get_space_combat_context().defender
     attacker = session.current_state.turn_context.get_space_combat_context().attacker
-    assert attacker.name == "A"
+    assert attacker == "A"
     session.apply_command(
         command=Command(actor=defender, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
     )
@@ -1070,7 +1075,7 @@ def test_78_5_other_players_cannot_make_combat_rolls() -> None:
 
     assert not session.engine.apply_command(
         state=session.current_state,
-        command=Command(actor=other_player, command_type=CommandType.MAKE_COMBAT_ROLLS),
+        command=Command(actor=other_player.name, command_type=CommandType.MAKE_COMBAT_ROLLS),
     ).success
 
 
@@ -1251,8 +1256,7 @@ def test_78_6_destroy_one_ship_per_opponent_hit(n_hits: int) -> None:
         )
         assert len(session.failure_history) == 0
     assert (
-        len(session.current_state.get_ships_in_system(0, player_name=attacker.name))
-        == max_hits - n_hits
+        len(session.current_state.get_ships_in_system(0, player_name=attacker)) == max_hits - n_hits
     )
     if n_hits < max_hits:
         assert session.current_state.window_context.is_window_active(
@@ -1473,7 +1477,7 @@ def test_78_7_a_combat_immediately_ends_when_only_one_player_has_units() -> None
     )
     session.apply_command(
         command=Command(
-            actor=session.current_state.get_player("B"),
+            actor="B",
             command_type=CommandType.ANNOUNCE_RETREAT,
         ),
     )
@@ -1559,28 +1563,28 @@ def make_retreat_step_combat_state(
         if player_declared_retreat == "B":
             session.apply_command(
                 command=Command(
-                    actor=session.current_state.get_player("B"),
+                    actor="B",
                     command_type=CommandType.ANNOUNCE_RETREAT,
                 ),
             )
         else:
             session.apply_command(
                 command=Command(
-                    actor=session.current_state.get_player("B"),
+                    actor="B",
                     command_type=CommandType.PASS_ANNOUNCE_RETREAT,
                 ),
             )
             if player_declared_retreat == "A":
                 session.apply_command(
                     command=Command(
-                        actor=session.current_state.get_player("A"),
+                        actor="A",
                         command_type=CommandType.ANNOUNCE_RETREAT,
                     ),
                 )
             else:
                 session.apply_command(
                     command=Command(
-                        actor=session.current_state.get_player("A"),
+                        actor="A",
                         command_type=CommandType.PASS_ANNOUNCE_RETREAT,
                     ),
                 )
@@ -1738,7 +1742,7 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
         ship.kind == ShipKind.FIGHTER
         for ship in session.current_state.get_ships_in_system(
             system_id=0,
-            player_name=context.defender.name,
+            player_name=context.defender,
         )
     )
     session.apply_command(
@@ -1756,14 +1760,14 @@ def test_78_7_b_abandoned_fighters_are_removed() -> None:
         ship.kind == ShipKind.FIGHTER
         for ship in session.current_state.get_ships_in_system(
             system_id=1,
-            player_name=context.defender.name,
+            player_name=context.defender,
         )
     )
     assert not any(
         ship.kind == ShipKind.FIGHTER
         for ship in session.current_state.get_ships_in_system(
             system_id=session.current_state.get_active_system().id,
-            player_name=context.defender.name,
+            player_name=context.defender,
         )
     )
 
@@ -1783,7 +1787,7 @@ def test_78_7_d_retreating_player_must_place_command_token() -> None:
         command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
     )
     assert len(session.failure_history) == 0
-    defender_command_sheet = session.current_state.get_player(context.defender.name).command_sheet
+    defender_command_sheet = session.current_state.get_player(context.defender).command_sheet
     assert (
         len(defender_command_sheet.tactic)
         + len(defender_command_sheet.fleet)
@@ -1822,7 +1826,7 @@ def test_78_7_d_retreating_player_must_place_command_token_even_if_none_in_reinf
         command=Command(actor=context.defender, command_type=CommandType.END_RETREAT),
     )
     assert len(session.failure_history) == 0
-    defender_command_sheet = session.current_state.get_player(context.defender.name).command_sheet
+    defender_command_sheet = session.current_state.get_player(context.defender).command_sheet
     assert (
         len(defender_command_sheet.tactic)
         + len(defender_command_sheet.fleet)
@@ -1912,7 +1916,7 @@ def test_78_8_return_to_annouce_retreats_step_if_ships_remaining_after_retreat_s
     )  # both players have ships, combat has not ended
     for player in session.current_state.players:
         session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_END_OF_COMBAT_ROUND),
+            command=Command(actor=player.name, command_type=CommandType.PASS_END_OF_COMBAT_ROUND),
         )
     assert len(session.failure_history) == 0
     assert (
@@ -1934,7 +1938,7 @@ def _continue_to_next_round(session: GameSession) -> None:
             if player.name in ("A", "B"):
                 session.apply_command(
                     command=Command(
-                        actor=player,
+                        actor=player.name,
                         command_type=CommandType.PASS_END_OF_COMBAT_ROUND,
                     ),
                 )
@@ -2091,6 +2095,18 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
             assert len(remaining_ships_owners) == 0
 
 
+class DoCommandIfOnlyOneLegal(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        legal_commands_list = list(legal_commands)
+        if len(legal_commands_list) == 1:
+            return legal_commands_list[0]
+        return None
+
+
+dumb_space_combat_agent = PriorityPolicy(sub_policies=[DoCommandIfOnlyOneLegal()])
+
+
 def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     units = frozenset(
         {
@@ -2137,6 +2153,14 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     space_combat_context = session.current_state.turn_context.get_space_combat_context()
     attacker = space_combat_context.attacker
     defender = space_combat_context.defender
+    # driver = GameDriver(policy=dumb_space_combat_agent)
+    # session = driver.play_until(
+    #     session=session,
+    #     stop_condition=lambda state: state.window_context.is_window_active(
+    #         Window.END_OF_SPACE_COMBAT_ROUND,
+    #     ),
+    # )
+
     for player in (attacker, defender):
         session.apply_command(
             Command(

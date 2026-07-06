@@ -100,7 +100,7 @@ def test_89_1_active_player_must_activate_system_without_their_command_token(
     assert (
         session.engine.apply_command(
             state=session.current_state,
-            command=activate_command(actor=player_a, system_id=0),
+            command=activate_command(actor=player_a.name, system_id=0),
         ).success
         is expected_success
     )
@@ -110,7 +110,7 @@ def test_89_1_a_active_player_places_token_from_tactic_pool() -> None:
     player_a = make_player("A")
     session = make_basic_session_from_players(players=(player_a,))
 
-    new_state = session.apply_command(command=activate_command(actor=player_a, system_id=0))
+    new_state = session.apply_command(command=activate_command(actor=player_a.name, system_id=0))
 
     activated_system = new_state.galaxy.get_system(system_id=0)
     assert activated_system is not None
@@ -121,7 +121,7 @@ def test_89_1_a_that_system_is_the_active_system() -> None:
     player_a = make_player("A")
     session = make_basic_session_from_players(players=(player_a,))
 
-    new_state = session.apply_command(command=activate_command(actor=player_a, system_id=0))
+    new_state = session.apply_command(command=activate_command(actor=player_a.name, system_id=0))
 
     assert new_state.turn_context.active_system_id == 0
 
@@ -151,7 +151,7 @@ def test_89_1_b_other_players_tokens_do_not_prevent_activation() -> None:
 
     assert session.engine.apply_command(
         state=session.current_state,
-        command=activate_command(actor=player_a, system_id=0),
+        command=activate_command(actor=player_a.name, system_id=0),
     ).success
 
 
@@ -159,7 +159,7 @@ def test_89_1_advance_to_movement_after_activation() -> None:
     player_a = make_player("A")
     session = make_basic_session_from_players(players=(player_a,))
 
-    new_state = session.apply_command(command=activate_command(actor=player_a, system_id=0))
+    new_state = session.apply_command(command=activate_command(actor=player_a.name, system_id=0))
 
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
 
@@ -183,7 +183,7 @@ def test_89_2_only_active_player_moves_ships() -> None:
 
     result = session.engine.apply_command(
         state=session.current_state,
-        command=move_command(actor=player_b, ship_id=0, to_system_id=0)[0],
+        command=move_command(actor=player_b.name, ship_id=0, to_system_id=0)[0],
     )
 
     assert not result.success
@@ -203,7 +203,7 @@ def test_89_2_active_player_may_move_only_their_ships() -> None:
 
     result = session.engine.apply_command(
         state=session.current_state,
-        command=move_command(actor=player_a, ship_id=0, to_system_id=active_system.id)[0],
+        command=move_command(actor=player_a.name, ship_id=0, to_system_id=active_system.id)[0],
     )
 
     assert not result.success
@@ -237,7 +237,7 @@ def test_89_2_may_not_move_ships_from_systems_with_command_tokens() -> None:
 
     result = session.engine.apply_command(
         state=session.current_state,
-        command=move_command(actor=player_a, ship_id=0, to_system_id=active_system.id)[0],
+        command=move_command(actor=player_a.name, ship_id=0, to_system_id=active_system.id)[0],
     )
 
     assert not result.success
@@ -249,7 +249,7 @@ def test_89_2_ships_with_insufficient_move_cannot_move() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=2)[0],
+        command=move_command(actor="A", ship_id=0, to_system_id=2)[0],
     )
 
     assert not result.success
@@ -262,7 +262,7 @@ def test_89_2_ship_with_sufficient_move_may_move() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=1)[0],
+        command=move_command(actor="A", ship_id=0, to_system_id=1)[0],
     )
 
     assert result.success
@@ -275,7 +275,7 @@ def test_89_2_move_into_active_system() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=1)[0],
+        command=move_command(actor="A", ship_id=0, to_system_id=1)[0],
     )
 
     move = next(iter(result.new_state.turn_context.pending_moves))
@@ -288,7 +288,7 @@ def test_89_2_cannot_move_into_non_active_system() -> None:
 
     result = engine.apply_command(
         state=state,
-        command=move_command(actor=state.get_player("A"), ship_id=0, to_system_id=2)[0],
+        command=move_command(actor="A", ship_id=0, to_system_id=2)[0],
     )
 
     assert not result.success
@@ -309,7 +309,7 @@ def test_89_2_a_ships_with_capacity_can_transport_other_units() -> None:
     )
 
     for command in move_command(
-        actor=session.current_state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset({ground_force.unit_id}),
@@ -335,7 +335,7 @@ def test_89_2_a_ships_with_no_capacity_cannot_transport_other_units() -> None:
     )
 
     move_attempt = move_command(
-        actor=session.current_state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset({ground_force.unit_id}),
@@ -364,7 +364,7 @@ def test_89_2_a_ships_with_insufficient_capacity_cannot_transport() -> None:
     fighter = make_unit_with_id(unit_id=2, owner_name="A", kind=ShipKind.FIGHTER, system_id=0)
     state = replace(state, units=frozenset({ship, ground_force, fighter}))
     move_attempt = move_command(
-        actor=state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset({ground_force.unit_id, fighter.unit_id}),
@@ -393,7 +393,7 @@ def test_89_2_a_valid_unit_types_for_transport(
     )
     state = replace(state, units=frozenset({ship, transported_unit}))
     attempted_move = move_command(
-        actor=state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset({transported_unit.unit_id}),
@@ -423,7 +423,7 @@ def test_89_2_a_player_may_transport_no_units() -> None:
 
     session.apply_command(
         command=move_command(
-            actor=session.current_state.get_player("A"),
+            actor="A",
             ship_id=0,
             to_system_id=1,
         )[0],
@@ -467,7 +467,7 @@ def test_89_2_a_player_may_transport_only_units_owned_by_them() -> None:
     )
     engine = get_default_game_engine()
     move_attempt = move_command(
-        actor=state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset(
@@ -500,7 +500,7 @@ def test_89_2_a_cannot_transport_units_not_on_path() -> None:
     )
     state = replace(state, units=frozenset({ship, ground_force}))
     move_attempt = move_command(
-        actor=state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset({ground_force.unit_id}),
@@ -528,7 +528,7 @@ def test_89_2_cannot_transport_unit_twice() -> None:
     )
     session = make_movement_session(units=frozenset({ship, ship2, ground_force}))
     move_attempt = move_command(
-        actor=session.current_state.get_player("A"),
+        actor="A",
         ship_id=0,
         to_system_id=1,
         transported_unit_ids=frozenset({ground_force.unit_id}),
@@ -537,7 +537,7 @@ def test_89_2_cannot_transport_unit_twice() -> None:
         session.apply_command(command)
         assert len(session.failure_history) == 0
     move_other_ship = move_command(
-        actor=session.current_state.get_player("A"),
+        actor="A",
         ship_id=2,
         to_system_id=1,
         transported_unit_ids=frozenset({ground_force.unit_id}),
@@ -566,7 +566,7 @@ def test_89_2_b_active_player_may_move_no_ships() -> None:
 
     assert session.engine.apply_command(
         state=session.current_state,
-        command=action_command(player_a, CommandType.END_MOVEMENT),
+        command=action_command(player_a.name, CommandType.END_MOVEMENT),
     ).success
 
 
@@ -575,13 +575,13 @@ def test_89_2_c_players_may_use_space_cannon_after_movement() -> None:
     player_b = make_player("B")
     session = make_session(players=(player_a, player_b))
 
-    use_space_cannon = action_command(player_b, CommandType.USE_SPACE_CANNON)
+    use_space_cannon = action_command(player_b.name, CommandType.USE_SPACE_CANNON)
     assert not session.engine.apply_command(
         state=session.current_state,
         command=use_space_cannon,
     ).success
 
-    new_state = session.apply_command(action_command(player_a, CommandType.END_MOVEMENT))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.END_MOVEMENT))
     result = session.engine.apply_command(state=new_state, command=use_space_cannon)
 
     assert result.success
@@ -592,7 +592,7 @@ def test_89_2_c_space_cannon_window_closes_after_all_players_have_acted() -> Non
     player_b = make_player("B")
     session = make_session(players=(player_a, player_b))
 
-    new_state = session.apply_command(action_command(player_a, CommandType.END_MOVEMENT))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.END_MOVEMENT))
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
 
     new_state = resolve_space_cannon(session, new_state)
@@ -604,15 +604,15 @@ def test_89_2_c_one_player_cannot_space_cannon_twice_in_same_window() -> None:
     player_b = make_player("B")
     session = make_session(players=(player_a, player_b))
 
-    new_state = session.apply_command(action_command(player_a, CommandType.END_MOVEMENT))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.END_MOVEMENT))
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
     assert new_state.active_system is not None
     assert new_state.player_may_resolve_space_cannon_in_system(
-        player=player_a,
+        player_name=player_a.name,
         system_id=new_state.active_system.id,
     )
 
-    use_space_cannon = action_command(player_a, CommandType.USE_SPACE_CANNON)
+    use_space_cannon = action_command(player_a.name, CommandType.USE_SPACE_CANNON)
     _ = session.apply_command(use_space_cannon)
     assert len(session.failure_history) == 0
     assert not session.engine.apply_command(
@@ -626,26 +626,26 @@ def test_89_2_c_players_may_choose_to_skip_space_cannon() -> None:
     player_b = make_player("B")
     session = make_session(players=(player_a, player_b))
 
-    new_state = session.apply_command(action_command(player_a, CommandType.END_MOVEMENT))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.END_MOVEMENT))
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
     assert new_state.active_system is not None
     assert new_state.player_may_resolve_space_cannon_in_system(
-        player=player_a,
+        player_name=player_a.name,
         system_id=new_state.active_system.id,
     )
 
-    new_state = session.apply_command(action_command(player_a, CommandType.PASS_SPACE_CANNON))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.PASS_SPACE_CANNON))
     assert session.last_command_result.success
     assert new_state.window_context.player_has_passed_on_window(
-        player=player_a,
+        player_name=player_a.name,
         window=Window.AFTER_MOVE_SHIPS_STEP,
     )
     assert not session.engine.apply_command(
         new_state,
-        action_command(player_a, CommandType.USE_SPACE_CANNON),
+        action_command(player_a.name, CommandType.USE_SPACE_CANNON),
     ).success
 
-    new_state = session.apply_command(action_command(player_b, CommandType.PASS_SPACE_CANNON))
+    new_state = session.apply_command(action_command(player_b.name, CommandType.PASS_SPACE_CANNON))
     assert len(session.failure_history) == 0
     assert new_state.turn_context.tactical_action_step != TacticalActionStep.MOVEMENT
 
@@ -655,11 +655,11 @@ def test_89_2_c_ability_window_properly_clears_state() -> None:
     player_b = make_player("B", strategy_cards=(StrategyCard(name="DIPLOMACY", initiative=2),))
     session = make_session(players=(player_a, player_b))
 
-    new_state = session.apply_command(action_command(player_a, CommandType.END_MOVEMENT))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.END_MOVEMENT))
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.MOVEMENT
 
-    a_use_space_cannon = action_command(player_a, CommandType.USE_SPACE_CANNON)
-    b_use_space_cannon = action_command(player_b, CommandType.USE_SPACE_CANNON)
+    a_use_space_cannon = action_command(player_a.name, CommandType.USE_SPACE_CANNON)
+    b_use_space_cannon = action_command(player_b.name, CommandType.USE_SPACE_CANNON)
     _ = session.apply_command(a_use_space_cannon)
     new_state = session.apply_command(b_use_space_cannon)
     _ = session.apply_command_result(
@@ -669,16 +669,16 @@ def test_89_2_c_ability_window_properly_clears_state() -> None:
             events=[],
         ),
     )
-    _ = session.apply_command(action_command(player_a, CommandType.END_TURN))
+    _ = session.apply_command(action_command(player_a.name, CommandType.END_TURN))
 
-    new_state = session.apply_command(activate_command(actor=player_b, system_id=0))
-    new_state = session.apply_command(action_command(player_b, CommandType.END_MOVEMENT))
+    new_state = session.apply_command(activate_command(actor=player_b.name, system_id=0))
+    new_state = session.apply_command(action_command(player_b.name, CommandType.END_MOVEMENT))
 
     assert new_state.active_system is not None
     assert len(session.failure_history) == 0
     assert session.engine.apply_command(
         state=session.current_state,
-        command=action_command(player_a, CommandType.USE_SPACE_CANNON),
+        command=action_command(player_a.name, CommandType.USE_SPACE_CANNON),
     ).success
 
 
@@ -712,7 +712,7 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
     for ship in unique_ships:
         session.apply_command(
             command=move_command(
-                actor=session.initial_state.get_player("A"),
+                actor="A",
                 ship_id=ship.unit_id,
                 to_system_id=0,
             )[0],
@@ -720,14 +720,14 @@ def test_89_move_resolves_correctly(ships: list[Unit]) -> None:
         if session.current_state.window_context.is_window_active(Window.TRANSPORT_UNITS):
             session.apply_command(
                 command=Command(
-                    session.initial_state.get_player("A"),
+                    "A",
                     command_type=CommandType.PASS_TRANSPORT_UNIT,
                 ),
             )
         assert len(session.failure_history) == 0
 
     new_state = session.apply_command(
-        action_command(session.current_state.get_player("A"), CommandType.END_MOVEMENT),
+        action_command("A", CommandType.END_MOVEMENT),
     )
 
     for ship in unique_ships:
@@ -778,7 +778,7 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
         if unit.is_ground_force:
             assert unit.cast_to_ground_force().planet_id is not None
     for command in move_command(
-        actor=session.initial_state.get_player("A"),
+        actor="A",
         ship_id=ship.unit_id,
         to_system_id=1,
         transported_unit_ids=transported_unit_ids,
@@ -787,7 +787,7 @@ def test_89_transport_resolves_correctly(units: list[Unit]) -> None:
     assert len(session.failure_history) == 0
 
     new_state = session.apply_command(
-        action_command(session.initial_state.get_player("A"), CommandType.END_MOVEMENT),
+        action_command("A", CommandType.END_MOVEMENT),
     )
     for unit in unique_units:
         new_unit = new_state.get_unit_from_id(unit.unit_id)
@@ -819,13 +819,13 @@ def test_89_3_if_one_player_has_ships_skip_space_combat(*, opponent_has_ground_f
 
     new_state = session.apply_command(
         command=move_command(
-            actor=session.current_state.get_player("A"),
+            actor="A",
             ship_id=0,
             to_system_id=1,
         )[0],
     )
     new_state = session.apply_command(
-        command=action_command(new_state.active_player, CommandType.END_MOVEMENT),
+        command=action_command(new_state.active_player.name, CommandType.END_MOVEMENT),
     )
 
     assert new_state.get_ships_in_system(system_id=1) == frozenset(
@@ -834,7 +834,7 @@ def test_89_3_if_one_player_has_ships_skip_space_combat(*, opponent_has_ground_f
 
     for player in new_state.players:
         new_state = session.apply_command(
-            command=action_command(player, CommandType.USE_SPACE_CANNON),
+            command=action_command(player.name, CommandType.USE_SPACE_CANNON),
         )
 
     assert new_state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT
@@ -856,13 +856,13 @@ def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None
 
     new_state = session.apply_command(
         command=move_command(
-            actor=session.current_state.get_player("A"),
+            actor="A",
             ship_id=0,
             to_system_id=1,
         )[0],
     )
     new_state = session.apply_command(
-        command=action_command(new_state.active_player, CommandType.END_MOVEMENT),
+        command=action_command(new_state.active_player.name, CommandType.END_MOVEMENT),
     )
 
     assert (
@@ -872,7 +872,7 @@ def test_89_3_if_two_players_have_ships_they_must_resolve_space_combat() -> None
 
     for player in new_state.players:
         new_state = session.apply_command(
-            command=action_command(player, CommandType.USE_SPACE_CANNON),
+            command=action_command(player.name, CommandType.USE_SPACE_CANNON),
         )
 
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.SPACE_COMBAT
@@ -897,17 +897,17 @@ def test_89_4_active_player_may_use_their_bombardment_during_invasion() -> None:
     new_state = end_movement(session, session.current_state)
     for player in new_state.players:
         new_state = session.apply_command(
-            command=action_command(player, CommandType.USE_SPACE_CANNON),
+            command=action_command(player.name, CommandType.USE_SPACE_CANNON),
         )
 
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
     assert session.engine.apply_command(
         state=session.current_state,
-        command=action_command(player_a, CommandType.USE_BOMBARDMENT),
+        command=action_command(player_a.name, CommandType.USE_BOMBARDMENT),
     ).success
     assert not session.engine.apply_command(
         state=session.current_state,
-        command=action_command(player_b, CommandType.USE_BOMBARDMENT),
+        command=action_command(player_b.name, CommandType.USE_BOMBARDMENT),
     ).success
 
 
@@ -930,7 +930,7 @@ def test_89_4_player_may_skip_bombardment() -> None:
     new_state = begin_invasion(session, session.current_state)
     assert new_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
 
-    new_state = session.apply_command(action_command(player_a, CommandType.PASS_BOMBARDMENT))
+    new_state = session.apply_command(action_command(player_a.name, CommandType.PASS_BOMBARDMENT))
     assert session.last_command_result.success
     assert Window.TACTICAL_ACTION_BOMBARDMENT not in new_state.window_context.active_windows
 
@@ -954,19 +954,21 @@ def test_89_4_player_may_commit_ground_forces() -> None:
     invaded_state = begin_invasion(session, session.current_state)
     assert invaded_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
 
-    invaded_state = session.apply_command(action_command(player_a, CommandType.PASS_BOMBARDMENT))
+    invaded_state = session.apply_command(
+        action_command(player_a.name, CommandType.PASS_BOMBARDMENT),
+    )
     assert session.last_command_result.success
 
     invaded_state = session.apply_command(
         command=CommitGroundForceCommand(
-            actor=session.current_state.get_player("A"),
+            actor="A",
             command_type=CommandType.COMMIT_GROUND_FORCE,
             ground_force_id=ground_force.unit_id,
             to_planet_id=0,
         ),
     )
     invaded_state = session.apply_command(
-        command=action_command(session.current_state.get_player("A"), CommandType.END_INVASION),
+        command=action_command("A", CommandType.END_INVASION),
     )
 
     ground_force_after_commit = invaded_state.get_ground_force_from_id(ground_force.unit_id)
@@ -998,13 +1000,15 @@ def test_89_4_player_cannot_commit_if_not_in_active_system() -> None:
     invaded_state = begin_invasion(session, session.current_state)
     assert invaded_state.turn_context.tactical_action_step == TacticalActionStep.INVASION
 
-    invaded_state = session.apply_command(action_command(player_a, CommandType.PASS_BOMBARDMENT))
+    invaded_state = session.apply_command(
+        action_command(player_a.name, CommandType.PASS_BOMBARDMENT),
+    )
     assert session.last_command_result.success
 
     assert not session.engine.apply_command(
         state=session.current_state,
         command=CommitGroundForceCommand(
-            actor=session.current_state.get_player("A"),
+            actor="A",
             command_type=CommandType.COMMIT_GROUND_FORCE,
             ground_force_id=ground_force.unit_id,
             to_planet_id=0,
@@ -1040,19 +1044,19 @@ def test_89_4_player_cannot_commit_other_players_ground_force() -> None:
 
     for bad_command in (
         CommitGroundForceCommand(
-            actor=session.current_state.get_player("A"),
+            actor="A",
             command_type=CommandType.COMMIT_GROUND_FORCE,
             ground_force_id=ground_force_b.unit_id,
             to_planet_id=0,
         ),
         CommitGroundForceCommand(
-            actor=session.current_state.get_player("B"),
+            actor="B",
             command_type=CommandType.COMMIT_GROUND_FORCE,
             ground_force_id=ground_force_a.unit_id,
             to_planet_id=0,
         ),
         CommitGroundForceCommand(
-            actor=session.current_state.get_player("B"),
+            actor="B",
             command_type=CommandType.COMMIT_GROUND_FORCE,
             ground_force_id=ground_force_b.unit_id,
             to_planet_id=0,
@@ -1068,22 +1072,22 @@ def test_89_5_player_may_resolve_production_abilities() -> None:
     session = make_session(players=(player_a, player_b))
     _ = begin_invasion(session, session.current_state)
     _ = pass_bombardment_window(session, session.current_state)
-    premature_production = action_command(player_a, CommandType.USE_PRODUCTION)
+    premature_production = action_command(player_a.name, CommandType.USE_PRODUCTION)
     assert not session.engine.apply_command(
         state=session.current_state,
         command=premature_production,
     ).success
     invaded_state = session.apply_command(
-        command=action_command(session.current_state.get_player("A"), CommandType.END_INVASION),
+        command=action_command("A", CommandType.END_INVASION),
     )
     assert invaded_state.turn_context.tactical_action_step == TacticalActionStep.PRODUCTION
     legal_commands = [
-        Command(actor=player_a, command_type=CommandType.USE_PRODUCTION),
-        Command(actor=player_a, command_type=CommandType.PASS_PRODUCTION),
+        Command(actor=player_a.name, command_type=CommandType.USE_PRODUCTION),
+        Command(actor=player_a.name, command_type=CommandType.PASS_PRODUCTION),
     ]
     illegal_commands = [
-        Command(actor=player_b, command_type=CommandType.USE_PRODUCTION),
-        Command(actor=player_b, command_type=CommandType.PASS_PRODUCTION),
+        Command(actor=player_b.name, command_type=CommandType.USE_PRODUCTION),
+        Command(actor=player_b.name, command_type=CommandType.PASS_PRODUCTION),
     ]
     for legal_command in legal_commands:
         result = session.engine.apply_command(state=session.current_state, command=legal_command)
@@ -1100,17 +1104,17 @@ def test_89_after_production_game_context_is_clear() -> None:
     _ = begin_invasion(session, session.current_state)
     _ = pass_bombardment_window(session, session.current_state)
     _ = session.apply_command(
-        command=action_command(session.current_state.get_player("A"), CommandType.END_INVASION),
+        command=action_command("A", CommandType.END_INVASION),
     )
     end_production_state = session.apply_command(
-        command=action_command(session.current_state.get_player("A"), CommandType.PASS_PRODUCTION),
+        command=action_command("A", CommandType.PASS_PRODUCTION),
     )
     assert end_production_state.turn_context.tactical_action_step is None
     assert session.engine.apply_command(
         state=end_production_state,
-        command=Command(actor=player_a, command_type=CommandType.END_TURN),
+        command=Command(actor=player_a.name, command_type=CommandType.END_TURN),
     ).success
     assert not session.engine.apply_command(
         state=end_production_state,
-        command=Command(actor=player_b, command_type=CommandType.END_TURN),
+        command=Command(actor=player_b.name, command_type=CommandType.END_TURN),
     ).success

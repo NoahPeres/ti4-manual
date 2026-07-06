@@ -67,7 +67,7 @@ class EachPlayerHasExactly16CommandTokens(GameStateInvariant):
                 + len(player.command_sheet.fleet)
                 + len(player.command_sheet.strategy)
                 + len(player.command_sheet.reinforcements)
-            ) + sum(1 for system in state.galaxy if system.has_command_token(player))
+            ) + sum(1 for system in state.galaxy if system.has_command_token(player.name))
             if total_command_tokens != MAX_COMMAND_TOKENS:
                 return False
         return True
