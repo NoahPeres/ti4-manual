@@ -2104,7 +2104,18 @@ class DoCommandIfOnlyOneLegal(OptionalCommandPolicy):
         return None
 
 
-dumb_space_combat_agent = PriorityPolicy(sub_policies=[DoCommandIfOnlyOneLegal()])
+class PassOnSustainDamage(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        for command in legal_commands:
+            if command.command_type == CommandType.PASS_BEFORE_ASSIGN_HITS:
+                return command
+        return None
+
+
+dumb_space_combat_agent = PriorityPolicy(
+    sub_policies=[DoCommandIfOnlyOneLegal(), PassOnSustainDamage()]
+)
 
 
 def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
@@ -2153,13 +2164,14 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     space_combat_context = session.current_state.turn_context.get_space_combat_context()
     attacker = space_combat_context.attacker
     defender = space_combat_context.defender
-    # driver = GameDriver(policy=dumb_space_combat_agent)
-    # session = driver.play_until(
-    #     session=session,
-    #     stop_condition=lambda state: state.window_context.is_window_active(
-    #         Window.END_OF_SPACE_COMBAT_ROUND,
-    #     ),
-    # )
+    driver = GameDriver(policy=dumb_space_combat_agent)
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.END_OF_SPACE_COMBAT_ROUND,
+        ),
+    )
+    assert False
 
     for player in (attacker, defender):
         session.apply_command(

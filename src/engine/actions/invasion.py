@@ -75,7 +75,7 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="No valid targets for bombardment in active system.",
             )
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can use bombardment.")
         return ValidationResult(is_valid=True)
 
@@ -110,7 +110,7 @@ class PassBombardmentCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Cannot pass bombardment outside of bombardment window.",
             )
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can pass bombardment.")
         return ValidationResult(is_valid=True)
 
@@ -218,7 +218,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
         state: GameState,
         command: CommitGroundForceCommand,
     ) -> ValidationResult:
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(
                 is_valid=False,
                 info="Only active player can commit ground forces.",

@@ -25,7 +25,6 @@ from src.engine.core.windows import CloseWindowEvent, OpenWindowEvent
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from src.engine.core.player import Player
     from src.engine.units.units import Ship, Unit
 
 
@@ -500,7 +499,7 @@ class PassTransportUnitCommandRule(CommandRule[Command]):
 @dataclass(frozen=True)
 class MoveProperties:
     ship: Ship
-    owner: Player
+    owner_name: str
     active_system: System
     current_system: System
 
@@ -513,10 +512,6 @@ def _check_valid_objects(
         ship = state.get_ship_from_id(ship_id=command.ship_id)
     except ValueError:
         return ValidationResult(is_valid=False, info="Invalid ship ID"), None
-    try:
-        owner = state.get_player(name=ship.owner_name)
-    except ValueError:
-        return ValidationResult(is_valid=False, info="Invalid ship owner"), None
     active_system = state.active_system
     if active_system is None:
         return ValidationResult(is_valid=False, info="No active system"), None
@@ -525,7 +520,7 @@ def _check_valid_objects(
         return ValidationResult(is_valid=False, info="Ship is not in any system"), None
     return ValidationResult(is_valid=True), MoveProperties(
         ship=ship,
-        owner=owner,
+        owner_name=ship.owner_name,
         active_system=active_system,
         current_system=current_system,
     )
@@ -543,7 +538,7 @@ def _check_basic_ownership(
             is_valid=False,
             info="Can only move ships during the movement step of a tactical action",
         )
-    if command.actor != move_properties.owner:
+    if command.actor != move_properties.owner_name:
         return ValidationResult(is_valid=False, info="Player can only move their own ships")
     return ValidationResult(is_valid=True)
 
