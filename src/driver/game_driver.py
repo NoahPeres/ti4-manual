@@ -22,7 +22,7 @@ class OptionalCommandPolicy(Protocol):
 
 class NoCommandChosenError(RuntimeError):
     def __init__(self, candidates: Iterable[Command]) -> None:
-        self.candidates = candidates
+        self.candidates = list(candidates)
         super().__init__(f"No command chosen from candidates: {candidates}")
 
 

@@ -2132,8 +2132,9 @@ class AssignHitsInOrder(OptionalCommandPolicy):
 
     def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
         del state
+        legal_commands_list = list(legal_commands)
         for unit_id in self.unit_ids:
-            for command in legal_commands:
+            for command in legal_commands_list:
                 if (
                     isinstance(command, AssignHitCommand)
                     and command.unit_id == unit_id
