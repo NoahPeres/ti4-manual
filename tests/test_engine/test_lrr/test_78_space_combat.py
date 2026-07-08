@@ -2077,7 +2077,7 @@ class SelectFirstLegalCommand(OptionalCommandPolicy):
 
 
 class SelectPlayerPriority(OptionalCommandPolicy):
-    def __init__(self, priority: list[str]):
+    def __init__(self, priority: list[str]) -> None:
         self.player_priority = priority
 
     def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
