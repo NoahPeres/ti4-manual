@@ -188,7 +188,12 @@ class AdvanceToRetreatStepEventRule(EventRule):
 class EndSpaceCombatEventRule(EventRule):
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent, EndAntiFighterBarrageStepEvent, ResolvePendingRetreatsEvent}
+        return {
+            DestroyUnitEvent,
+            EndAntiFighterBarrageStepEvent,
+            ResolvePendingRetreatsEvent,
+            AssignHitEvent,
+        }
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event

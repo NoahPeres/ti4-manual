@@ -1,6 +1,6 @@
 from dataclasses import dataclass, replace
 from itertools import product
-from typing import TYPE_CHECKING, Iterable, Literal
+from typing import TYPE_CHECKING, Callable, Iterable, Literal
 
 import pytest
 from hypothesis import given, settings
@@ -1944,9 +1944,9 @@ def _continue_to_next_round(session: GameSession) -> None:
                 )
 
 
-def _get_combatant_count(session: GameSession, system_id: int) -> int:
-    attacker_ships = session.current_state.get_ships_in_system(system_id, player_name="A")
-    defender_ships = session.current_state.get_ships_in_system(system_id, player_name="B")
+def _get_combatant_count(state: GameState, system_id: int) -> int:
+    attacker_ships = state.get_ships_in_system(system_id, player_name="A")
+    defender_ships = state.get_ships_in_system(system_id, player_name="B")
     return sum([len(attacker_ships) > 0, len(defender_ships) > 0])
 
 
@@ -2007,8 +2007,6 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
     defender_ship_types: list[ShipKind],
     dice_values: list[int],
 ) -> None:
-    min_players_for_combat = 2
-    max_rounds = 10
     system_id = 0
 
     # Build units from generated ship types
@@ -2045,43 +2043,25 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
         dice_roller=RepeatingDiceRoller(dice_values),
     )
 
-    # Simulate combat rounds until it naturally ends
-    for _ in range(max_rounds):
-        # Check current player counts - invariant check
-        active_players = _get_combatant_count(session, system_id)
-
-        if active_players < min_players_for_combat:
-            assert session.current_state.window_context.is_window_active(
-                Window.END_OF_SPACE_COMBAT,
-            )
-            break
-
-        assert active_players == min_players_for_combat
-
-        # Simulate one round
-        if not _simulate_combat_round(session):
-            break
-
-        # Check end condition after round
-        active_players_after = _get_combatant_count(session, system_id)
-        if active_players_after < min_players_for_combat:
-            assert session.current_state.window_context.is_window_active(
-                Window.END_OF_SPACE_COMBAT,
-            )
-            break
-
-        # Continue to next round
-        _continue_to_next_round(session)
-
-        assert len(session.failure_history) == 0
-
-        if _get_combatant_count(session, system_id=0) <= 1:
-            assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT)
+    driver = GameDriver(
+        make_dumb_space_combat_agent(additional_policies=[], select_first_legal_command=False)
+    )
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.END_OF_SPACE_COMBAT
+        )
+        or (
+            _get_combatant_count(state, system_id=system_id) <= 1
+            and state.turn_context.get_space_combat_context().step != SpaceCombatStep.ASSIGN_HITS
+        )
+        or state.turn_context.get_space_combat_context().round_number >= 10,
+    )
 
     # Final assertion: if combat ended, exactly one player should have no ships
     assert session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT) == (
-        _get_combatant_count(session, system_id=0) <= 1
-    )
+        _get_combatant_count(session.current_state, system_id=0) <= 1
+    ), session.history[-1].events
     # check winner
     if session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT):
         context = session.current_state.turn_context.get_space_combat_context()
@@ -2121,7 +2101,42 @@ class SelectFirstLegalCommand(OptionalCommandPolicy):
         return None
 
 
-DEFAULT_PRIORITIES: list[OptionalCommandPolicy] = [DoCommandIfOnlyOneLegal(), PassOnSustainDamage()]
+class SelectPlayerPriority(OptionalCommandPolicy):
+    def __init__(self, priority: list[str]):
+        self.player_priority = priority
+
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        for name in self.player_priority:
+            commands = [command for command in legal_commands if command.actor == name]
+            if len(commands) == 1:
+                return commands[0]
+        return None
+
+
+class AssignHitInOrder(OptionalCommandPolicy):
+    def __init__(self, order_function: Callable[[list[int]], int]) -> None:
+        self.order_function = order_function
+
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        commands = [
+            command
+            for command in legal_commands
+            if command.command_type == CommandType.ASSIGN_HIT
+            and isinstance(command, AssignHitCommand)
+        ]
+        if len(commands) == 0:
+            return None
+        selected_unit_id = self.order_function([command.unit_id for command in commands])
+        return [command for command in commands if command.unit_id == selected_unit_id][0]
+
+
+DEFAULT_PRIORITIES: list[OptionalCommandPolicy] = [
+    DoCommandIfOnlyOneLegal(),
+    PassOnSustainDamage(),
+    SelectPlayerPriority(["A", "B"]),
+    AssignHitInOrder(min),
+]
 
 
 def make_dumb_space_combat_agent(
