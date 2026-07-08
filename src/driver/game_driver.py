@@ -1,6 +1,8 @@
-from typing import TYPE_CHECKING, Iterable, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from src.engine.core.command import Command
     from src.engine.core.game_session import GameSession
     from src.engine.core.game_state import GameState
