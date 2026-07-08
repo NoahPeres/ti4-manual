@@ -1955,18 +1955,6 @@ def dumb_command_picker(commands: list[Command]) -> Command:
     return sorted_commands[0]
 
 
-def _simulate_combat_round(session: GameSession) -> bool:
-    while True:
-        old_state = session.current_state
-        eligible_commands = session.engine.get_legal_commands(session.current_state)
-        session.apply_command(command=dumb_command_picker(eligible_commands))
-        assert len(session.failure_history) == 0
-        if old_state == session.current_state:
-            pytest.fail("Infinite loop in state.")
-        if session.current_state.window_context.is_window_active(Window.END_OF_SPACE_COMBAT_ROUND):
-            return True
-
-
 class RepeatingDiceRoller(DiceRoller):
     """Dice roller that cycles through provided values."""
 
@@ -2008,6 +1996,7 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
     dice_values: list[int],
 ) -> None:
     system_id = 0
+    max_rounds = 10
 
     # Build units from generated ship types
     all_units = set[Unit]()
@@ -2044,18 +2033,18 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
     )
 
     driver = GameDriver(
-        make_dumb_space_combat_agent(additional_policies=[], select_first_legal_command=False)
+        make_dumb_space_combat_agent(additional_policies=[], select_first_legal_command=False),
     )
     session = driver.play_until(
         session=session,
         stop_condition=lambda state: state.window_context.is_window_active(
-            Window.END_OF_SPACE_COMBAT
+            Window.END_OF_SPACE_COMBAT,
         )
         or (
             _get_combatant_count(state, system_id=system_id) <= 1
             and state.turn_context.get_space_combat_context().step != SpaceCombatStep.ASSIGN_HITS
         )
-        or state.turn_context.get_space_combat_context().round_number >= 10,
+        or state.turn_context.get_space_combat_context().round_number >= max_rounds,
     )
 
     # Final assertion: if combat ended, exactly one player should have no ships
@@ -2119,6 +2108,7 @@ class AssignHitInOrder(OptionalCommandPolicy):
         self.order_function = order_function
 
     def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
         commands = [
             command
             for command in legal_commands

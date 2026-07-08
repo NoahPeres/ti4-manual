@@ -42,16 +42,17 @@ class GameStateQuery(Protocol):
 
 
 class GameDriver:
-    def __init__(self, policy: CommandPolicy) -> None:
+    def __init__(self, policy: CommandPolicy, max_commands: int = 100) -> None:
         self.policy: CommandPolicy = policy
-        self.counter = 0
+        self._counter = 0
+        self._max_commands = max_commands
 
     def step(self, session: GameSession) -> GameSession:
         legal_commands = session.engine.get_legal_commands(session.current_state)
         chosen_command = self.policy.select_command(session.current_state, legal_commands)
         session.apply_command(chosen_command)
-        self.counter += 1
-        if self.counter >= 100:
+        self._counter += 1
+        if self._counter >= self._max_commands:
             raise RuntimeError(chosen_command)
         return session
 
