@@ -22,8 +22,7 @@ class OptionalCommandPolicy(Protocol):
 
 class NoCommandChosenError(RuntimeError):
     def __init__(self, candidates: Iterable[Command]) -> None:
-        self.candidates = list(candidates)
-        super().__init__(f"No command chosen from candidates: {candidates}")
+        super().__init__(f"No command chosen from candidates: {list(candidates)}")
 
 
 class PriorityPolicy(CommandPolicy):
@@ -55,7 +54,8 @@ class GameDriver:
         session.apply_command(chosen_command)
         self._counter += 1
         if self._counter >= self._max_commands:
-            raise RuntimeError(chosen_command)
+            message = f"Max commands ({self._max_commands}) exceeded"
+            raise RuntimeError(message)
         return session
 
     def play_until(self, session: GameSession, stop_condition: GameStateQuery) -> GameSession:

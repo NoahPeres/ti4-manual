@@ -2082,6 +2082,7 @@ class SelectPlayerPriority(OptionalCommandPolicy):
 
     def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
         del state
+        legal_commands = list(legal_commands)
         for name in self.player_priority:
             commands = [command for command in legal_commands if command.actor == name]
             if len(commands) == 1:
