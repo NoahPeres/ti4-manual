@@ -82,7 +82,7 @@ class EndTurn(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        return [Command(actor=state.active_player, command_type=CommandType.END_TURN)]
+        return [Command(actor=state.active_player.name, command_type=CommandType.END_TURN)]
 
 
 def get_command_rules() -> list[CommandRule[Command]]:

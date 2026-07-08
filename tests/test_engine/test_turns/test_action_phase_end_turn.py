@@ -19,7 +19,7 @@ def test_end_turn_command_changes_active_player() -> None:
             phase=Phase.ACTION,
             galaxy=Galaxy(),
         ),
-        command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
+        command=Command(actor=TEST_PLAYER.name, command_type=CommandType.END_TURN),
     )
 
     assert result.new_state.active_player == ANOTHER_PLAYER
@@ -36,7 +36,7 @@ def test_only_active_player_can_end_turn() -> None:
             phase=Phase.ACTION,
             galaxy=Galaxy(),
         ),
-        command=Command(actor=TEST_PLAYER, command_type=CommandType.END_TURN),
+        command=Command(actor=TEST_PLAYER.name, command_type=CommandType.END_TURN),
     )
 
     assert result.new_state.active_player == ANOTHER_PLAYER  # Active player remains unchanged

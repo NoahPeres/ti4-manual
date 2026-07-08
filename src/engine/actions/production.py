@@ -49,7 +49,7 @@ class ResolveProductionCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="No valid targets for production in active system.",
             )
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can use production.")
         return ValidationResult(is_valid=True)
 
@@ -85,7 +85,7 @@ class PassProductionCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Cannot pass production outside of production window.",
             )
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can pass production.")
         return ValidationResult(is_valid=True)
 

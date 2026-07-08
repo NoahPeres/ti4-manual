@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from src.engine.core.event import Event
     from src.engine.core.game_engine import DiceRoller
     from src.engine.core.game_state import GameState
-    from src.engine.core.player import Player
 
 
 class CommandType(enum.StrEnum):
@@ -51,7 +50,7 @@ class CommandType(enum.StrEnum):
 
 @dataclass(frozen=True)
 class Command:
-    actor: Player
+    actor: str
     command_type: CommandType
 
 
@@ -89,7 +88,7 @@ def make_command_candidates_for_all_players(
     command_rule: type[CommandRule[Command]],
 ) -> list[Command]:
     return [
-        Command(actor=player, command_type=cmd_type)
+        Command(actor=player.name, command_type=cmd_type)
         for player in state.players
         for cmd_type in command_rule.handles_command_types()
     ]

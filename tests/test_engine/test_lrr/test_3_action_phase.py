@@ -16,9 +16,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-def _make_activate_command(player: Player, system_id: int = 0) -> ActivateCommand:
+def _make_activate_command(player_name: str, system_id: int = 0) -> ActivateCommand:
     return ActivateCommand(
-        actor=player,
+        actor=player_name,
         command_type=CommandType.INITIATE_TACTICAL_ACTION,
         system_id=system_id,
     )
@@ -36,18 +36,18 @@ def test_3_1_player_may_perform_one_action() -> None:
     try_to_end_turn = session.engine.apply_command(
         state=session.current_state,
         command=Command(
-            actor=player_a,
+            actor=player_a.name,
             command_type=CommandType.END_TURN,
         ),
     )
     assert not try_to_end_turn.success
 
     # take a tactical action
-    session.apply_command(_make_activate_command(player=player_a))
+    session.apply_command(_make_activate_command(player_name=player_a.name))
     assert session.history[-1].success
     try_to_take_second_action = session.engine.apply_command(
         state=session.current_state,
-        command=_make_activate_command(player=player_a),
+        command=_make_activate_command(player_name=player_a.name),
     )
     assert not try_to_take_second_action.success
 
@@ -82,7 +82,7 @@ def test_3_2_players_can_pass_then_end_turn() -> None:
     session.engine.register_new_event_rule(EndTurnTrigger())
 
     new_state: GameState = session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
+        command=Command(actor=player_a.name, command_type=CommandType.PASS_ACTION),
     )
     new_player_a: Player = new_state.get_player("A")
     assert new_player_a.has_passed
@@ -100,13 +100,13 @@ def test_3_3_passed_players_cannot_perform_additional_actions() -> None:
     session = make_basic_session_from_players(players=(player_a, player_b))
 
     new_state: GameState = session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
+        command=Command(actor=player_a.name, command_type=CommandType.PASS_ACTION),
     )
     assert player_a not in new_state.initiative_order_unpassed
 
     try_another_action = session.engine.apply_command(
         state=new_state,
-        command=_make_activate_command(player=player_a),
+        command=_make_activate_command(player_name=player_a.name),
     )
     assert not try_another_action.success
 
@@ -132,15 +132,17 @@ def test_3_3_c_player_can_perform_multiple_consecutive_actions() -> None:
         has_passed=True,
     )
     session = make_basic_session_from_players(players=(player_a, player_b))
-    take_first_action = session.apply_command(command=_make_activate_command(player=player_a))
+    take_first_action = session.apply_command(
+        command=_make_activate_command(player_name=player_a.name),
+    )
     assert take_first_action.has_taken_turn
     end_turn = session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.END_TURN),
+        command=Command(actor=player_a.name, command_type=CommandType.END_TURN),
     )
     assert end_turn.active_player == player_a
     assert session.engine.apply_command(
         state=end_turn,
-        command=_make_activate_command(player=player_a, system_id=1),
+        command=_make_activate_command(player_name=player_a.name, system_id=1),
     ).success
 
 
@@ -159,7 +161,7 @@ def test_3_4_cannot_pass_until_strategic_action_taken() -> None:
     session = make_basic_session_from_players(players=(player_a,))
     try_to_pass = session.engine.apply_command(
         state=session.initial_state,
-        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
+        command=Command(actor=player_a.name, command_type=CommandType.PASS_ACTION),
     )
     assert not try_to_pass.success
 
@@ -182,7 +184,7 @@ def test_3_4_a_cannot_pass_until_all_strategy_cards_used() -> None:
     session = make_basic_session_from_players(players=(player_a,))
     try_to_pass = session.engine.apply_command(
         state=session.initial_state,
-        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
+        command=Command(actor=player_a.name, command_type=CommandType.PASS_ACTION),
     )
     assert not try_to_pass.success
 
@@ -198,10 +200,10 @@ def test_3_5_after_all_pass_proceed_to_status_phase() -> None:
     )
     session = make_basic_session_from_players(players=(player_a, player_b))
     player_a_pass_action_state = session.apply_command(
-        command=Command(actor=player_a, command_type=CommandType.PASS_ACTION),
+        command=Command(actor=player_a.name, command_type=CommandType.PASS_ACTION),
     )
     assert player_a_pass_action_state.phase == Phase.ACTION
     player_b_pass_action_state = session.apply_command(
-        command=Command(actor=player_b, command_type=CommandType.PASS_ACTION),
+        command=Command(actor=player_b.name, command_type=CommandType.PASS_ACTION),
     )
     assert player_b_pass_action_state.phase == Phase.STATUS

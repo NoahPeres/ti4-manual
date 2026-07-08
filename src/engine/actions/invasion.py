@@ -48,7 +48,7 @@ class ResolveBombardmentEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.use_ability_for_player(
-            player=previous_state.active_player,
+            player_name=previous_state.active_player.name,
             ability=Ability.BOMBARDMENT,
         )  # TODO: Implement actual bombardment resolution logic.
 
@@ -68,14 +68,14 @@ class ResolveBombardmentCommandRule(CommandRule[Command]):
                 info="Cannot use bombardment outside of bombardment window.",
             )
         if not state.player_may_resolve_bombardment_in_system(
-            player=state.active_player,
+            player_name=state.active_player.name,
             system_id=state.get_active_system().id,
         ):
             return ValidationResult(
                 is_valid=False,
                 info="No valid targets for bombardment in active system.",
             )
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can use bombardment.")
         return ValidationResult(is_valid=True)
 
@@ -110,7 +110,7 @@ class PassBombardmentCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Cannot pass bombardment outside of bombardment window.",
             )
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(is_valid=False, info="Only active player can pass bombardment.")
         return ValidationResult(is_valid=True)
 
@@ -137,7 +137,7 @@ class PassBombardmentEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.pass_on_window_for_player(
-            player=previous_state.active_player,
+            player_name=previous_state.active_player.name,
             window=Window.TACTICAL_ACTION_BOMBARDMENT,
         )
 
@@ -150,7 +150,7 @@ class CloseBombardmentWindowEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         if not state.player_may_resolve_bombardment_in_system(
-            player=state.active_player,
+            player_name=state.active_player.name,
             system_id=state.get_active_system().id,
         ):
             return [CloseWindowEvent(window=Window.TACTICAL_ACTION_BOMBARDMENT)]
@@ -198,7 +198,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
             return []
         return [
             CommitGroundForceCommand(
-                actor=state.active_player,
+                actor=state.active_player.name,
                 command_type=CommandType.COMMIT_GROUND_FORCE,
                 ground_force_id=i,
                 to_planet_id=j,
@@ -218,7 +218,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
         state: GameState,
         command: CommitGroundForceCommand,
     ) -> ValidationResult:
-        if state.active_player != command.actor:
+        if state.active_player.name != command.actor:
             return ValidationResult(
                 is_valid=False,
                 info="Only active player can commit ground forces.",
@@ -229,7 +229,7 @@ class CommitGroundForceCommandRule(CommandRule[CommitGroundForceCommand]):
                 info="Can only commit ground forces during invasion step of tactical action.",
             )
         ground_force = state.get_ground_force_from_id(command.ground_force_id)
-        if ground_force.owner_name != command.actor.name:
+        if ground_force.owner_name != command.actor:
             return ValidationResult(
                 is_valid=False,
                 info="Can only commit ground forces you control.",

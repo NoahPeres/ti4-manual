@@ -192,7 +192,7 @@ def make_session(
     )
 
 
-def activate_command(actor: Player, system_id: int) -> ActivateCommand:
+def activate_command(actor: str, system_id: int) -> ActivateCommand:
     return ActivateCommand(
         actor=actor,
         command_type=CommandType.INITIATE_TACTICAL_ACTION,
@@ -201,7 +201,7 @@ def activate_command(actor: Player, system_id: int) -> ActivateCommand:
 
 
 def move_command(
-    actor: Player,
+    actor: str,
     ship_id: int,
     to_system_id: int,
     transported_unit_ids: frozenset[int] = frozenset(),
@@ -244,13 +244,13 @@ def make_movement_session(units: frozenset[Unit], galaxy: Galaxy | None = None) 
     )
 
 
-def action_command(actor: Player, command_type: CommandType) -> Command:
+def action_command(actor: str, command_type: CommandType) -> Command:
     return Command(actor=actor, command_type=command_type)
 
 
 def end_movement(session: GameSession, state: GameState) -> GameState:
     return session.apply_command(
-        command=action_command(state.active_player, CommandType.END_MOVEMENT),
+        command=action_command(state.active_player.name, CommandType.END_MOVEMENT),
     )
 
 
@@ -258,11 +258,11 @@ def resolve_space_cannon(session: GameSession, state: GameState) -> GameState:
     for player in state.players:
         assert state.active_system is not None
         if state.player_may_resolve_space_cannon_in_system(
-            player=player,
+            player_name=player.name,
             system_id=state.active_system.id,
         ):
             state = session.apply_command(
-                command=action_command(player, CommandType.USE_SPACE_CANNON),
+                command=action_command(player.name, CommandType.USE_SPACE_CANNON),
             )
     return state
 
@@ -271,7 +271,7 @@ def pass_space_cannon_window(session: GameSession, state: GameState) -> GameStat
     assert state.active_system is not None
     for player in state.players:
         state = session.apply_command(
-            command=action_command(player, CommandType.PASS_SPACE_CANNON),
+            command=action_command(player.name, CommandType.PASS_SPACE_CANNON),
         )
     return state
 
@@ -283,7 +283,7 @@ def begin_invasion(session: GameSession, state: GameState) -> GameState:
 def pass_bombardment_window(session: GameSession, state: GameState) -> GameState:
     assert state.active_system is not None
     return session.apply_command(
-        command=action_command(state.active_player, CommandType.PASS_BOMBARDMENT),
+        command=action_command(state.active_player.name, CommandType.PASS_BOMBARDMENT),
     )
 
 
