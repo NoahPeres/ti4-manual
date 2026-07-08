@@ -1930,20 +1930,6 @@ def test_78_8_return_to_annouce_retreats_step_if_ships_remaining_after_retreat_s
     assert session.current_state.turn_context.get_space_combat_context().round_number > 1
 
 
-def _continue_to_next_round(session: GameSession) -> None:
-    if session.current_state.window_context.is_window_active(
-        Window.END_OF_SPACE_COMBAT_ROUND,
-    ):
-        for player in session.current_state.players:
-            if player.name in ("A", "B"):
-                session.apply_command(
-                    command=Command(
-                        actor=player.name,
-                        command_type=CommandType.PASS_END_OF_COMBAT_ROUND,
-                    ),
-                )
-
-
 def _get_combatant_count(state: GameState, system_id: int) -> int:
     attacker_ships = state.get_ships_in_system(system_id, player_name="A")
     defender_ships = state.get_ships_in_system(system_id, player_name="B")
