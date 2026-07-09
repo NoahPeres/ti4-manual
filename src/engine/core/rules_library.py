@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 from src.engine.actions import invasion, movement, production, space_combat, tactical_action
 from src.engine.turns import end_turn, pass_action
+from src.engine.units import sustain_damage
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -26,6 +27,7 @@ MODULES_WITH_RULES: Sequence[RulesModule] = [
         space_combat,
         invasion,
         production,
+        sustain_damage,
     ]
 ]
 

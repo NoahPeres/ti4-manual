@@ -1121,47 +1121,6 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
         )
 
 
-class SustainDamageCommandRule(CommandRule[Command]):
-    def __repr__(self) -> str:
-        return "SustainDamageCommandRule"
-
-    @staticmethod
-    def handles_command_types() -> set[CommandType]:
-        return {CommandType.USE_SUSTAIN_DAMAGE}
-
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
-            return ValidationResult(
-                is_valid=False,
-                info="This is not your assign hits window.",
-            )
-        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
-            return ValidationResult(
-                is_valid=False,
-                info="Can only use SUSTAIN DAMAGE before assigning hits.",
-            )
-        # TODO: Proper sustain damage logic
-        return ValidationResult(is_valid=True)
-
-    def derive_events(
-        self,
-        state: GameState,
-        command: Command,
-        engine_context: EngineContext,
-    ) -> Sequence[Event]:
-        del state, command, engine_context
-        return []
-
-    @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
-            return []
-        return make_command_candidates_for_all_players(
-            state=state,
-            command_rule=SustainDamageCommandRule,
-        )
-
-
 @dataclass(frozen=True)
 class RetreatShipCommand(Command):
     ship_id: int
@@ -1651,7 +1610,6 @@ def get_command_rules() -> list[
         AnnounceRetreatCommandRule(),
         MakeCombatRollsCommandRule(),
         PassBeforeAssignHitsCommandRule(),
-        SustainDamageCommandRule(),
         RetreatShipCommandRule(),
         EndRetreatCommandRule(),
         ChoosePoolToRemoveCommandTokenCommandRule(),

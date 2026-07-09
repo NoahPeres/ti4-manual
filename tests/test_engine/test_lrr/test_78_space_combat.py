@@ -1,12 +1,12 @@
 from dataclasses import dataclass, replace
 from itertools import product
-from typing import TYPE_CHECKING, Callable, Iterable, Literal
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from src.driver.game_driver import GameDriver, OptionalCommandPolicy, PriorityPolicy
+from src.driver.game_driver import GameDriver
 from src.engine.actions.space_combat import (
     AssignHitCommand,
     CombatRoll,
@@ -16,7 +16,6 @@ from src.engine.actions.space_combat import (
     RollDiceForUnitEvent,
 )
 from src.engine.core.command import Command, CommandType
-from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.event import Event
 from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
@@ -34,11 +33,20 @@ from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
     CENTRE_RING_OF_SYSTEMS,
+    FixedDiceRoller,
+    RepeatingDiceRoller,
     grant_all_units_unique_ids,
+    make_announce_retreat_step_combat_state,
     make_basic_session_from_players,
     make_player,
+    make_roll_dice_step_state,
+    make_start_of_space_combat_state,
     make_tactical_action_movement_state,
     pass_space_cannon_window,
+)
+from tests.test_engine.test_lrr.session_driver_policies import (
+    AssignHitInOrder,
+    make_dumb_space_combat_agent,
 )
 
 if TYPE_CHECKING:
@@ -235,81 +243,6 @@ def test_78_2_a_start_of_first_combat_round_and_start_of_combat_are_the_same_win
         Window.START_OF_FIRST_ROUND_OF_SPACE_COMBAT,
     )
     assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT)
-
-
-def make_start_of_space_combat_state(
-    initial_state: GameState | None = None,
-    dice_roller: DiceRoller | None = None,
-) -> GameSession:
-    player_a = make_player(
-        name="A",
-    )
-    player_b = make_player(
-        name="B",
-    )
-
-    session = make_basic_session_from_players(
-        players=(player_a, player_b),
-        initial_state=initial_state
-        or make_tactical_action_movement_state(
-            active_system_id=0,
-            units=frozenset(
-                {
-                    make_unit_with_id(
-                        unit_id=1,
-                        owner_name="A",
-                        kind=ShipKind.DESTROYER,
-                        system_id=0,
-                    ),
-                    make_unit_with_id(
-                        unit_id=2,
-                        owner_name="B",
-                        kind=ShipKind.DESTROYER,
-                        system_id=0,
-                    ),
-                    make_unit_with_id(
-                        unit_id=3,
-                        owner_name="A",
-                        kind=ShipKind.DESTROYER,
-                        system_id=1,
-                    ),
-                    make_unit_with_id(
-                        unit_id=4,
-                        owner_name="B",
-                        kind=ShipKind.DESTROYER,
-                        system_id=2,
-                    ),
-                },
-            ),
-            players=(player_a, player_b),
-            systems=CENTRE_RING_OF_SYSTEMS,
-        ),
-        dice_roller=dice_roller,
-    )
-    session.apply_command(
-        command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
-    )
-    pass_space_cannon_window(session=session, state=session.current_state)
-    return session
-
-
-def make_announce_retreat_step_combat_state(
-    initial_state: GameState | None = None,
-    dice_roller: DiceRoller | None = None,
-) -> GameSession:
-    session = make_start_of_space_combat_state(initial_state, dice_roller)
-    player_a = session.current_state.get_player("A")
-    player_b = session.current_state.get_player("B")
-    for player in session.current_state.players:
-        session.apply_command(
-            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
-        )
-    for player in (player_a, player_b):
-        session.apply_command(
-            Command(actor=player.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
-        )
-    assert len(session.failure_history) == 0
-    return session
 
 
 class DestroyPlayersShipsInActiveSystem(Event):
@@ -783,66 +716,6 @@ def test_78_4_c_player_cannot_retreat_without_adjacent_system(
         state=session.current_state,
         command=Command(actor=attacker, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
     ).success
-
-
-def make_roll_dice_step_state(
-    units: frozenset[Unit],
-    systems: Galaxy | None = None,
-    dice_roller: DiceRoller | None = None,
-    players: tuple[Player, ...] | None = None,
-) -> GameSession:
-    if players is None:
-        players = (
-            make_player(
-                "A",
-                command_sheet=CommandSheet.make_from_int(
-                    player_name="A",
-                    tactic=2,
-                    fleet=3,
-                    strategy=2,
-                    reinforcements=8,
-                ),
-            ),
-            make_player("B"),
-        )
-    session = make_announce_retreat_step_combat_state(
-        initial_state=make_tactical_action_movement_state(
-            active_system_id=0,
-            units=units,
-            players=players,
-            systems=systems
-            or Galaxy(
-                {
-                    System(
-                        id=0,
-                        command_tokens=(CommandToken(player_name="A"),),
-                        coordinates=HexCoord(0, 0),
-                        planets=frozenset({Planet(0)}),
-                    ),
-                },
-            ),
-        ),
-        dice_roller=dice_roller,
-    )
-    assert (
-        session.current_state.turn_context.get_space_combat_context().step
-        == SpaceCombatStep.ANNOUNCE_RETREATS
-    )
-    defender = session.current_state.turn_context.get_space_combat_context().defender
-    attacker = session.current_state.turn_context.get_space_combat_context().attacker
-    for player in defender, attacker:
-        session.apply_command(
-            command=Command(actor=player, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
-        )
-    return session
-
-
-class FixedDiceRoller(DiceRoller):
-    def __init__(self, value: int) -> None:
-        self.value = value
-
-    def roll(self, num_dice: int) -> list[int]:
-        return [self.value] * num_dice
 
 
 @given(
@@ -1936,26 +1809,6 @@ def _get_combatant_count(state: GameState, system_id: int) -> int:
     return sum([len(attacker_ships) > 0, len(defender_ships) > 0])
 
 
-def dumb_command_picker(commands: list[Command]) -> Command:
-    sorted_commands = sorted(commands, key=lambda command: "use" in command.command_type.value)
-    return sorted_commands[0]
-
-
-class RepeatingDiceRoller(DiceRoller):
-    """Dice roller that cycles through provided values."""
-
-    def __init__(self, values: list[int]) -> None:
-        self.values = values if values else [5]
-        self.call_count = 0
-
-    def roll(self, num_dice: int) -> list[int]:
-        result: list[int] = []
-        for _ in range(num_dice):
-            result.append(self.values[self.call_count % len(self.values)])
-            self.call_count += 1
-        return result
-
-
 @settings(deadline=None)
 @given(
     attacker_ship_types=st.lists(
@@ -2050,101 +1903,6 @@ def test_78_9_10_space_combat_only_ends_when_there_are_fewer_than_2_players_ship
             assert len(remaining_ships_owners) == 0
 
 
-class DoCommandIfOnlyOneLegal(OptionalCommandPolicy):
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        legal_commands_list = list(legal_commands)
-        if len(legal_commands_list) == 1:
-            return legal_commands_list[0]
-        return None
-
-
-class PassOnSustainDamage(OptionalCommandPolicy):
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        for command in legal_commands:
-            if command.command_type == CommandType.PASS_BEFORE_ASSIGN_HITS:
-                return command
-        return None
-
-
-class SelectFirstLegalCommand(OptionalCommandPolicy):
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        for command in legal_commands:
-            return command
-        return None
-
-
-class SelectPlayerPriority(OptionalCommandPolicy):
-    def __init__(self, priority: list[str]) -> None:
-        self.player_priority = priority
-
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        legal_commands = list(legal_commands)
-        for name in self.player_priority:
-            commands = [command for command in legal_commands if command.actor == name]
-            if len(commands) == 1:
-                return commands[0]
-        return None
-
-
-class AssignHitInOrder(OptionalCommandPolicy):
-    def __init__(self, order_function: Callable[[list[int]], int]) -> None:
-        self.order_function = order_function
-
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        commands = [
-            command
-            for command in legal_commands
-            if command.command_type == CommandType.ASSIGN_HIT
-            and isinstance(command, AssignHitCommand)
-        ]
-        if len(commands) == 0:
-            return None
-        selected_unit_id = self.order_function([command.unit_id for command in commands])
-        return [command for command in commands if command.unit_id == selected_unit_id][0]
-
-
-DEFAULT_PRIORITIES: list[OptionalCommandPolicy] = [
-    DoCommandIfOnlyOneLegal(),
-    PassOnSustainDamage(),
-    SelectPlayerPriority(["A", "B"]),
-    AssignHitInOrder(min),
-]
-
-
-def make_dumb_space_combat_agent(
-    additional_policies: list[OptionalCommandPolicy],
-    *,
-    select_first_legal_command: bool = False,
-) -> PriorityPolicy:
-    policies = DEFAULT_PRIORITIES + additional_policies
-    if select_first_legal_command:
-        policies.append(SelectFirstLegalCommand())
-    return PriorityPolicy(sub_policies=policies)
-
-
-class AssignHitsInOrder(OptionalCommandPolicy):
-    def __init__(self, unit_ids: list[int]) -> None:
-        self.unit_ids = unit_ids
-
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        legal_commands_list = list(legal_commands)
-        for unit_id in self.unit_ids:
-            for command in legal_commands_list:
-                if (
-                    isinstance(command, AssignHitCommand)
-                    and command.unit_id == unit_id
-                    and command.command_type == CommandType.ASSIGN_HIT
-                ):
-                    return command
-        return None
-
-
 def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     units = frozenset(
         {
@@ -2191,7 +1949,7 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     space_combat_context = session.current_state.turn_context.get_space_combat_context()
     attacker = space_combat_context.attacker
     defender = space_combat_context.defender
-    driver = GameDriver(policy=make_dumb_space_combat_agent([AssignHitsInOrder([0, 1])]))
+    driver = GameDriver(policy=make_dumb_space_combat_agent([AssignHitInOrder(min)]))
     session = driver.play_until(
         session=session,
         stop_condition=lambda state: state.window_context.is_window_active(
@@ -2216,7 +1974,7 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
     ).success  # Not in the system
     driver = GameDriver(
         policy=make_dumb_space_combat_agent(
-            [AssignHitsInOrder([2, 3])],
+            [AssignHitInOrder(min)],
             select_first_legal_command=True,
         ),
     )
