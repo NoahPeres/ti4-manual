@@ -7,18 +7,36 @@ from src.engine.core.command import (
     CommandType,
     ValidationResult,
 )
+from src.engine.core.event import Event
 from src.engine.core.game_state import GameState, Window
+from src.engine.units.units import UnitAbility
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from src.engine.core.event import Event, EventRule
+    from src.engine.core.event import EventRule
     from src.engine.core.game_engine import EngineContext
 
 
 @dataclass(frozen=True)
 class SustainDamageCommand(Command):
     unit_id: int
+
+
+class SustainDamageEvent(Event):
+    def __init__(self, unit_id: int) -> None:
+        self.unit_id = unit_id
+
+    def apply(self, previous_state: GameState) -> GameState:
+        new_unit = previous_state.get_unit_from_id(self.unit_id).set_is_damaged(is_damaged=True)
+        return previous_state.set_space_combat_context(
+            previous_state.turn_context.get_space_combat_context().cancel_hit(
+                player_name=new_unit.owner_name,
+            ),
+        ).replace_unit(new_unit)
+
+    def __repr__(self) -> str:
+        return f"SustainDamageEvent:{self.unit_id}"
 
 
 class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
@@ -29,7 +47,11 @@ class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
     def handles_command_types() -> set[CommandType]:
         return {CommandType.USE_SUSTAIN_DAMAGE}
 
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
+    def validate_legality(
+        self,
+        state: GameState,
+        command: SustainDamageCommand,
+    ) -> ValidationResult:
         if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
             return ValidationResult(
                 is_valid=False,
@@ -40,17 +62,29 @@ class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
                 is_valid=False,
                 info="Can only use SUSTAIN DAMAGE before assigning hits.",
             )
-        # TODO: Proper sustain damage logic
+        unit = state.get_unit_from_id(unit_id=command.unit_id)
+        if UnitAbility.SUSTAIN_DAMAGE not in unit.stats.unit_abilities:
+            return ValidationResult(
+                is_valid=False,
+                info="Unit does not have the SUSTAIN DAMAGE ability.",
+            )
+        if unit.owner_name != command.actor:
+            return ValidationResult(
+                is_valid=False,
+                info="You cannot use abilities for units which aren't yours.",
+            )
+        if unit.is_damaged:
+            return ValidationResult(is_valid=False, info="Unit is already damaged.")
         return ValidationResult(is_valid=True)
 
     def derive_events(
         self,
         state: GameState,
-        command: Command,
+        command: SustainDamageCommand,
         engine_context: EngineContext,
     ) -> Sequence[Event]:
-        del state, command, engine_context
-        return []
+        del state, engine_context
+        return [SustainDamageEvent(unit_id=command.unit_id)]
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[SustainDamageCommand]:
@@ -67,6 +101,7 @@ class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
                 system_id=state.get_active_system().id,
                 player_name=player.name,
             )
+            if UnitAbility.SUSTAIN_DAMAGE in unit.stats.unit_abilities
         ]
 
 

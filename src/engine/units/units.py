@@ -18,6 +18,13 @@ class GroundForceKind(StrEnum):
     MECH = "mech"
 
 
+class UnitAbility(StrEnum):
+    SPACE_CANNON = "space_cannon"
+    BOMBARDMENT = "bombardment"
+    ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
+    SUSTAIN_DAMAGE = "sustain_damage"
+
+
 class InvalidUnitKindError(ValueError):
     def __init__(self, kind: str) -> None:
         super().__init__(f"Invalid unit kind: {kind}")
@@ -46,6 +53,7 @@ class UnitStats:
     move: int | None = None
     capacity: int | None = None
     burst_icons: int | None = None
+    unit_abilities: frozenset[UnitAbility] = frozenset()
 
     def __post_init__(self) -> None:
         if self.burst_icons is not None and self.burst_icons <= 0:
@@ -79,12 +87,16 @@ class Unit(Protocol):
     def is_in_reinforcements(self) -> bool: ...
     @property
     def is_in_space_area(self) -> bool: ...
+    @property
+    def is_damaged(self) -> bool: ...
 
     def set_system_id(self, new_system_id: int | None) -> Unit: ...
 
     def cast_to_ship(self) -> Ship: ...
 
     def cast_to_ground_force(self) -> GroundForce: ...
+
+    def set_is_damaged(self, *, is_damaged: bool) -> Unit: ...
 
 
 class NotAShipError(TypeError):
@@ -104,6 +116,7 @@ class Ship:
     stats: UnitStats
     system_id: int | None
     kind: ShipKind
+    is_damaged: bool = False
 
     @property
     def is_transportable(self) -> bool:
@@ -136,6 +149,9 @@ class Ship:
             raise NotAGroundForceError(self.__repr__())
         raise NotImplementedError
 
+    def set_is_damaged(self, *, is_damaged: bool) -> Ship:
+        return replace(self, is_damaged=is_damaged)
+
 
 @dataclass(frozen=True)
 class GroundForce:
@@ -145,6 +161,7 @@ class GroundForce:
     system_id: int | None
     kind: GroundForceKind
     planet_id: int | None = None
+    is_damaged: bool = False
 
     @property
     def is_transportable(self) -> bool:
@@ -180,17 +197,43 @@ class GroundForce:
     def cast_to_ground_force(self) -> GroundForce:
         return self
 
+    def set_is_damaged(self, *, is_damaged: bool) -> GroundForce:
+        return replace(self, is_damaged=is_damaged)
+
 
 unit_stats_lookup: dict[UnitKind, UnitStats] = {
     ShipKind.DESTROYER: UnitStats(cost=1, combat=9, move=2),
     ShipKind.FIGHTER: UnitStats(cost=1, combat=9),
-    ShipKind.DREADNOUGHT: UnitStats(cost=4, combat=5, move=1, capacity=1),
+    ShipKind.DREADNOUGHT: UnitStats(
+        cost=4,
+        combat=5,
+        move=1,
+        capacity=1,
+        unit_abilities=frozenset({UnitAbility.SUSTAIN_DAMAGE}),
+    ),
     ShipKind.CARRIER: UnitStats(cost=3, combat=9, move=1, capacity=4),
     ShipKind.CRUISER: UnitStats(cost=2, combat=7, move=2),
-    ShipKind.FLAGSHIP: UnitStats(cost=8, combat=7, move=1, capacity=3),
-    ShipKind.WAR_SUN: UnitStats(cost=8, combat=9, move=2, capacity=4, burst_icons=3),
+    ShipKind.FLAGSHIP: UnitStats(
+        cost=8,
+        combat=7,
+        move=1,
+        capacity=3,
+        unit_abilities=frozenset({UnitAbility.SUSTAIN_DAMAGE}),
+    ),
+    ShipKind.WAR_SUN: UnitStats(
+        cost=8,
+        combat=9,
+        move=2,
+        capacity=4,
+        burst_icons=3,
+        unit_abilities=frozenset({UnitAbility.SUSTAIN_DAMAGE}),
+    ),
     GroundForceKind.INFANTRY: UnitStats(cost=1, combat=8),
-    GroundForceKind.MECH: UnitStats(cost=2, combat=6),
+    GroundForceKind.MECH: UnitStats(
+        cost=2,
+        combat=6,
+        unit_abilities=frozenset({UnitAbility.SUSTAIN_DAMAGE}),
+    ),
 }
 
 

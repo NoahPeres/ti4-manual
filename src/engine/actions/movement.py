@@ -12,11 +12,11 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
-    Ability,
     GameState,
     Move,
     SpaceCombatStep,
     TacticalActionStep,
+    UnitAbility,
     Window,
 )
 from src.engine.core.system import System, calculate_move_distance
@@ -81,7 +81,7 @@ class ResolveSpaceCannonOffenseEvent(Event):
         # TODO actually implement space cannon here
         return previous_state.use_ability_for_player(
             player_name=self.player_name,
-            ability=Ability.SPACE_CANNON,
+            ability=UnitAbility.SPACE_CANNON,
         )
 
 
@@ -159,7 +159,10 @@ class PassSpaceCannonOffenseCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info=f"{command.actor} has already passed on space cannon.",
             )
-        if state.player_has_resolved_ability_in_current_window(command.actor, Ability.SPACE_CANNON):
+        if state.player_has_resolved_ability_in_current_window(
+            command.actor,
+            UnitAbility.SPACE_CANNON,
+        ):
             return ValidationResult(
                 is_valid=False,
                 info=f"{command.actor} has already used space cannon.",

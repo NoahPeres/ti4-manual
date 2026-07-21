@@ -28,9 +28,15 @@ Damage” ability to cancel up to two hits instead of one.
 
 """
 
-from src.driver.game_driver import GameDriver
+from typing import TYPE_CHECKING, Iterable
+
+from hypothesis import given
+from hypothesis import strategies as st
+
+from src.driver.game_driver import GameDriver, OptionalCommandPolicy
 from src.engine.actions.movement import Window
-from src.engine.core.command import CommandType
+from src.engine.core.command import Command, CommandType
+from src.engine.core.game_state import GameState
 from src.engine.units.sustain_damage import SustainDamageCommand
 from src.engine.units.units import ShipKind, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
@@ -38,6 +44,9 @@ from tests.test_engine.test_lrr.common import (
     make_roll_dice_step_state,
 )
 from tests.test_engine.test_lrr.session_driver_policies import make_dumb_space_combat_agent
+
+if TYPE_CHECKING:
+    from src.engine.core.game_state import GameState
 
 
 def test_87_sustain_damage_usable_before_assigning_hits() -> None:
@@ -75,3 +84,77 @@ def test_87_sustain_damage_usable_before_assigning_hits() -> None:
             unit_id=0,
         ),
     ).success
+
+
+class UseSustainDamage(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        sustain_damage_commands = [
+            command
+            for command in legal_commands
+            if command.command_type == CommandType.USE_SUSTAIN_DAMAGE
+        ]
+        if len(sustain_damage_commands) == 0:
+            return None
+        return sustain_damage_commands[0]
+
+
+class DoNotRetreat(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        if any(command.command_type == CommandType.ANNOUNCE_RETREAT for command in legal_commands):
+            return [
+                command
+                for command in legal_commands
+                if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT
+            ][0]
+        return None
+
+
+always_use_sustain_if_able = make_dumb_space_combat_agent(
+    additional_policies=[UseSustainDamage(), DoNotRetreat()],
+    select_first_legal_command=True,
+)
+
+
+@given(
+    n_friendly_ships=st.integers(min_value=1, max_value=5),
+    n_enemy_ships=st.integers(min_value=1, max_value=5),
+)
+def test_87_1_each_use_cancels_one_hit(n_friendly_ships: int, n_enemy_ships: int) -> None:
+    session = make_roll_dice_step_state(
+        units=frozenset(
+            {
+                make_unit_with_id(
+                    unit_id=i,
+                    owner_name="A",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                )
+                for i in range(n_friendly_ships)
+            }
+            | {
+                make_unit_with_id(
+                    unit_id=n_friendly_ships + j,
+                    owner_name="B",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                )
+                for j in range(n_enemy_ships)
+            },
+        ),
+        dice_roller=FixedDiceRoller(value=10),
+    )
+    driver = GameDriver(always_use_sustain_if_able)
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.END_OF_SPACE_COMBAT_ROUND,
+        ),
+    )
+    n_destroyed_ships = max(n_enemy_ships - n_friendly_ships, 0)  # all ships score 1 hit
+    n_remaining_ships = max(n_friendly_ships - n_destroyed_ships, 0)
+    assert (
+        len(session.current_state.get_ships_in_system(system_id=0, player_name="A"))
+        == n_remaining_ships
+    )

@@ -81,7 +81,7 @@ def make_dumb_space_combat_agent(
     *,
     select_first_legal_command: bool = False,
 ) -> PriorityPolicy:
-    policies = DEFAULT_PRIORITIES + additional_policies
+    policies = additional_policies + DEFAULT_PRIORITIES
     if select_first_legal_command:
         policies.append(SelectFirstLegalCommand())
     return PriorityPolicy(sub_policies=policies)

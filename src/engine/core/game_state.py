@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Self
 
 from src.engine.core.system import System
 from src.engine.tokens import CommandToken
+from src.engine.units.units import GroundForce, Ship, Unit, UnitAbility
 
 if TYPE_CHECKING:
     from src.engine.core.player import CommandTokenPool, Player
-    from src.engine.units.units import GroundForce, Ship, Unit
 
 
 class TacticalActionStep(StrEnum):
@@ -89,6 +89,8 @@ class SpaceCombatContext:
     defender_hits_assigned: int = 0
     current_hits_assignee: str | None = None
     winner: str | None = None
+    attacker_hits_canceled: int = 0
+    defender_hits_canceled: int = 0
 
     def assign_hit(self, unit_id: int, player_name: str) -> Self:
         participant = self.get_participant_by_player(player_name)
@@ -161,9 +163,19 @@ class SpaceCombatContext:
         participant = self.get_participant_by_player(player_name)
         match participant:
             case SpaceCombatParticipant.ATTACKER:
-                return self.total_hits_for_player(self.defender) - self.attacker_hits_assigned
+                return max(
+                    self.total_hits_for_player(self.defender)
+                    - self.attacker_hits_assigned
+                    - self.attacker_hits_canceled,
+                    0,
+                )
             case SpaceCombatParticipant.DEFENDER:
-                return self.total_hits_for_player(self.attacker) - self.defender_hits_assigned
+                return max(
+                    self.total_hits_for_player(self.attacker)
+                    - self.defender_hits_assigned
+                    - self.defender_hits_canceled,
+                    0,
+                )
 
     def set_hits_assignee(self, player_name: str | None) -> Self:
         return replace(self, current_hits_assignee=player_name)
@@ -184,6 +196,14 @@ class SpaceCombatContext:
 
     def set_winner(self, winner: str | None) -> Self:
         return replace(self, winner=winner)
+
+    def cancel_hit(self, player_name: str) -> Self:
+        participant = self.get_participant_by_player(player_name)
+        match participant:
+            case SpaceCombatParticipant.ATTACKER:
+                return replace(self, attacker_hits_canceled=self.attacker_hits_canceled + 1)
+            case SpaceCombatParticipant.DEFENDER:
+                return replace(self, defender_hits_canceled=self.defender_hits_canceled + 1)
 
 
 class Phase(StrEnum):
@@ -207,12 +227,6 @@ class InvasionCommit:
     to_planet_id: int
 
 
-class Ability(StrEnum):
-    SPACE_CANNON = "space_cannon"
-    BOMBARDMENT = "bombardment"
-    ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
-
-
 class Window(StrEnum):
     AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
     TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
@@ -231,10 +245,10 @@ class Window(StrEnum):
 @dataclass(frozen=True)
 class PlayerAbilityTracker:
     player_name: str
-    abilities_used: frozenset[Ability]
+    abilities_used: frozenset[UnitAbility]
     passed_windows: frozenset[Window] = field(default_factory=frozenset[Window])
 
-    def use_ability(self, ability: Ability) -> PlayerAbilityTracker:
+    def use_ability(self, ability: UnitAbility) -> PlayerAbilityTracker:
         return replace(self, abilities_used=frozenset(self.abilities_used | {ability}))
 
     def pass_on_window(self, window: Window) -> PlayerAbilityTracker:
@@ -286,9 +300,12 @@ class WindowContext:
         for tracker in self.player_abilities_in_window:
             if tracker.player_name == player_name:
                 return tracker
-        return PlayerAbilityTracker(player_name=player_name, abilities_used=frozenset[Ability]())
+        return PlayerAbilityTracker(
+            player_name=player_name,
+            abilities_used=frozenset[UnitAbility](),
+        )
 
-    def use_ability_for_player(self, player_name: str, ability: Ability) -> Self:
+    def use_ability_for_player(self, player_name: str, ability: UnitAbility) -> Self:
         tracker = self.get_or_create_ability_tracker(player_name)
         return replace(
             self,
@@ -423,6 +440,14 @@ class GameState:
         except StopIteration:
             raise ComponentNotFoundError(f"unit:{unit_id}") from None
 
+    def replace_unit(self, new_unit: Unit) -> Self:
+        return replace(
+            self,
+            units=frozenset(
+                {unit for unit in self.units if unit.unit_id != new_unit.unit_id} | {new_unit},
+            ),
+        )
+
     def get_ship_from_id(self, ship_id: int) -> Ship:
         return self.get_unit_from_id(unit_id=ship_id).cast_to_ship()
 
@@ -432,7 +457,7 @@ class GameState:
     def is_active_player(self, player_name: str) -> bool:
         return self.active_player.name == player_name
 
-    def use_ability_for_player(self, player_name: str, ability: Ability) -> Self:
+    def use_ability_for_player(self, player_name: str, ability: UnitAbility) -> Self:
         return replace(
             self,
             window_context=self.window_context.use_ability_for_player(player_name, ability),
@@ -449,7 +474,7 @@ class GameState:
         del system_id
         return not self.player_has_resolved_ability_in_current_window(
             player_name=player_name,
-            ability=Ability.SPACE_CANNON,
+            ability=UnitAbility.SPACE_CANNON,
         ) and not self.window_context.player_has_passed_on_window(
             player_name=player_name,
             window=Window.AFTER_MOVE_SHIPS_STEP,
@@ -460,7 +485,7 @@ class GameState:
         del system_id
         return not self.player_has_resolved_ability_in_current_window(
             player_name=player_name,
-            ability=Ability.BOMBARDMENT,
+            ability=UnitAbility.BOMBARDMENT,
         ) and not self.window_context.player_has_passed_on_window(
             player_name=player_name,
             window=Window.TACTICAL_ACTION_BOMBARDMENT,
@@ -474,7 +499,7 @@ class GameState:
     def player_has_resolved_ability_in_current_window(
         self,
         player_name: str,
-        ability: Ability,
+        ability: UnitAbility,
     ) -> bool:
         return (
             ability
@@ -537,7 +562,7 @@ class GameState:
         del system_id
         return not self.player_has_resolved_ability_in_current_window(
             player_name=player_name,
-            ability=Ability.ANTI_FIGHTER_BARRAGE,
+            ability=UnitAbility.ANTI_FIGHTER_BARRAGE,
         ) and not self.window_context.player_has_passed_on_window(
             player_name=player_name,
             window=Window.ANTI_FIGHTER_BARRAGE,

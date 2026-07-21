@@ -22,7 +22,6 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
-    Ability,
     CombatRoll,
     GameState,
     InvalidRetreatError,
@@ -30,10 +29,12 @@ from src.engine.core.game_state import (
     SpaceCombatParticipant,
     SpaceCombatStep,
     TacticalActionStep,
+    UnitAbility,
     Window,
 )
 from src.engine.core.player import CommandTokenPool
 from src.engine.core.windows import CloseWindowEvent
+from src.engine.units.sustain_damage import SustainDamageEvent
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -153,7 +154,7 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent}
+        return {DestroyUnitEvent, SustainDamageEvent}
 
 
 def has_finished_assigning_hits(state: GameState, player_name: str) -> bool:
@@ -182,7 +183,7 @@ class AdvanceToRetreatStepEventRule(EventRule):
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent, AdvanceToAssignHitsStepEvent}
+        return {DestroyUnitEvent, AdvanceToAssignHitsStepEvent, SustainDamageEvent}
 
 
 class EndSpaceCombatEventRule(EventRule):
@@ -193,6 +194,7 @@ class EndSpaceCombatEventRule(EventRule):
             EndAntiFighterBarrageStepEvent,
             ResolvePendingRetreatsEvent,
             AssignHitEvent,
+            SustainDamageEvent,
         }
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
@@ -434,7 +436,7 @@ class ResolveAntiFighterBarrageEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.use_ability_for_player(
             player_name=self.player_name,
-            ability=Ability.ANTI_FIGHTER_BARRAGE,
+            ability=UnitAbility.ANTI_FIGHTER_BARRAGE,
         )
 
     def __repr__(self) -> str:
@@ -918,7 +920,7 @@ class SetHitsAssigneeEvent(Event):
         )
 
     def __repr__(self) -> str:
-        return "SetHitsAssigneeEvent"
+        return f"SetHitsAssigneeEvent:{self.player_name}"
 
 
 class OpenBeforeAssignHitsWindowEventRule(EventRule):
@@ -1595,6 +1597,22 @@ class RecheckCapacityAfterRemovalEventRule(EventRule):
         return {RemoveUnitEvent}
 
 
+class CloseBeforeAssignHitsWindowIfAllHitsCancelledEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        context = state.turn_context.get_space_combat_context()
+        if context.current_hits_assignee is not None and has_finished_assigning_hits(
+            state=state,
+            player_name=context.current_hits_assignee,
+        ):
+            return [CloseWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
+        return []
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {SustainDamageEvent}
+
+
 def get_command_rules() -> list[
     CommandRule[AssignHitCommand]
     | CommandRule[RetreatShipCommand]
@@ -1637,4 +1655,5 @@ def get_event_rules() -> list[EventRule]:
         CheckCapacityAfterCombatEventRule(),
         RecheckCapacityAfterRemovalEventRule(),
         ClearCombatStateAfterCombatEventRule(),
+        CloseBeforeAssignHitsWindowIfAllHitsCancelledEventRule(),
     ]
