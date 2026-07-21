@@ -158,3 +158,40 @@ def test_87_1_each_use_cancels_one_hit(n_friendly_ships: int, n_enemy_ships: int
         len(session.current_state.get_ships_in_system(system_id=0, player_name="A"))
         == n_remaining_ships
     )
+
+
+def test_87_2_3_damaged_unit_cannot_sustain_damage() -> None:
+    session = make_roll_dice_step_state(
+        units=frozenset(
+            {
+                make_unit_with_id(
+                    unit_id=0,
+                    owner_name="A",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                ).set_is_damaged(is_damaged=True),
+                make_unit_with_id(
+                    unit_id=1,
+                    owner_name="B",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                ),
+            },
+        ),
+        dice_roller=FixedDiceRoller(value=10),
+    )
+    driver = GameDriver(always_use_sustain_if_able)
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.BEFORE_ASSIGNING_HITS,
+        ),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=SustainDamageCommand(
+            actor="A",
+            command_type=CommandType.USE_SUSTAIN_DAMAGE,
+            unit_id=0,
+        ),
+    ).success
