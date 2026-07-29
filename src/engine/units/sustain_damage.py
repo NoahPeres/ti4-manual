@@ -29,10 +29,8 @@ class SustainDamageEvent(Event):
 
     def apply(self, previous_state: GameState) -> GameState:
         new_unit = previous_state.get_unit_from_id(self.unit_id).set_is_damaged(is_damaged=True)
-        return previous_state.set_space_combat_context(
-            previous_state.turn_context.get_space_combat_context().cancel_hit(
-                player_name=new_unit.owner_name,
-            ),
+        return previous_state.set_hit_context(
+            previous_state.turn_context.get_hit_assignment_context().cancel_hit(),
         ).replace_unit(new_unit)
 
     def __repr__(self) -> str:
@@ -52,7 +50,7 @@ class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
         state: GameState,
         command: SustainDamageCommand,
     ) -> ValidationResult:
-        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
+        if command.actor != state.turn_context.get_hit_assignment_context().assignee:
             return ValidationResult(
                 is_valid=False,
                 info="This is not your assign hits window.",

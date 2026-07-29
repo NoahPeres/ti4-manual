@@ -36,7 +36,7 @@ from hypothesis import strategies as st
 from src.driver.game_driver import GameDriver, OptionalCommandPolicy
 from src.engine.actions.movement import Window
 from src.engine.core.command import Command, CommandType
-from src.engine.core.game_state import GameState
+from src.engine.core.game_state import GameState, SpaceCombatStep
 from src.engine.units.sustain_damage import SustainDamageCommand
 from src.engine.units.units import ShipKind, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
@@ -99,6 +99,19 @@ class UseSustainDamage(OptionalCommandPolicy):
         return sustain_damage_commands[0]
 
 
+class UseAFB(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        sustain_damage_commands = [
+            command
+            for command in legal_commands
+            if command.command_type == CommandType.USE_ANTI_FIGHTER_BARRAGE
+        ]
+        if len(sustain_damage_commands) == 0:
+            return None
+        return sustain_damage_commands[0]
+
+
 class DoNotRetreat(OptionalCommandPolicy):
     def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
         del state
@@ -112,7 +125,7 @@ class DoNotRetreat(OptionalCommandPolicy):
 
 
 always_use_sustain_if_able = make_dumb_space_combat_agent(
-    additional_policies=[UseSustainDamage(), DoNotRetreat()],
+    additional_policies=[UseSustainDamage(), DoNotRetreat(), UseAFB()],
     select_first_legal_command=True,
 )
 
@@ -186,6 +199,53 @@ def test_87_2_3_damaged_unit_cannot_sustain_damage() -> None:
         stop_condition=lambda state: state.window_context.is_window_active(
             Window.BEFORE_ASSIGNING_HITS,
         ),
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=SustainDamageCommand(
+            actor="A",
+            command_type=CommandType.USE_SUSTAIN_DAMAGE,
+            unit_id=0,
+        ),
+    ).success
+
+
+def test_87_4_can_only_sustain_if_hit_eligible() -> None:
+    session = make_roll_dice_step_state(
+        units=frozenset(
+            {
+                make_unit_with_id(
+                    unit_id=0,
+                    owner_name="A",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                ),
+                make_unit_with_id(
+                    unit_id=0,
+                    owner_name="A",
+                    kind=ShipKind.FIGHTER,
+                    system_id=0,
+                ),
+                make_unit_with_id(
+                    unit_id=1,
+                    owner_name="B",
+                    kind=ShipKind.DESTROYER,
+                    system_id=0,
+                ),
+            },
+        ),
+        dice_roller=FixedDiceRoller(value=10),  # AFB hits on a 9
+    )
+    driver = GameDriver(always_use_sustain_if_able)
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.BEFORE_ASSIGNING_HITS,
+        ),
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
     )
     assert not session.engine.apply_command(
         state=session.current_state,

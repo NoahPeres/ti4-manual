@@ -21,6 +21,7 @@ from src.engine.core.game_engine import CommandResult
 from src.engine.core.game_state import (
     Galaxy,
     GameState,
+    HitAssignmentContext,
     SpaceCombatContext,
     SpaceCombatStep,
     System,
@@ -1741,15 +1742,14 @@ def test_78_7_d_retreating_player_must_place_command_token_even_if_none_in_reinf
     assert session.current_state.galaxy.get_system(1).has_command_token(context.defender)
 
 
-def _is_context_clear_for_start_of_combat_round(context: SpaceCombatContext) -> bool:
+def _is_context_clear_for_start_of_combat_round(
+    combat_context: SpaceCombatContext, hit_context: HitAssignmentContext | None
+) -> bool:
     return (
-        len(context.assigned_hits) == 0
-        and len(context.attacker_combat_rolls) == 0
-        and context.attacker_hits_assigned == 0
-        and context.current_hits_assignee is None
-        and context.declared_retreat_name is None
-        and len(context.defender_combat_rolls) == 0
-        and context.defender_hits_assigned == 0
+        len(combat_context.attacker_combat_rolls) == 0
+        and hit_context is None
+        and combat_context.declared_retreat_name is None
+        and len(combat_context.defender_combat_rolls) == 0
     )
 
 
@@ -1797,7 +1797,8 @@ def test_78_8_return_to_annouce_retreats_step_if_ships_remaining_after_retreat_s
         == SpaceCombatStep.ANNOUNCE_RETREATS
     )
     assert _is_context_clear_for_start_of_combat_round(
-        session.current_state.turn_context.get_space_combat_context(),
+        combat_context=session.current_state.turn_context.get_space_combat_context(),
+        hit_context=session.current_state.turn_context.hit_assignment_context,
     )
     assert session.current_state.window_context.is_window_active(Window.START_OF_SPACE_COMBAT_ROUND)
     assert session.current_state.turn_context.get_space_combat_context().round_number > 1
