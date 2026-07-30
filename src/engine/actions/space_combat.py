@@ -1137,7 +1137,10 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
+        if (
+            state.turn_context.space_combat_context is None
+            or state.turn_context.hit_assignment_context is None
+        ):
             return []
         return make_command_candidates_for_all_players(
             state=state,
