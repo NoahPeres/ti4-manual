@@ -1095,7 +1095,10 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[AssignHitCommand]:
-        if state.turn_context.space_combat_context is None:
+        if (
+            state.turn_context.space_combat_context
+            or state.turn_context.hit_assignment_context is None
+        ):
             return []
         return AssignHitCommandRule._candidate_commands_for_state(state=state)
 
