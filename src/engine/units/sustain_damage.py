@@ -9,7 +9,7 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event
 from src.engine.core.game_state import GameState, Window
-from src.engine.units.units import UnitAbility
+from src.engine.units.units import Unit, UnitAbility
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -45,28 +45,14 @@ class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
     def handles_command_types() -> set[CommandType]:
         return {CommandType.USE_SUSTAIN_DAMAGE}
 
-    def validate_legality(
-        self,
-        state: GameState,
-        command: SustainDamageCommand,
-    ) -> ValidationResult:
-        if command.actor != state.turn_context.get_hit_assignment_context().assignee:
-            return ValidationResult(
-                is_valid=False,
-                info="This is not your assign hits window.",
-            )
-        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
-            return ValidationResult(
-                is_valid=False,
-                info="Can only use SUSTAIN DAMAGE before assigning hits.",
-            )
-        unit = state.get_unit_from_id(unit_id=command.unit_id)
+    @staticmethod
+    def _validate_unit_can_sustain_damage(unit: Unit, actor: str) -> ValidationResult:
         if UnitAbility.SUSTAIN_DAMAGE not in unit.stats.unit_abilities:
             return ValidationResult(
                 is_valid=False,
                 info="Unit does not have the SUSTAIN DAMAGE ability.",
             )
-        if unit.owner_name != command.actor:
+        if unit.owner_name != actor:
             return ValidationResult(
                 is_valid=False,
                 info="You cannot use abilities for units which aren't yours.",
@@ -74,6 +60,30 @@ class SustainDamageCommandRule(CommandRule[SustainDamageCommand]):
         if unit.is_damaged:
             return ValidationResult(is_valid=False, info="Unit is already damaged.")
         return ValidationResult(is_valid=True)
+
+    def validate_legality(
+        self,
+        state: GameState,
+        command: SustainDamageCommand,
+    ) -> ValidationResult:
+        hit_context = state.turn_context.get_hit_assignment_context()
+        unit = state.get_unit_from_id(unit_id=command.unit_id)
+        if command.actor != hit_context.assignee:
+            return ValidationResult(
+                is_valid=False,
+                info="This is not your assign hits window.",
+            )
+        if not hit_context.is_valid_target(unit):
+            return ValidationResult(
+                is_valid=False,
+                info="This unit is not a valid target for this hit.",
+            )
+        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
+            return ValidationResult(
+                is_valid=False,
+                info="Can only use SUSTAIN DAMAGE before assigning hits.",
+            )
+        return self._validate_unit_can_sustain_damage(unit=unit, actor=command.actor)
 
     def derive_events(
         self,

@@ -30,6 +30,7 @@ Damage” ability to cancel up to two hits instead of one.
 
 from typing import TYPE_CHECKING, Iterable
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -208,3 +209,61 @@ def test_87_2_3_damaged_unit_cannot_sustain_damage() -> None:
             unit_id=0,
         ),
     ).success
+
+
+@pytest.mark.skip(reason="Blocked by AFB implementation")
+def test_87_4_can_only_sustain_if_hit_eligible() -> None:
+    session = make_roll_dice_step_state(
+        units=frozenset(
+            {
+                make_unit_with_id(
+                    unit_id=0,
+                    owner_name="A",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                ),
+                make_unit_with_id(
+                    unit_id=0,
+                    owner_name="A",
+                    kind=ShipKind.FIGHTER,
+                    system_id=0,
+                ),
+                make_unit_with_id(
+                    unit_id=1,
+                    owner_name="B",
+                    kind=ShipKind.DESTROYER,
+                    system_id=0,
+                ),
+            },
+        ),
+        dice_roller=FixedDiceRoller(value=10),  # AFB hits on a 9
+    )
+    driver = GameDriver(always_use_sustain_if_able)
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.BEFORE_ASSIGNING_HITS,
+        ),
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANTI_FIGHTER_BARRAGE
+    )
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=SustainDamageCommand(
+            actor="A",
+            command_type=CommandType.USE_SUSTAIN_DAMAGE,
+            unit_id=0,
+        ),
+    ).success
+
+
+@pytest.mark.skip(reason="No such abilities exist")
+def test_87_5_cannot_cancel_destruction() -> None:
+    pass
+
+
+@pytest.mark.skip(reason="Faction specific")
+def test_87_6_non_euclidean_shielding() -> None:
+    pass

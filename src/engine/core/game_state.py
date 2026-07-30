@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Self
 
 from src.engine.core.system import System
 from src.engine.tokens import CommandToken
-from src.engine.units.units import GroundForce, Ship, ShipKind, Unit, UnitAbility, UnitKind
+from src.engine.units.units import GroundForce, Ship, ShipKind, Unit, UnitAbility
 
 if TYPE_CHECKING:
     from src.engine.core.player import CommandTokenPool, Player
@@ -91,6 +91,15 @@ class HitAssignmentContext:
 
     def cancel_hit(self) -> Self:
         return replace(self, hits_remaining=self.hits_remaining - 1)
+
+    def is_valid_target(self, unit: Unit) -> bool:
+        match self.source:
+            case HitSource.ANTI_FIGTHER_BARRAGE:
+                return unit.kind == ShipKind.FIGHTER
+            case HitSource.SPACE_CANNON_OFFENSE:
+                return unit.is_ship
+            case HitSource.SPACE_COMBAT:
+                return unit.is_ship
 
 
 @dataclass(frozen=True)
@@ -630,31 +639,6 @@ class GameState:
             raise ComponentNotFoundError("selected_unit_id")
         return self.selected_unit_id
 
-    def eligible_targets_for_hit(self, hit_properties: HitProperties) -> set[int]:
-        match hit_properties.source:
-            case HitSource.SPACE_CANNON:
-                return {
-                    unit.unit_id
-                    for unit in self.units
-                    if unit.owner_name == hit_properties.target_player_name
-                    and unit.system_id == self.get_active_system().id
-                }
-            case HitSource.SPACE_COMBAT:
-                return {
-                    unit.unit_id
-                    for unit in self.units
-                    if unit.owner_name == hit_properties.target_player_name
-                    and unit.system_id == self.get_active_system().id
-                }
-            case HitSource.ANTI_FIGTHER_BARRAGE:
-                return {
-                    unit.unit_id
-                    for unit in self.units
-                    if unit.owner_name == hit_properties.target_player_name
-                    and unit.system_id == self.get_active_system().id
-                    and unit.kind == ShipKind.FIGHTER
-                }
-
     def reset_combat_round(self) -> Self:
         combat_context = self.turn_context.get_space_combat_context()
         new_combat_context = replace(
@@ -668,13 +652,7 @@ class GameState:
         return self.set_hit_context(None).set_space_combat_context(new_combat_context)
 
 
-@dataclass
-class HitProperties:
-    source: HitSource
-    target_player_name: str
-
-
 class HitSource(StrEnum):
     SPACE_COMBAT = "space_combat"
-    SPACE_CANNON = "space_cannon"
+    SPACE_CANNON_OFFENSE = "space_cannon_offense"
     ANTI_FIGTHER_BARRAGE = "anti_fighter_barrage"
