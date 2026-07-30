@@ -22,6 +22,7 @@ from src.engine.core.game_state import (
     Galaxy,
     GameState,
     HitAssignmentContext,
+    HitSource,
     SpaceCombatContext,
     SpaceCombatStep,
     System,
@@ -316,6 +317,12 @@ def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window()
                 session.current_state.close_all_windows(),
                 turn_context=replace(
                     session.current_state.turn_context,
+                    hit_assignment_context=HitAssignmentContext(
+                        assignee=player_b.name,
+                        source=HitSource.SPACE_COMBAT,
+                        hits_remaining=1,
+                        assigned_hits=frozenset(),
+                    ),
                     space_combat_context=assigned_hits,
                 ),
             ),
@@ -1743,7 +1750,8 @@ def test_78_7_d_retreating_player_must_place_command_token_even_if_none_in_reinf
 
 
 def _is_context_clear_for_start_of_combat_round(
-    combat_context: SpaceCombatContext, hit_context: HitAssignmentContext | None
+    combat_context: SpaceCombatContext,
+    hit_context: HitAssignmentContext | None,
 ) -> bool:
     return (
         len(combat_context.attacker_combat_rolls) == 0

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Self
 
 from src.engine.core.system import System
 from src.engine.tokens import CommandToken
-from src.engine.units.units import GroundForce, Ship, ShipKind, Unit, UnitAbility
+from src.engine.units.units import GroundForce, Ship, ShipKind, Unit, UnitAbility, UnitKind
 
 if TYPE_CHECKING:
     from src.engine.core.player import CommandTokenPool, Player
@@ -659,6 +659,7 @@ class GameState:
         combat_context = self.turn_context.get_space_combat_context()
         new_combat_context = replace(
             combat_context,
+            step=SpaceCombatStep.ANNOUNCE_RETREATS,
             round_number=combat_context.round_number + 1,
             retreat_declaration=RetreatDeclaration(),
             attacker_combat_rolls=(),

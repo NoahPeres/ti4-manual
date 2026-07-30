@@ -138,7 +138,8 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
         if combat_context.step != SpaceCombatStep.ASSIGN_HITS:
             return []
         if hit_context.assignee == combat_context.attacker and has_finished_assigning_hits(
-            state, combat_context.attacker
+            state,
+            combat_context.attacker,
         ):
             return [
                 SetHitsAssigneeEvent(
@@ -148,8 +149,9 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
                 if needs_to_assign_hits(state, combat_context.defender)
                 else SetHitsAssigneeEvent(player_name=None, num_hits=0),
             ]
-        if hit_context.assignee == combat_context.defender and not has_finished_assigning_hits(
-            state, combat_context.defender
+        if hit_context.assignee == combat_context.defender and has_finished_assigning_hits(
+            state,
+            combat_context.defender,
         ):
             return [SetHitsAssigneeEvent(player_name=None, num_hits=0)]
         return []
@@ -160,7 +162,18 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
 
 
 def has_finished_assigning_hits(state: GameState, player_name: str) -> bool:
-    hit_context = state.turn_context.get_hit_assignment_context()
+    if not needs_to_assign_hits(state=state, player_name=player_name):
+        return True
+    hit_context = state.turn_context.hit_assignment_context
+    if hit_context is None:
+        msg = f"Hit assignment required for {player_name}, but no hit assignment context exists."
+        raise RuntimeError(msg)
+    if hit_context.assignee != player_name:
+        combat_context = state.turn_context.get_space_combat_context()
+        return (
+            player_name == combat_context.attacker
+            and hit_context.assignee == combat_context.defender
+        )
     return (hit_context.hits_remaining == 0) or not state.get_ships_in_system(
         system_id=state.get_active_system().id,
         player_name=player_name,
@@ -175,24 +188,35 @@ def needs_to_assign_hits(state: GameState, player_name: str) -> bool:
 
 class AdvanceToRetreatStepEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        del event
         combat_context = state.turn_context.get_space_combat_context()
-        if all(
-            (
-                not needs_to_assign_hits(state=state, player_name=player_name)
-                or has_finished_assigning_hits(state=state, player_name=player_name)
-            )
-            and state.get_ships_in_system(state.get_active_system().id, player_name)
+        both_players_have_ships = all(
+            state.get_ships_in_system(state.get_active_system().id, player_name)
             for player_name in [combat_context.attacker, combat_context.defender]
-        ):
-            if combat_context.declared_retreat_name is None:
-                return [OpenWindowEvent(Window.END_OF_SPACE_COMBAT_ROUND)]
-            return [AdvanceToRetreatStepEvent()]
-        return []
+        )
+        should_advance = False
+        if isinstance(event, SetHitsAssigneeEvent):
+            should_advance = event.player_name is None and both_players_have_ships
+        else:
+            should_advance = both_players_have_ships and all(
+                (
+                    not needs_to_assign_hits(state=state, player_name=player_name)
+                    or has_finished_assigning_hits(state=state, player_name=player_name)
+                )
+                for player_name in [combat_context.attacker, combat_context.defender]
+            )
+        if not should_advance:
+            return []
+        if combat_context.declared_retreat_name is None:
+            return [OpenWindowEvent(Window.END_OF_SPACE_COMBAT_ROUND)]
+        return [AdvanceToRetreatStepEvent()]
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent, AdvanceToAssignHitsStepEvent, SustainDamageEvent}
+        return {
+            DestroyUnitEvent,
+            SetHitsAssigneeEvent,
+            SustainDamageEvent,
+        }
 
 
 class EndSpaceCombatEventRule(EventRule):
@@ -210,6 +234,7 @@ class EndSpaceCombatEventRule(EventRule):
         del event
         if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
             return []
+        combat_context = state.turn_context.get_space_combat_context()
         if (
             len(
                 {
@@ -218,7 +243,13 @@ class EndSpaceCombatEventRule(EventRule):
                 },
             )
             <= 1
-        ) and state.turn_context.hit_assignment_context is None:
+        ) and all(
+            (
+                not needs_to_assign_hits(state=state, player_name=player_name)
+                or has_finished_assigning_hits(state=state, player_name=player_name)
+            )
+            for player_name in [combat_context.attacker, combat_context.defender]
+        ):
             return [
                 AssignCombatWinnerEvent(),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
@@ -925,7 +956,7 @@ class SetHitsAssigneeEvent(Event):
                 assigned_hits=frozenset({}),
             )
             if self.player_name is not None
-            else None
+            else None,
         )
 
     def __repr__(self) -> str:
@@ -1056,7 +1087,8 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         if not legal_assignment_result.is_valid:
             return legal_assignment_result
         if not needs_to_assign_hits(
-            state=state, player_name=command.actor
+            state=state,
+            player_name=command.actor,
         ) or has_finished_assigning_hits(state=state, player_name=command.actor):
             return ValidationResult(is_valid=False, info="No more hits to assign.")
         if (
@@ -1096,7 +1128,7 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
     @staticmethod
     def candidate_commands(state: GameState) -> list[AssignHitCommand]:
         if (
-            state.turn_context.space_combat_context
+            state.turn_context.space_combat_context is None
             or state.turn_context.hit_assignment_context is None
         ):
             return []
