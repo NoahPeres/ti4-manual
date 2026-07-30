@@ -390,6 +390,7 @@ def make_start_of_space_combat_state(
         command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
     )
     pass_space_cannon_window(session=session, state=session.current_state)
+    assert len(session.failure_history) == 0
     return session
 
 
