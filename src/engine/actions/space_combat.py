@@ -145,10 +145,10 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
                     player_name=combat_context.defender,
                     num_hits=combat_context.total_hits_for_player(combat_context.defender),
                 )
-                if not has_finished_assigning_hits(state, combat_context.defender)
+                if needs_to_assign_hits(state, combat_context.defender)
                 else SetHitsAssigneeEvent(player_name=None, num_hits=0),
             ]
-        if hit_context.assignee == combat_context.defender and has_finished_assigning_hits(
+        if hit_context.assignee == combat_context.defender and not has_finished_assigning_hits(
             state, combat_context.defender
         ):
             return [SetHitsAssigneeEvent(player_name=None, num_hits=0)]
@@ -167,12 +167,21 @@ def has_finished_assigning_hits(state: GameState, player_name: str) -> bool:
     )
 
 
+def needs_to_assign_hits(state: GameState, player_name: str) -> bool:
+    combat = state.turn_context.get_space_combat_context()
+    hits = combat.total_hits_for_player(combat.opponent_of(player_name))
+    return hits > 0 and bool(state.get_ships_in_system(state.get_active_system().id, player_name))
+
+
 class AdvanceToRetreatStepEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         combat_context = state.turn_context.get_space_combat_context()
         if all(
-            has_finished_assigning_hits(state=state, player_name=player_name)
+            (
+                not needs_to_assign_hits(state=state, player_name=player_name)
+                or has_finished_assigning_hits(state=state, player_name=player_name)
+            )
             and state.get_ships_in_system(state.get_active_system().id, player_name)
             for player_name in [combat_context.attacker, combat_context.defender]
         ):
@@ -201,7 +210,6 @@ class EndSpaceCombatEventRule(EventRule):
         del event
         if state.turn_context.tactical_action_step != TacticalActionStep.SPACE_COMBAT:
             return []
-        combat_context = state.turn_context.get_space_combat_context()
         if (
             len(
                 {
@@ -210,12 +218,7 @@ class EndSpaceCombatEventRule(EventRule):
                 },
             )
             <= 1
-        ) and all(
-            [
-                has_finished_assigning_hits(state, combat_context.attacker),
-                has_finished_assigning_hits(state, combat_context.defender),
-            ],
-        ):
+        ) and state.turn_context.hit_assignment_context is None:
             return [
                 AssignCombatWinnerEvent(),
                 OpenWindowEvent(window=Window.END_OF_SPACE_COMBAT),
@@ -975,17 +978,17 @@ class AdvanceToAssignHitsStepEventRule(EventRule):
             }
             - defender_rolled_unit_ids
         ):
-            initial_assignee = None
-            if not has_finished_assigning_hits(state, combat_context.attacker):
-                initial_assignee = combat_context.attacker
-            elif not has_finished_assigning_hits(state, combat_context.defender):
-                initial_assignee = combat_context.defender
+            initial_assignee, combat_roller = None, ""
+            if needs_to_assign_hits(state, combat_context.attacker):
+                initial_assignee, combat_roller = combat_context.attacker, combat_context.defender
+            elif needs_to_assign_hits(state, combat_context.defender):
+                initial_assignee, combat_roller = combat_context.defender, combat_context.attacker
 
             return [
                 AdvanceToAssignHitsStepEvent(),
                 SetHitsAssigneeEvent(
                     initial_assignee,
-                    num_hits=combat_context.total_hits_for_player(initial_assignee)
+                    num_hits=combat_context.total_hits_for_player(combat_roller)
                     if initial_assignee is not None
                     else 0,
                 ),
@@ -1052,11 +1055,17 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         legal_assignment_result = _legal_hit_assignment(state=state, command=command)
         if not legal_assignment_result.is_valid:
             return legal_assignment_result
-        if has_finished_assigning_hits(state=state, player_name=command.actor):
+        if not needs_to_assign_hits(
+            state=state, player_name=command.actor
+        ) or has_finished_assigning_hits(state=state, player_name=command.actor):
             return ValidationResult(is_valid=False, info="No more hits to assign.")
-        if command.actor == space_combat_context.defender and not has_finished_assigning_hits(
-            state=state,
-            player_name=space_combat_context.attacker,
+        if (
+            command.actor == space_combat_context.defender
+            and needs_to_assign_hits(state=state, player_name=space_combat_context.attacker)
+            and not has_finished_assigning_hits(
+                state=state,
+                player_name=space_combat_context.attacker,
+            )
         ):
             return ValidationResult(is_valid=False, info="Attacker must assign all hits first.")
         return ValidationResult(is_valid=True)
@@ -1479,9 +1488,7 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
 
 class ResetCombatToAnnounceRetreatStepEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.set_space_combat_context(
-            previous_state.turn_context.get_space_combat_context().reset_combat_round(),
-        )
+        return previous_state.reset_combat_round()
 
     def __repr__(self) -> str:
         return "ResetCombatToAnnounceRetreatStepEvent"

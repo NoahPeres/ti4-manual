@@ -147,6 +147,8 @@ class GameEngine:
             )
 
         self.check_invariants(new_state)
+        if len(resolved_events) == 0:
+            raise RuntimeError
         return CommandResult(new_state=new_state, success=True, events=resolved_events)
 
     def check_invariants(self, state: GameState) -> None:

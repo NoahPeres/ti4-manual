@@ -162,22 +162,15 @@ class SpaceCombatContext:
                     defender_combat_rolls=(*self.defender_combat_rolls, combat_roll),
                 )
 
-    def reset_combat_round(self) -> Self:
-        return replace(
-            self,
-            assigned_hits=frozenset({}),
-            attacker_combat_rolls=(),
-            attacker_hits_assigned=0,
-            current_hits_assignee=None,
-            defender_combat_rolls=(),
-            defender_hits_assigned=0,
-            retreat_declaration=RetreatDeclaration(),
-            round_number=self.round_number + 1,
-            step=SpaceCombatStep.ANNOUNCE_RETREATS,
-        )
-
     def set_winner(self, winner: str | None) -> Self:
         return replace(self, winner=winner)
+
+    def opponent_of(self, player: str) -> str:
+        if self.attacker == player:
+            return self.defender
+        if self.defender == player:
+            return self.attacker
+        raise ValueError
 
 
 class Phase(StrEnum):
@@ -661,6 +654,17 @@ class GameState:
                     and unit.system_id == self.get_active_system().id
                     and unit.kind == ShipKind.FIGHTER
                 }
+
+    def reset_combat_round(self) -> Self:
+        combat_context = self.turn_context.get_space_combat_context()
+        new_combat_context = replace(
+            combat_context,
+            round_number=combat_context.round_number + 1,
+            retreat_declaration=RetreatDeclaration(),
+            attacker_combat_rolls=(),
+            defender_combat_rolls=(),
+        )
+        return self.set_hit_context(None).set_space_combat_context(new_combat_context)
 
 
 @dataclass
