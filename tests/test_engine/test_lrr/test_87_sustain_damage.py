@@ -155,13 +155,13 @@ def test_87_4_can_only_sustain_if_hit_eligible() -> None:
                     system_id=0,
                 ),
                 make_unit_with_id(
-                    unit_id=0,
+                    unit_id=1,
                     owner_name="A",
                     kind=ShipKind.FIGHTER,
                     system_id=0,
                 ),
                 make_unit_with_id(
-                    unit_id=1,
+                    unit_id=2,
                     owner_name="B",
                     kind=ShipKind.DESTROYER,
                     system_id=0,

@@ -116,10 +116,14 @@ class UseAFB(OptionalCommandPolicy):
 class DoNotRetreat(OptionalCommandPolicy):
     def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
         del state
-        if any(command.command_type == CommandType.ANNOUNCE_RETREAT for command in legal_commands):
-            return [
-                command
-                for command in legal_commands
-                if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT
-            ][0]
+        commands = tuple(legal_commands)
+        if any(command.command_type == CommandType.ANNOUNCE_RETREAT for command in commands):
+            return next(
+                (
+                    command
+                    for command in commands
+                    if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT
+                ),
+                None,
+            )
         return None
