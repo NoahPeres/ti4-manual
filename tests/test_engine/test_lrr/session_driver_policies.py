@@ -85,3 +85,41 @@ def make_dumb_space_combat_agent(
     if select_first_legal_command:
         policies.append(SelectFirstLegalCommand())
     return PriorityPolicy(sub_policies=policies)
+
+
+class UseSustainDamage(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        sustain_damage_commands = [
+            command
+            for command in legal_commands
+            if command.command_type == CommandType.USE_SUSTAIN_DAMAGE
+        ]
+        if len(sustain_damage_commands) == 0:
+            return None
+        return sustain_damage_commands[0]
+
+
+class UseAFB(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        sustain_damage_commands = [
+            command
+            for command in legal_commands
+            if command.command_type == CommandType.USE_ANTI_FIGHTER_BARRAGE
+        ]
+        if len(sustain_damage_commands) == 0:
+            return None
+        return sustain_damage_commands[0]
+
+
+class DoNotRetreat(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        if any(command.command_type == CommandType.ANNOUNCE_RETREAT for command in legal_commands):
+            return [
+                command
+                for command in legal_commands
+                if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT
+            ][0]
+        return None

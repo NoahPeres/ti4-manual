@@ -1,23 +1,23 @@
-from typing import TYPE_CHECKING, Iterable
-
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.driver.game_driver import GameDriver, OptionalCommandPolicy
+from src.driver.game_driver import GameDriver
 from src.engine.actions.movement import Window
-from src.engine.core.command import Command, CommandType
-from src.engine.core.game_state import GameState, SpaceCombatStep
+from src.engine.core.command import CommandType
+from src.engine.core.game_state import SpaceCombatStep
 from src.engine.units.sustain_damage import SustainDamageCommand
 from src.engine.units.units import ShipKind, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
     FixedDiceRoller,
     make_roll_dice_step_state,
 )
-from tests.test_engine.test_lrr.session_driver_policies import make_dumb_space_combat_agent
-
-if TYPE_CHECKING:
-    from src.engine.core.game_state import GameState
+from tests.test_engine.test_lrr.session_driver_policies import (
+    DoNotRetreat,
+    UseAFB,
+    UseSustainDamage,
+    make_dumb_space_combat_agent,
+)
 
 
 def test_87_sustain_damage_usable_before_assigning_hits() -> None:
@@ -55,44 +55,6 @@ def test_87_sustain_damage_usable_before_assigning_hits() -> None:
             unit_id=0,
         ),
     ).success
-
-
-class UseSustainDamage(OptionalCommandPolicy):
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        sustain_damage_commands = [
-            command
-            for command in legal_commands
-            if command.command_type == CommandType.USE_SUSTAIN_DAMAGE
-        ]
-        if len(sustain_damage_commands) == 0:
-            return None
-        return sustain_damage_commands[0]
-
-
-class UseAFB(OptionalCommandPolicy):
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        sustain_damage_commands = [
-            command
-            for command in legal_commands
-            if command.command_type == CommandType.USE_ANTI_FIGHTER_BARRAGE
-        ]
-        if len(sustain_damage_commands) == 0:
-            return None
-        return sustain_damage_commands[0]
-
-
-class DoNotRetreat(OptionalCommandPolicy):
-    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
-        del state
-        if any(command.command_type == CommandType.ANNOUNCE_RETREAT for command in legal_commands):
-            return [
-                command
-                for command in legal_commands
-                if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT
-            ][0]
-        return None
 
 
 always_use_sustain_if_able = make_dumb_space_combat_agent(
