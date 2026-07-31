@@ -22,18 +22,21 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
-    Ability,
     CombatRoll,
     GameState,
+    HitAssignmentContext,
+    HitSource,
     InvalidRetreatError,
     SpaceCombatContext,
     SpaceCombatParticipant,
     SpaceCombatStep,
     TacticalActionStep,
+    UnitAbility,
     Window,
 )
 from src.engine.core.player import CommandTokenPool
 from src.engine.core.windows import CloseWindowEvent
+from src.engine.units.sustain_damage import SustainDamageEvent
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -131,58 +134,89 @@ class SwitchAssigneeWhenFinishedAssigningEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
         combat_context = state.turn_context.get_space_combat_context()
+        hit_context = state.turn_context.get_hit_assignment_context()
         if combat_context.step != SpaceCombatStep.ASSIGN_HITS:
             return []
-        if (
-            combat_context.current_hits_assignee == combat_context.attacker
-            and has_finished_assigning_hits(state, combat_context.attacker)
+        if hit_context.assignee == combat_context.attacker and has_finished_assigning_hits(
+            state,
+            combat_context.attacker,
         ):
             return [
                 SetHitsAssigneeEvent(
-                    player_name=combat_context.defender
-                    if not has_finished_assigning_hits(state, combat_context.defender)
-                    else None,
-                ),
+                    player_name=combat_context.defender,
+                    num_hits=combat_context.total_hits_for_player(combat_context.defender),
+                )
+                if needs_to_assign_hits(state, combat_context.defender)
+                else SetHitsAssigneeEvent(player_name=None, num_hits=0),
             ]
-        if (
-            combat_context.current_hits_assignee == combat_context.defender
-            and has_finished_assigning_hits(state, combat_context.defender)
+        if hit_context.assignee == combat_context.defender and has_finished_assigning_hits(
+            state,
+            combat_context.defender,
         ):
-            return [SetHitsAssigneeEvent(player_name=None)]
+            return [SetHitsAssigneeEvent(player_name=None, num_hits=0)]
         return []
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent}
+        return {DestroyUnitEvent, SustainDamageEvent}
 
 
 def has_finished_assigning_hits(state: GameState, player_name: str) -> bool:
-    combat_context = state.turn_context.get_space_combat_context()
-    return (
-        combat_context.unassigned_hits_for_player(player_name) == 0
-    ) or not state.get_ships_in_system(
+    if not needs_to_assign_hits(state=state, player_name=player_name):
+        return True
+    hit_context = state.turn_context.hit_assignment_context
+    if hit_context is None:
+        msg = f"Hit assignment required for {player_name}, but no hit assignment context exists."
+        raise RuntimeError(msg)
+    if hit_context.assignee != player_name:
+        combat_context = state.turn_context.get_space_combat_context()
+        return (
+            player_name == combat_context.attacker
+            and hit_context.assignee == combat_context.defender
+        )
+    return (hit_context.hits_remaining == 0) or not state.get_ships_in_system(
         system_id=state.get_active_system().id,
         player_name=player_name,
     )
 
 
+def needs_to_assign_hits(state: GameState, player_name: str) -> bool:
+    combat = state.turn_context.get_space_combat_context()
+    hits = combat.total_hits_for_player(combat.opponent_of(player_name))
+    return hits > 0 and bool(state.get_ships_in_system(state.get_active_system().id, player_name))
+
+
 class AdvanceToRetreatStepEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
-        del event
         combat_context = state.turn_context.get_space_combat_context()
-        if all(
-            has_finished_assigning_hits(state=state, player_name=player_name)
-            and state.get_ships_in_system(state.get_active_system().id, player_name)
+        both_players_have_ships = all(
+            state.get_ships_in_system(state.get_active_system().id, player_name)
             for player_name in [combat_context.attacker, combat_context.defender]
-        ):
-            if combat_context.declared_retreat_name is None:
-                return [OpenWindowEvent(Window.END_OF_SPACE_COMBAT_ROUND)]
-            return [AdvanceToRetreatStepEvent()]
-        return []
+        )
+        should_advance = False
+        if isinstance(event, SetHitsAssigneeEvent):
+            should_advance = event.player_name is None and both_players_have_ships
+        else:
+            should_advance = both_players_have_ships and all(
+                (
+                    not needs_to_assign_hits(state=state, player_name=player_name)
+                    or has_finished_assigning_hits(state=state, player_name=player_name)
+                )
+                for player_name in [combat_context.attacker, combat_context.defender]
+            )
+        if not should_advance:
+            return []
+        if combat_context.declared_retreat_name is None:
+            return [OpenWindowEvent(Window.END_OF_SPACE_COMBAT_ROUND)]
+        return [AdvanceToRetreatStepEvent()]
 
     @staticmethod
     def handles_event_types() -> set[type[Event]]:
-        return {DestroyUnitEvent, AdvanceToAssignHitsStepEvent}
+        return {
+            DestroyUnitEvent,
+            SetHitsAssigneeEvent,
+            SustainDamageEvent,
+        }
 
 
 class EndSpaceCombatEventRule(EventRule):
@@ -193,6 +227,7 @@ class EndSpaceCombatEventRule(EventRule):
             EndAntiFighterBarrageStepEvent,
             ResolvePendingRetreatsEvent,
             AssignHitEvent,
+            SustainDamageEvent,
         }
 
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
@@ -209,10 +244,11 @@ class EndSpaceCombatEventRule(EventRule):
             )
             <= 1
         ) and all(
-            [
-                has_finished_assigning_hits(state, combat_context.attacker),
-                has_finished_assigning_hits(state, combat_context.defender),
-            ],
+            (
+                not needs_to_assign_hits(state=state, player_name=player_name)
+                or has_finished_assigning_hits(state=state, player_name=player_name)
+            )
+            for player_name in [combat_context.attacker, combat_context.defender]
         ):
             return [
                 AssignCombatWinnerEvent(),
@@ -434,7 +470,7 @@ class ResolveAntiFighterBarrageEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.use_ability_for_player(
             player_name=self.player_name,
-            ability=Ability.ANTI_FIGHTER_BARRAGE,
+            ability=UnitAbility.ANTI_FIGHTER_BARRAGE,
         )
 
     def __repr__(self) -> str:
@@ -907,18 +943,25 @@ class AdvanceToAssignHitsStepEvent(Event):
 
 
 class SetHitsAssigneeEvent(Event):
-    def __init__(self, player_name: str | None) -> None:
+    def __init__(self, player_name: str | None, num_hits: int) -> None:
         self.player_name = player_name
+        self.num_hits = num_hits
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.set_space_combat_context(
-            previous_state.turn_context.get_space_combat_context().set_hits_assignee(
-                self.player_name,
-            ),
+        return previous_state.set_hit_context(
+            HitAssignmentContext(
+                assignee=self.player_name,
+                source=HitSource.SPACE_COMBAT,
+                hits_remaining=self.num_hits,
+                assigned_hits=frozenset({}),
+                system_id=previous_state.get_active_system().id,
+            )
+            if self.player_name is not None
+            else None,
         )
 
     def __repr__(self) -> str:
-        return "SetHitsAssigneeEvent"
+        return f"SetHitsAssigneeEvent:{self.player_name}"
 
 
 class OpenBeforeAssignHitsWindowEventRule(EventRule):
@@ -926,7 +969,7 @@ class OpenBeforeAssignHitsWindowEventRule(EventRule):
         del event
         return (
             [OpenWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
-            if state.turn_context.get_space_combat_context().current_hits_assignee is not None
+            if state.turn_context.hit_assignment_context is not None
             else []
         )
 
@@ -967,13 +1010,21 @@ class AdvanceToAssignHitsStepEventRule(EventRule):
             }
             - defender_rolled_unit_ids
         ):
-            initial_assignee = None
-            if not has_finished_assigning_hits(state, combat_context.attacker):
-                initial_assignee = combat_context.attacker
-            elif not has_finished_assigning_hits(state, combat_context.defender):
-                initial_assignee = combat_context.defender
+            initial_assignee, combat_roller = None, ""
+            if needs_to_assign_hits(state, combat_context.attacker):
+                initial_assignee, combat_roller = combat_context.attacker, combat_context.defender
+            elif needs_to_assign_hits(state, combat_context.defender):
+                initial_assignee, combat_roller = combat_context.defender, combat_context.attacker
 
-            return [AdvanceToAssignHitsStepEvent(), SetHitsAssigneeEvent(initial_assignee)]
+            return [
+                AdvanceToAssignHitsStepEvent(),
+                SetHitsAssigneeEvent(
+                    initial_assignee,
+                    num_hits=combat_context.total_hits_for_player(combat_roller)
+                    if initial_assignee is not None
+                    else 0,
+                ),
+            ]
         return []
 
 
@@ -991,25 +1042,20 @@ class AssignHitEvent(Event):
         return f"AssignHitEvent(unit_id={self.unit_id},player_name={self.player_name})"
 
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.set_space_combat_context(
-            previous_state.turn_context.get_space_combat_context().assign_hit(
+        return previous_state.set_hit_context(
+            previous_state.turn_context.get_hit_assignment_context().assign_hit(
                 unit_id=self.unit_id,
-                player_name=self.player_name,
             ),
         )
 
 
 def _legal_hit_assignment(state: GameState, command: AssignHitCommand) -> ValidationResult:
+    hit_context = state.turn_context.get_hit_assignment_context()
     unit = state.get_unit_from_id(unit_id=command.unit_id)
-    if unit.system_id != state.get_active_system().id:
+    if not hit_context.is_valid_target(unit):
         return ValidationResult(
             is_valid=False,
-            info=f"Ship {unit.unit_id} is not in the active system.",
-        )
-    if not unit.is_ship:
-        return ValidationResult(
-            is_valid=False,
-            info=f"Unit {unit.unit_id} is not a ship, cannot be assigned hits in space combat.",
+            info=f"Unit {unit.unit_id} is not a valid target for this hit.",
         )
     if unit.owner_name != command.actor:
         return ValidationResult(
@@ -1037,11 +1083,18 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
         legal_assignment_result = _legal_hit_assignment(state=state, command=command)
         if not legal_assignment_result.is_valid:
             return legal_assignment_result
-        if has_finished_assigning_hits(state=state, player_name=command.actor):
-            return ValidationResult(is_valid=False, info="No more hits to assign.")
-        if command.actor == space_combat_context.defender and not has_finished_assigning_hits(
+        if not needs_to_assign_hits(
             state=state,
-            player_name=space_combat_context.attacker,
+            player_name=command.actor,
+        ) or has_finished_assigning_hits(state=state, player_name=command.actor):
+            return ValidationResult(is_valid=False, info="No more hits to assign.")
+        if (
+            command.actor == space_combat_context.defender
+            and needs_to_assign_hits(state=state, player_name=space_combat_context.attacker)
+            and not has_finished_assigning_hits(
+                state=state,
+                player_name=space_combat_context.attacker,
+            )
         ):
             return ValidationResult(is_valid=False, info="Attacker must assign all hits first.")
         return ValidationResult(is_valid=True)
@@ -1071,7 +1124,10 @@ class AssignHitCommandRule(CommandRule[AssignHitCommand]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[AssignHitCommand]:
-        if state.turn_context.space_combat_context is None:
+        if (
+            state.turn_context.space_combat_context is None
+            or state.turn_context.hit_assignment_context is None
+        ):
             return []
         return AssignHitCommandRule._candidate_commands_for_state(state=state)
 
@@ -1090,7 +1146,7 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
                 is_valid=False,
                 info="Can only pass before assigning hits during space combat.",
             )
-        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
+        if command.actor != state.turn_context.get_hit_assignment_context().assignee:
             return ValidationResult(
                 is_valid=False,
                 info="This is not your assign hits window to pass.",
@@ -1113,52 +1169,14 @@ class PassBeforeAssignHitsCommandRule(CommandRule[Command]):
 
     @staticmethod
     def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
+        if (
+            state.turn_context.space_combat_context is None
+            or state.turn_context.hit_assignment_context is None
+        ):
             return []
         return make_command_candidates_for_all_players(
             state=state,
             command_rule=PassBeforeAssignHitsCommandRule,
-        )
-
-
-class SustainDamageCommandRule(CommandRule[Command]):
-    def __repr__(self) -> str:
-        return "SustainDamageCommandRule"
-
-    @staticmethod
-    def handles_command_types() -> set[CommandType]:
-        return {CommandType.USE_SUSTAIN_DAMAGE}
-
-    def validate_legality(self, state: GameState, command: Command) -> ValidationResult:
-        if command.actor != state.turn_context.get_space_combat_context().current_hits_assignee:
-            return ValidationResult(
-                is_valid=False,
-                info="This is not your assign hits window.",
-            )
-        if not state.window_context.is_window_active(Window.BEFORE_ASSIGNING_HITS):
-            return ValidationResult(
-                is_valid=False,
-                info="Can only use SUSTAIN DAMAGE before assigning hits.",
-            )
-        # TODO: Proper sustain damage logic
-        return ValidationResult(is_valid=True)
-
-    def derive_events(
-        self,
-        state: GameState,
-        command: Command,
-        engine_context: EngineContext,
-    ) -> Sequence[Event]:
-        del state, command, engine_context
-        return []
-
-    @staticmethod
-    def candidate_commands(state: GameState) -> list[Command]:
-        if state.turn_context.space_combat_context is None:
-            return []
-        return make_command_candidates_for_all_players(
-            state=state,
-            command_rule=SustainDamageCommandRule,
         )
 
 
@@ -1505,9 +1523,7 @@ class ChoosePoolToRemoveCommandTokenCommandRule(CommandRule[RemoveCommandTokenFr
 
 class ResetCombatToAnnounceRetreatStepEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
-        return previous_state.set_space_combat_context(
-            previous_state.turn_context.get_space_combat_context().reset_combat_round(),
-        )
+        return previous_state.reset_combat_round()
 
     def __repr__(self) -> str:
         return "ResetCombatToAnnounceRetreatStepEvent"
@@ -1636,6 +1652,22 @@ class RecheckCapacityAfterRemovalEventRule(EventRule):
         return {RemoveUnitEvent}
 
 
+class CloseBeforeAssignHitsWindowIfAllHitsCancelledEventRule(EventRule):
+    def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
+        del event
+        context = state.turn_context.hit_assignment_context
+        if context is not None and has_finished_assigning_hits(
+            state=state,
+            player_name=context.assignee,
+        ):
+            return [CloseWindowEvent(Window.BEFORE_ASSIGNING_HITS)]
+        return []
+
+    @staticmethod
+    def handles_event_types() -> set[type[Event]]:
+        return {SustainDamageEvent}
+
+
 def get_command_rules() -> list[
     CommandRule[AssignHitCommand]
     | CommandRule[RetreatShipCommand]
@@ -1651,7 +1683,6 @@ def get_command_rules() -> list[
         AnnounceRetreatCommandRule(),
         MakeCombatRollsCommandRule(),
         PassBeforeAssignHitsCommandRule(),
-        SustainDamageCommandRule(),
         RetreatShipCommandRule(),
         EndRetreatCommandRule(),
         ChoosePoolToRemoveCommandTokenCommandRule(),
@@ -1679,4 +1710,5 @@ def get_event_rules() -> list[EventRule]:
         CheckCapacityAfterCombatEventRule(),
         RecheckCapacityAfterRemovalEventRule(),
         ClearCombatStateAfterCombatEventRule(),
+        CloseBeforeAssignHitsWindowIfAllHitsCancelledEventRule(),
     ]

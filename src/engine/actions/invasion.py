@@ -16,11 +16,11 @@ from src.engine.core.command import (
 )
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import (
-    Ability,
     GameState,
     InvalidActiveSystemError,
     InvasionCommit,
     TacticalActionStep,
+    UnitAbility,
     Window,
 )
 from src.engine.core.windows import CloseWindowEvent, OpenWindowEvent
@@ -49,7 +49,7 @@ class ResolveBombardmentEvent(Event):
     def apply(self, previous_state: GameState) -> GameState:
         return previous_state.use_ability_for_player(
             player_name=previous_state.active_player.name,
-            ability=Ability.BOMBARDMENT,
+            ability=UnitAbility.BOMBARDMENT,
         )  # TODO: Implement actual bombardment resolution logic.
 
 

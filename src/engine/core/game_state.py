@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Self
 
 from src.engine.core.system import System
 from src.engine.tokens import CommandToken
+from src.engine.units.units import GroundForce, Ship, ShipKind, Unit, UnitAbility
 
 if TYPE_CHECKING:
     from src.engine.core.player import CommandTokenPool, Player
-    from src.engine.units.units import GroundForce, Ship, Unit
 
 
 class TacticalActionStep(StrEnum):
@@ -76,28 +76,45 @@ class CombatRoll:
 
 
 @dataclass(frozen=True)
+class HitAssignmentContext:
+    assignee: str
+    source: HitSource
+    hits_remaining: int
+    assigned_hits: frozenset[int]
+    system_id: int
+
+    def assign_hit(self, unit_id: int) -> Self:
+        return replace(
+            self,
+            assigned_hits=frozenset(self.assigned_hits | {unit_id}),
+            hits_remaining=self.hits_remaining - 1,
+        )
+
+    def cancel_hit(self) -> Self:
+        return replace(self, hits_remaining=self.hits_remaining - 1)
+
+    def is_valid_target(self, unit: Unit) -> bool:
+        if unit.system_id != self.system_id:
+            return False
+        match self.source:
+            case HitSource.ANTI_FIGTHER_BARRAGE:
+                return unit.kind == ShipKind.FIGHTER
+            case HitSource.SPACE_CANNON_OFFENSE:
+                return unit.is_ship
+            case HitSource.SPACE_COMBAT:
+                return unit.is_ship
+
+
+@dataclass(frozen=True)
 class SpaceCombatContext:
     step: SpaceCombatStep
     round_number: int
     attacker: str
     defender: str
-    assigned_hits: frozenset[int] = field(default_factory=frozenset[int])
     retreat_declaration: RetreatDeclaration = field(default_factory=RetreatDeclaration)
     attacker_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
     defender_combat_rolls: tuple[CombatRoll, ...] = field(default_factory=tuple[CombatRoll, ...])
-    attacker_hits_assigned: int = 0
-    defender_hits_assigned: int = 0
-    current_hits_assignee: str | None = None
     winner: str | None = None
-
-    def assign_hit(self, unit_id: int, player_name: str) -> Self:
-        participant = self.get_participant_by_player(player_name)
-        new = self
-        if participant == SpaceCombatParticipant.ATTACKER:
-            new = replace(self, attacker_hits_assigned=self.attacker_hits_assigned + 1)
-        elif participant == SpaceCombatParticipant.DEFENDER:
-            new = replace(self, defender_hits_assigned=self.defender_hits_assigned + 1)
-        return replace(new, assigned_hits=frozenset(self.assigned_hits | {unit_id}))
 
     def announce_retreat(self, *, player_name: str, is_retreating: bool) -> Self:
         if player_name == self.attacker:
@@ -157,33 +174,15 @@ class SpaceCombatContext:
                     defender_combat_rolls=(*self.defender_combat_rolls, combat_roll),
                 )
 
-    def unassigned_hits_for_player(self, player_name: str) -> int:
-        participant = self.get_participant_by_player(player_name)
-        match participant:
-            case SpaceCombatParticipant.ATTACKER:
-                return self.total_hits_for_player(self.defender) - self.attacker_hits_assigned
-            case SpaceCombatParticipant.DEFENDER:
-                return self.total_hits_for_player(self.attacker) - self.defender_hits_assigned
-
-    def set_hits_assignee(self, player_name: str | None) -> Self:
-        return replace(self, current_hits_assignee=player_name)
-
-    def reset_combat_round(self) -> Self:
-        return replace(
-            self,
-            assigned_hits=frozenset({}),
-            attacker_combat_rolls=(),
-            attacker_hits_assigned=0,
-            current_hits_assignee=None,
-            defender_combat_rolls=(),
-            defender_hits_assigned=0,
-            retreat_declaration=RetreatDeclaration(),
-            round_number=self.round_number + 1,
-            step=SpaceCombatStep.ANNOUNCE_RETREATS,
-        )
-
     def set_winner(self, winner: str | None) -> Self:
         return replace(self, winner=winner)
+
+    def opponent_of(self, player: str) -> str:
+        if self.attacker == player:
+            return self.defender
+        if self.defender == player:
+            return self.attacker
+        raise ValueError
 
 
 class Phase(StrEnum):
@@ -207,12 +206,6 @@ class InvasionCommit:
     to_planet_id: int
 
 
-class Ability(StrEnum):
-    SPACE_CANNON = "space_cannon"
-    BOMBARDMENT = "bombardment"
-    ANTI_FIGHTER_BARRAGE = "anti_fighter_barrage"
-
-
 class Window(StrEnum):
     AFTER_MOVE_SHIPS_STEP = "after_move_ships_step"
     TACTICAL_ACTION_BOMBARDMENT = "tactical_action_bombardment"
@@ -231,10 +224,10 @@ class Window(StrEnum):
 @dataclass(frozen=True)
 class PlayerAbilityTracker:
     player_name: str
-    abilities_used: frozenset[Ability]
+    abilities_used: frozenset[UnitAbility]
     passed_windows: frozenset[Window] = field(default_factory=frozenset[Window])
 
-    def use_ability(self, ability: Ability) -> PlayerAbilityTracker:
+    def use_ability(self, ability: UnitAbility) -> PlayerAbilityTracker:
         return replace(self, abilities_used=frozenset(self.abilities_used | {ability}))
 
     def pass_on_window(self, window: Window) -> PlayerAbilityTracker:
@@ -249,6 +242,7 @@ class TurnContext:
     has_initiated_action: bool
     tactical_action_step: TacticalActionStep | None = None
     space_combat_context: SpaceCombatContext | None = None
+    hit_assignment_context: HitAssignmentContext | None = None
     active_system_id: int | None = None
     retreat_system_id: int | None = None
     pending_moves: frozenset[Move] = field(default_factory=frozenset[Move])
@@ -260,6 +254,11 @@ class TurnContext:
         if self.space_combat_context is None:
             raise ContextNotFoundError("space_combat")
         return self.space_combat_context
+
+    def get_hit_assignment_context(self) -> HitAssignmentContext:
+        if self.hit_assignment_context is None:
+            raise ContextNotFoundError("assign_hit")
+        return self.hit_assignment_context
 
     def get_retreat_system_id(self) -> int:
         if self.retreat_system_id is None:
@@ -286,9 +285,12 @@ class WindowContext:
         for tracker in self.player_abilities_in_window:
             if tracker.player_name == player_name:
                 return tracker
-        return PlayerAbilityTracker(player_name=player_name, abilities_used=frozenset[Ability]())
+        return PlayerAbilityTracker(
+            player_name=player_name,
+            abilities_used=frozenset[UnitAbility](),
+        )
 
-    def use_ability_for_player(self, player_name: str, ability: Ability) -> Self:
+    def use_ability_for_player(self, player_name: str, ability: UnitAbility) -> Self:
         tracker = self.get_or_create_ability_tracker(player_name)
         return replace(
             self,
@@ -423,6 +425,14 @@ class GameState:
         except StopIteration:
             raise ComponentNotFoundError(f"unit:{unit_id}") from None
 
+    def replace_unit(self, new_unit: Unit) -> Self:
+        return replace(
+            self,
+            units=frozenset(
+                {unit for unit in self.units if unit.unit_id != new_unit.unit_id} | {new_unit},
+            ),
+        )
+
     def get_ship_from_id(self, ship_id: int) -> Ship:
         return self.get_unit_from_id(unit_id=ship_id).cast_to_ship()
 
@@ -432,7 +442,7 @@ class GameState:
     def is_active_player(self, player_name: str) -> bool:
         return self.active_player.name == player_name
 
-    def use_ability_for_player(self, player_name: str, ability: Ability) -> Self:
+    def use_ability_for_player(self, player_name: str, ability: UnitAbility) -> Self:
         return replace(
             self,
             window_context=self.window_context.use_ability_for_player(player_name, ability),
@@ -449,7 +459,7 @@ class GameState:
         del system_id
         return not self.player_has_resolved_ability_in_current_window(
             player_name=player_name,
-            ability=Ability.SPACE_CANNON,
+            ability=UnitAbility.SPACE_CANNON,
         ) and not self.window_context.player_has_passed_on_window(
             player_name=player_name,
             window=Window.AFTER_MOVE_SHIPS_STEP,
@@ -460,7 +470,7 @@ class GameState:
         del system_id
         return not self.player_has_resolved_ability_in_current_window(
             player_name=player_name,
-            ability=Ability.BOMBARDMENT,
+            ability=UnitAbility.BOMBARDMENT,
         ) and not self.window_context.player_has_passed_on_window(
             player_name=player_name,
             window=Window.TACTICAL_ACTION_BOMBARDMENT,
@@ -474,7 +484,7 @@ class GameState:
     def player_has_resolved_ability_in_current_window(
         self,
         player_name: str,
-        ability: Ability,
+        ability: UnitAbility,
     ) -> bool:
         return (
             ability
@@ -512,10 +522,16 @@ class GameState:
             turn_context=replace(self.turn_context, space_combat_context=space_combat_context),
         )
 
+    def set_hit_context(self, hit_assignment_context: HitAssignmentContext | None) -> Self:
+        return replace(
+            self,
+            turn_context=replace(self.turn_context, hit_assignment_context=hit_assignment_context),
+        )
+
     def get_pending_assigned_hits(self) -> frozenset[int]:
-        if self.turn_context.space_combat_context is None:
+        if self.turn_context.hit_assignment_context is None:
             return frozenset()
-        return self.turn_context.space_combat_context.assigned_hits
+        return self.turn_context.hit_assignment_context.assigned_hits
 
     def remove_unit(self, unit_id: int) -> Self:
         return replace(
@@ -524,12 +540,15 @@ class GameState:
             | {self.get_unit_from_id(unit_id=unit_id).set_system_id(None)},
         )
 
-    def assign_hit(self, unit_id: int, player_name: str) -> Self:
-        context = self.turn_context.get_space_combat_context()
-        if self.get_current_system(self.get_unit_from_id(unit_id)) is None:
+    def assign_hit(self, unit_id: int) -> Self:
+        context = self.turn_context.get_hit_assignment_context()
+        unit = self.get_unit_from_id(unit_id)
+        if self.get_current_system(unit) is None:
             raise ComponentNotFoundError(str(unit_id))
-        return self.set_space_combat_context(
-            context.assign_hit(unit_id, player_name=player_name),
+        if not context.is_valid_target(unit):
+            raise ComponentNotFoundError(str(unit_id))
+        return self.set_hit_context(
+            context.assign_hit(unit_id),
         ).remove_unit(unit_id)
 
     def player_may_resolve_afb_in_system(self, player_name: str, system_id: int) -> bool:
@@ -537,7 +556,7 @@ class GameState:
         del system_id
         return not self.player_has_resolved_ability_in_current_window(
             player_name=player_name,
-            ability=Ability.ANTI_FIGHTER_BARRAGE,
+            ability=UnitAbility.ANTI_FIGHTER_BARRAGE,
         ) and not self.window_context.player_has_passed_on_window(
             player_name=player_name,
             window=Window.ANTI_FIGHTER_BARRAGE,
@@ -625,3 +644,21 @@ class GameState:
         if self.selected_unit_id is None:
             raise ComponentNotFoundError("selected_unit_id")
         return self.selected_unit_id
+
+    def reset_combat_round(self) -> Self:
+        combat_context = self.turn_context.get_space_combat_context()
+        new_combat_context = replace(
+            combat_context,
+            step=SpaceCombatStep.ANNOUNCE_RETREATS,
+            round_number=combat_context.round_number + 1,
+            retreat_declaration=RetreatDeclaration(),
+            attacker_combat_rolls=(),
+            defender_combat_rolls=(),
+        )
+        return self.set_hit_context(None).set_space_combat_context(new_combat_context)
+
+
+class HitSource(StrEnum):
+    SPACE_COMBAT = "space_combat"
+    SPACE_CANNON_OFFENSE = "space_cannon_offense"
+    ANTI_FIGTHER_BARRAGE = "anti_fighter_barrage"

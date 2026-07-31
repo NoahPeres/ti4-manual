@@ -3,12 +3,14 @@ from typing import TYPE_CHECKING
 from src.engine.actions.movement import MoveShipCommand, TransportUnitCommand
 from src.engine.actions.tactical_action import ActivateCommand
 from src.engine.core.command import Command
+from src.engine.core.dice_roller import DiceRoller
 from src.engine.core.game_engine import CommandType, GameEngine
 from src.engine.core.game_session import GameSession
 from src.engine.core.game_state import (
     Galaxy,
     GameState,
     Phase,
+    SpaceCombatStep,
     TacticalActionStep,
     TurnContext,
 )
@@ -20,7 +22,6 @@ from src.engine.tokens import CommandToken
 from src.engine.units.units import ShipKind, Unit, make_unit_with_id
 
 if TYPE_CHECKING:
-    from src.engine.core.dice_roller import DiceRoller
     from src.engine.strategy_cards import StrategyCard
 
 
@@ -319,3 +320,154 @@ def make_centre_ring_with_player_token(player_name: str, system_id: int) -> Gala
 
 # Convenience constants for common configurations
 CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN = make_centre_ring_with_player_token("A", 0)
+
+
+class RepeatingDiceRoller(DiceRoller):
+    """Dice roller that cycles through provided values."""
+
+    def __init__(self, values: list[int]) -> None:
+        self.values = values if values else [5]
+        self.call_count = 0
+
+    def roll(self, num_dice: int) -> list[int]:
+        result: list[int] = []
+        for _ in range(num_dice):
+            result.append(self.values[self.call_count % len(self.values)])
+            self.call_count += 1
+        return result
+
+
+def make_start_of_space_combat_state(
+    initial_state: GameState | None = None,
+    dice_roller: DiceRoller | None = None,
+) -> GameSession:
+    player_a = make_player(
+        name="A",
+    )
+    player_b = make_player(
+        name="B",
+    )
+
+    session = make_basic_session_from_players(
+        players=(player_a, player_b),
+        initial_state=initial_state
+        or make_tactical_action_movement_state(
+            active_system_id=0,
+            units=frozenset(
+                {
+                    make_unit_with_id(
+                        unit_id=1,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                    make_unit_with_id(
+                        unit_id=2,
+                        owner_name="B",
+                        kind=ShipKind.DESTROYER,
+                        system_id=0,
+                    ),
+                    make_unit_with_id(
+                        unit_id=3,
+                        owner_name="A",
+                        kind=ShipKind.DESTROYER,
+                        system_id=1,
+                    ),
+                    make_unit_with_id(
+                        unit_id=4,
+                        owner_name="B",
+                        kind=ShipKind.DESTROYER,
+                        system_id=2,
+                    ),
+                },
+            ),
+            players=(player_a, player_b),
+            systems=CENTRE_RING_OF_SYSTEMS,
+        ),
+        dice_roller=dice_roller,
+    )
+    session.apply_command(
+        command=Command(actor=player_a.name, command_type=CommandType.END_MOVEMENT),
+    )
+    pass_space_cannon_window(session=session, state=session.current_state)
+    assert len(session.failure_history) == 0
+    return session
+
+
+def make_announce_retreat_step_combat_state(
+    initial_state: GameState | None = None,
+    dice_roller: DiceRoller | None = None,
+) -> GameSession:
+    session = make_start_of_space_combat_state(initial_state, dice_roller)
+    player_a = session.current_state.get_player("A")
+    player_b = session.current_state.get_player("B")
+    for player in session.current_state.players:
+        session.apply_command(
+            command=Command(actor=player.name, command_type=CommandType.PASS_START_OF_COMBAT_ROUND),
+        )
+    for player in (player_a, player_b):
+        session.apply_command(
+            Command(actor=player.name, command_type=CommandType.USE_ANTI_FIGHTER_BARRAGE),
+        )
+    assert len(session.failure_history) == 0
+    return session
+
+
+def make_roll_dice_step_state(
+    units: frozenset[Unit],
+    systems: Galaxy | None = None,
+    dice_roller: DiceRoller | None = None,
+    players: tuple[Player, ...] | None = None,
+) -> GameSession:
+    if players is None:
+        players = (
+            make_player(
+                "A",
+                command_sheet=CommandSheet.make_from_int(
+                    player_name="A",
+                    tactic=2,
+                    fleet=3,
+                    strategy=2,
+                    reinforcements=8,
+                ),
+            ),
+            make_player("B"),
+        )
+    session = make_announce_retreat_step_combat_state(
+        initial_state=make_tactical_action_movement_state(
+            active_system_id=0,
+            units=units,
+            players=players,
+            systems=systems
+            or Galaxy(
+                {
+                    System(
+                        id=0,
+                        command_tokens=(CommandToken(player_name="A"),),
+                        coordinates=HexCoord(0, 0),
+                        planets=frozenset({Planet(0)}),
+                    ),
+                },
+            ),
+        ),
+        dice_roller=dice_roller,
+    )
+    assert (
+        session.current_state.turn_context.get_space_combat_context().step
+        == SpaceCombatStep.ANNOUNCE_RETREATS
+    )
+    defender = session.current_state.turn_context.get_space_combat_context().defender
+    attacker = session.current_state.turn_context.get_space_combat_context().attacker
+    for player in defender, attacker:
+        session.apply_command(
+            command=Command(actor=player, command_type=CommandType.PASS_ANNOUNCE_RETREAT),
+        )
+    return session
+
+
+class FixedDiceRoller(DiceRoller):
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def roll(self, num_dice: int) -> list[int]:
+        return [self.value] * num_dice

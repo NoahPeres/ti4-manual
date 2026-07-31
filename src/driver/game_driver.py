@@ -60,5 +60,9 @@ class GameDriver:
 
     def play_until(self, session: GameSession, stop_condition: GameStateQuery) -> GameSession:
         while not stop_condition(session.current_state):
-            self.step(session)
+            try:
+                self.step(session)
+            except RuntimeError:
+                print("ERROR: debug session history")
+                raise
         return session
