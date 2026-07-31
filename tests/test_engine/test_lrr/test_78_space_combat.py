@@ -322,6 +322,7 @@ def test_78_2_b_end_of_last_combat_round_and_end_of_combat_are_the_same_window()
                         source=HitSource.SPACE_COMBAT,
                         hits_remaining=1,
                         assigned_hits=frozenset(),
+                        system_id=0,
                     ),
                     space_combat_context=assigned_hits,
                 ),

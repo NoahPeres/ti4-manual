@@ -81,6 +81,7 @@ class HitAssignmentContext:
     source: HitSource
     hits_remaining: int
     assigned_hits: frozenset[int]
+    system_id: int
 
     def assign_hit(self, unit_id: int) -> Self:
         return replace(
@@ -93,6 +94,8 @@ class HitAssignmentContext:
         return replace(self, hits_remaining=self.hits_remaining - 1)
 
     def is_valid_target(self, unit: Unit) -> bool:
+        if unit.system_id != self.system_id:
+            return False
         match self.source:
             case HitSource.ANTI_FIGTHER_BARRAGE:
                 return unit.kind == ShipKind.FIGHTER
@@ -539,7 +542,10 @@ class GameState:
 
     def assign_hit(self, unit_id: int) -> Self:
         context = self.turn_context.get_hit_assignment_context()
-        if self.get_current_system(self.get_unit_from_id(unit_id)) is None:
+        unit = self.get_unit_from_id(unit_id)
+        if self.get_current_system(unit) is None:
+            raise ComponentNotFoundError(str(unit_id))
+        if not context.is_valid_target(unit):
             raise ComponentNotFoundError(str(unit_id))
         return self.set_hit_context(
             context.assign_hit(unit_id),

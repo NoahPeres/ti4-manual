@@ -954,6 +954,7 @@ class SetHitsAssigneeEvent(Event):
                 source=HitSource.SPACE_COMBAT,
                 hits_remaining=self.num_hits,
                 assigned_hits=frozenset({}),
+                system_id=previous_state.get_active_system().id,
             )
             if self.player_name is not None
             else None,
@@ -1049,16 +1050,12 @@ class AssignHitEvent(Event):
 
 
 def _legal_hit_assignment(state: GameState, command: AssignHitCommand) -> ValidationResult:
+    hit_context = state.turn_context.get_hit_assignment_context()
     unit = state.get_unit_from_id(unit_id=command.unit_id)
-    if unit.system_id != state.get_active_system().id:
+    if not hit_context.is_valid_target(unit):
         return ValidationResult(
             is_valid=False,
-            info=f"Ship {unit.unit_id} is not in the active system.",
-        )
-    if not unit.is_ship:
-        return ValidationResult(
-            is_valid=False,
-            info=f"Unit {unit.unit_id} is not a ship, cannot be assigned hits in space combat.",
+            info=f"Unit {unit.unit_id} is not a valid target for this hit.",
         )
     if unit.owner_name != command.actor:
         return ValidationResult(

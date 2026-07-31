@@ -9,6 +9,7 @@ from src.engine.core.game_state import SpaceCombatStep
 from src.engine.units.sustain_damage import SustainDamageCommand
 from src.engine.units.units import ShipKind, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
+    CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
     FixedDiceRoller,
     make_roll_dice_step_state,
 )
@@ -53,6 +54,54 @@ def test_87_sustain_damage_usable_before_assigning_hits() -> None:
             actor="A",
             command_type=CommandType.USE_SUSTAIN_DAMAGE,
             unit_id=0,
+        ),
+    ).success
+
+
+def test_87_sustain_damage_cannot_use_ship_outside_active_system() -> None:
+    session = make_roll_dice_step_state(
+        units=frozenset(
+            {
+                make_unit_with_id(
+                    unit_id=0,
+                    owner_name="A",
+                    kind=ShipKind.DESTROYER,
+                    system_id=0,
+                ),
+                make_unit_with_id(
+                    unit_id=1,
+                    owner_name="A",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=1,
+                ),
+                make_unit_with_id(
+                    unit_id=2,
+                    owner_name="B",
+                    kind=ShipKind.DREADNOUGHT,
+                    system_id=0,
+                ),
+            },
+        ),
+        systems=CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    driver = GameDriver(policy=make_dumb_space_combat_agent([], select_first_legal_command=True))
+    session = driver.play_until(
+        session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.BEFORE_ASSIGNING_HITS,
+        ),
+    )
+    hit_context = session.current_state.turn_context.get_hit_assignment_context()
+    assert hit_context.assignee == "A"
+    assert hit_context.hits_remaining == 1
+    assert session.current_state.get_unit_from_id(1).system_id == 1
+    assert not session.engine.apply_command(
+        state=session.current_state,
+        command=SustainDamageCommand(
+            actor="A",
+            command_type=CommandType.USE_SUSTAIN_DAMAGE,
+            unit_id=1,
         ),
     ).success
 
