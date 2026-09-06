@@ -48,11 +48,6 @@ class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
         unit = state.get_unit_from_id(command.unit_id)
         if unit.owner_name != command.actor:
             return ValidationResult(is_valid=False, info="You cannot remove another player's unit.")
-        if not unit.is_transportable:
-            return ValidationResult(
-                is_valid=False,
-                info="Unit is not transportable: removal won't alleviate capacity.",
-            )
         if unit.system_id is None:
             return ValidationResult(is_valid=False, info="Unit is not in any system.")
         if not capacity_exceeded_in_system(state=state, system_id=unit.system_id):
