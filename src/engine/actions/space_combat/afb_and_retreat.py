@@ -498,6 +498,11 @@ class RetreatShipCommandRule(CommandRule[RetreatShipCommand]):
 
 
 def resolve_pending_retreats(previous_state: GameState) -> GameState:
+    if len(previous_state.turn_context.pending_moves) == 0:
+        return replace(
+            previous_state,
+            turn_context=previous_state.turn_context.set_retreat_system_id(None),
+        )
     destination_systems = {move.to_system_id for move in previous_state.turn_context.pending_moves}
     if len(destination_systems) != 1:
         raise InvalidRetreatError
@@ -615,6 +620,8 @@ class PlaceCommandTokenFromPoolEvent(Event):
 class PlaceCommandTokenInDestinationSystemIfAbleEventRule(EventRule):
     def on_event(self, state: GameState, event: Event) -> Sequence[Event]:
         del event
+        if state.turn_context.retreat_system_id is None:
+            return []
         retreating_player_name = state.turn_context.get_space_combat_context().declared_retreat_name
         if retreating_player_name is None:
             raise InvalidRetreatError

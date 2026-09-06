@@ -12,6 +12,9 @@ from src.engine.core.game_state import (
     Galaxy,
     GameState,
     Phase,
+    RetreatDeclaration,
+    SpaceCombatContext,
+    SpaceCombatStep,
     TacticalActionStep,
     TurnContext,
     Window,
@@ -1118,3 +1121,46 @@ def test_89_after_production_game_context_is_clear() -> None:
         state=end_production_state,
         command=Command(actor=player_b.name, command_type=CommandType.END_TURN),
     ).success
+
+
+def test_no_ships_with_move_in_retreat_step_is_legal() -> None:
+    player_a = make_player(
+        "A",
+        command_sheet=CommandSheet.make_from_int(
+            player_name="A", tactic=2, fleet=3, strategy=2, reinforcements=8
+        ),
+    )
+    player_b = make_player("B")
+    ships = {
+        make_unit_with_id(unit_id=0, owner_name="A", kind=ShipKind.FIGHTER, system_id=0),
+        make_unit_with_id(unit_id=1, owner_name="B", kind=ShipKind.DESTROYER, system_id=0),
+    }
+
+    session = make_session(
+        players=(player_a, player_b),
+        active_player=player_a,
+        turn_context=TurnContext(
+            has_initiated_action=True,
+            tactical_action_step=TacticalActionStep.SPACE_COMBAT,
+            space_combat_context=SpaceCombatContext(
+                step=SpaceCombatStep.RETREAT,
+                round_number=1,
+                attacker="A",
+                defender="B",
+                retreat_declaration=RetreatDeclaration(
+                    attacker_has_declared=True, defender_has_declared=False
+                ),
+            ),
+            active_system_id=0,
+            pending_moves=frozenset(),
+        ),
+        galaxy=CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
+        units=frozenset(ships),
+    )
+
+    result = session.engine.apply_command(
+        state=session.current_state,
+        command=action_command(player_a.name, CommandType.END_RETREAT),
+    )
+
+    assert result.success
