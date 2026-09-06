@@ -1,9 +1,18 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from src.engine.actions.movement import OpenWindowEvent
+from src.engine.actions.space_combat.afb_and_retreat import (
+    AdvanceToRetreatStepEvent,
+    EndAntiFighterBarrageStepEvent,
+    ResolvePendingRetreatsEvent,
+)
+from src.engine.actions.space_combat.shared import (
+    active_ship_owners,
+    get_active_system_id,
+    has_finished_assigning_hits,
+    needs_to_assign_hits,
+)
 from src.engine.core.command import (
     Command,
     CommandRule,
@@ -25,27 +34,18 @@ from src.engine.core.game_state import (
 from src.engine.core.windows import CloseWindowEvent
 from src.engine.units.sustain_damage import SustainDamageEvent
 
-from .afb_and_retreat import (
-    AdvanceToRetreatStepEvent,
-    EndAntiFighterBarrageStepEvent,
-    ResolvePendingRetreatsEvent,
-)
-from .shared import (
-    active_ship_owners,
-    get_active_system_id,
-    has_finished_assigning_hits,
-    needs_to_assign_hits,
-)
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from src.engine.core.dice_roller import DiceRoller
+    from src.engine.units.units import Unit
 
 
 class InvalidCombatRollError(ValueError):
     pass
 
 
-def make_combat_roll(unit, dice_roller) -> CombatRoll:
+def make_combat_roll(unit: Unit, dice_roller: DiceRoller) -> CombatRoll:
     value = dice_roller.roll(num_dice=1)[0]
     if unit.stats.combat is None:
         raise InvalidCombatRollError

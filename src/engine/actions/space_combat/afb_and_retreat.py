@@ -24,6 +24,7 @@ from src.engine.core.game_state import (
     SpaceCombatContext,
     SpaceCombatParticipant,
     SpaceCombatStep,
+    System,
     UnitAbility,
     Window,
 )
@@ -224,7 +225,11 @@ class PassAnnounceRetreatEvent(Event):
         return "PassAnnounceRetreatEvent"
 
 
-def _is_eligible_retreat_system_for_player(system, state: GameState, player_name: str) -> bool:
+def _is_eligible_retreat_system_for_player(
+    system: System,
+    state: GameState,
+    player_name: str,
+) -> bool:
     if not state.get_active_system().is_adjacent_to(system):
         return False
     if any(
