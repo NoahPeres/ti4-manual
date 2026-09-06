@@ -1,8 +1,13 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from src.engine.actions.movement import EndMovementStepEvent, OpenWindowEvent
+from src.engine.actions.space_combat.afb_and_retreat import ResetCombatToAnnounceRetreatStepEvent
+from src.engine.actions.space_combat.shared import (
+    END_OF_COMBAT_ROUND_WINDOWS,
+    START_OF_COMBAT_ROUND_WINDOWS,
+    active_ship_owners,
+    get_active_system_id,
+)
 from src.engine.actions.tactical_action import (
     AdvanceToInvasionStepEvent,
     AdvanceToSpaceCombatStepEvent,
@@ -18,14 +23,6 @@ from src.engine.core.command import (
 from src.engine.core.event import Event, EventRule
 from src.engine.core.game_state import GameState, SpaceCombatContext, SpaceCombatStep, Window
 from src.engine.core.windows import CloseWindowEvent
-
-from .afb_and_retreat import ResetCombatToAnnounceRetreatStepEvent
-from .shared import (
-    END_OF_COMBAT_ROUND_WINDOWS,
-    START_OF_COMBAT_ROUND_WINDOWS,
-    active_ship_owners,
-    get_active_system_id,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

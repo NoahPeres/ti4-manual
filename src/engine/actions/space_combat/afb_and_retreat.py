@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import itertools
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Callable, Final
@@ -9,6 +7,8 @@ from src.engine.actions.movement import (
     OpenWindowEvent,
     resolve_pending_moves,
 )
+from src.engine.actions.space_combat.cleanup import RemoveUnitEvent
+from src.engine.actions.space_combat.shared import get_active_system_id
 from src.engine.core.command import (
     Command,
     CommandRule,
@@ -30,9 +30,6 @@ from src.engine.core.game_state import (
 )
 from src.engine.core.player import CommandTokenPool
 from src.engine.core.windows import CloseWindowEvent
-
-from .cleanup import RemoveUnitEvent
-from .shared import get_active_system_id
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

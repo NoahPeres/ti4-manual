@@ -1,10 +1,7 @@
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
+from src.engine.actions.space_combat import afb_and_retreat, cleanup, opening, resolution
 from src.engine.core.game_state import CombatRoll
-
-from . import afb_and_retreat, cleanup, opening, resolution
 
 if TYPE_CHECKING:
     from src.engine.core.command import Command, CommandRule
