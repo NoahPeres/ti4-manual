@@ -1127,7 +1127,11 @@ def test_no_ships_with_move_in_retreat_step_is_legal() -> None:
     player_a = make_player(
         "A",
         command_sheet=CommandSheet.make_from_int(
-            player_name="A", tactic=2, fleet=3, strategy=2, reinforcements=8
+            player_name="A",
+            tactic=2,
+            fleet=3,
+            strategy=2,
+            reinforcements=8,
         ),
     )
     player_b = make_player("B")
@@ -1148,7 +1152,8 @@ def test_no_ships_with_move_in_retreat_step_is_legal() -> None:
                 attacker="A",
                 defender="B",
                 retreat_declaration=RetreatDeclaration(
-                    attacker_has_declared=True, defender_has_declared=False
+                    attacker_has_declared=True,
+                    defender_has_declared=False,
                 ),
             ),
             active_system_id=0,
