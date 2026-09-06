@@ -89,7 +89,8 @@ class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
 def capacity_exceeded_in_system(state: GameState, system_id: int) -> bool:
     units_in_space = state.get_units_in_space_area_of_system(system_id=system_id)
     if len({unit.owner_name for unit in units_in_space}) > 1:
-        raise ValueError
+        msg = "There are more than one player with units in this system."
+        raise ValueError(msg)
     total_capacity = sum(
         [unit.stats.capacity for unit in units_in_space if unit.stats.capacity is not None],
     )
