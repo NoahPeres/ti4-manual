@@ -35,6 +35,7 @@ from src.engine.tokens import CommandToken
 from src.engine.units.units import GroundForceKind, ShipKind, Unit, make_unit_with_id
 from tests.test_engine.test_lrr.common import (
     CENTRE_RING_OF_SYSTEMS,
+    CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
     FixedDiceRoller,
     RepeatingDiceRoller,
     grant_all_units_unique_ids,
@@ -47,7 +48,9 @@ from tests.test_engine.test_lrr.common import (
     pass_space_cannon_window,
 )
 from tests.test_engine.test_lrr.session_driver_policies import (
+    AlwaysDeclareRetreat,
     AssignHitInOrder,
+    RetreatFightersAndInfantry,
     make_dumb_space_combat_agent,
 )
 
@@ -2027,3 +2030,52 @@ def test_combat_edge_case_with_multiple_owners() -> None:
     assert session.current_state.window_context.is_window_active(
         Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY,
     )
+
+
+def test_retreating_player_may_retreat_fighters_and_ground_forces() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.DESTROYER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.CARRIER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=2,
+                owner_name="B",
+                kind=ShipKind.FIGHTER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=3,
+                owner_name="B",
+                kind=GroundForceKind.INFANTRY,
+                system_id=0,
+            ),
+            make_unit_with_id(unit_id=4, owner_name="B", kind=ShipKind.DESTROYER, system_id=1),
+        },
+    )
+    session = make_roll_dice_step_state(
+        units=units,
+        systems=CENTRE_RING_OF_SYSTEMS_WITH_PLAYER_A_TOKEN,
+        dice_roller=FixedDiceRoller(value=5),
+    )
+    driver = GameDriver(
+        policy=make_dumb_space_combat_agent(
+            [AlwaysDeclareRetreat(), RetreatFightersAndInfantry(), AssignHitInOrder(min)],
+        ),
+    )
+    session = driver.play_until(
+        session=session,
+        stop_condition=lambda state: state.window_context.is_window_active(
+            Window.END_OF_SPACE_COMBAT,
+        ),
+    )
+    assert len(session.current_state.get_units_in_system(0, player_name="B")) == 0

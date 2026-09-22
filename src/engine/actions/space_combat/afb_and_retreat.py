@@ -393,7 +393,6 @@ class AdvanceToRollDiceStepEventRule(EventRule):
 class RetreatShipCommand(Command):
     ship_id: int
     to_system_id: int
-    transported_unit_ids: frozenset[int] = frozenset()
 
 
 def _ship_is_valid_for_retreat(
