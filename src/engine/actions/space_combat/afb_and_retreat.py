@@ -1,6 +1,7 @@
 import itertools
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Callable, Final
+from typing import TYPE_CHECKING, Final
 
 from src.engine.actions.movement import (
     AddMoveToPendingEvent,
@@ -32,8 +33,6 @@ from src.engine.core.player import CommandTokenPool
 from src.engine.core.windows import CloseWindowEvent
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from src.engine.units.units import Ship
 
 

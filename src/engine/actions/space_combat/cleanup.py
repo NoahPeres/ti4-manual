@@ -50,7 +50,11 @@ class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
             return ValidationResult(is_valid=False, info="You cannot remove another player's unit.")
         if unit.system_id is None:
             return ValidationResult(is_valid=False, info="Unit is not in any system.")
-        if not capacity_exceeded_in_system(state=state, system_id=unit.system_id):
+        if not capacity_exceeded_in_system(
+            state=state,
+            system_id=unit.system_id,
+            player_name=unit.owner_name,
+        ):
             return ValidationResult(is_valid=False, info="Unit is not exceeding capacity.")
         return ValidationResult(is_valid=True)
 
@@ -81,11 +85,11 @@ class RemoveUnitDueToCapacityCommandRule(CommandRule[RemoveUnitCommand]):
         ]
 
 
-def capacity_exceeded_in_system(state: GameState, system_id: int) -> bool:
-    units_in_space = state.get_units_in_space_area_of_system(system_id=system_id)
-    if len({unit.owner_name for unit in units_in_space}) > 1:
-        msg = "There are more than one player with units in this system."
-        raise ValueError(msg)
+def capacity_exceeded_in_system(state: GameState, system_id: int, player_name: str) -> bool:
+    units_in_space = state.get_units_in_space_area_of_system(
+        system_id=system_id,
+        player_name=player_name,
+    )
     total_capacity = sum(
         [unit.stats.capacity for unit in units_in_space if unit.stats.capacity is not None],
     )
@@ -99,7 +103,14 @@ class CheckCapacityAfterCombatEventRule(EventRule):
             return []
         if event.window != Window.END_OF_SPACE_COMBAT:
             return []
-        if not capacity_exceeded_in_system(state=state, system_id=get_active_system_id(state)):
+        if not any(
+            capacity_exceeded_in_system(
+                state=state,
+                system_id=get_active_system_id(state),
+                player_name=player.name,
+            )
+            for player in state.players
+        ):
             return []
         return [OpenWindowEvent(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY)]
 
@@ -135,7 +146,14 @@ class RecheckCapacityAfterRemovalEventRule(EventRule):
         del event
         if not state.window_context.is_window_active(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY):
             return []
-        if capacity_exceeded_in_system(state=state, system_id=get_active_system_id(state)):
+        if any(
+            capacity_exceeded_in_system(
+                state=state,
+                system_id=get_active_system_id(state),
+                player_name=player.name,
+            )
+            for player in state.players
+        ):
             return []
         return [CloseWindowEvent(Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY)]
 

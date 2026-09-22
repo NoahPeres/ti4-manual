@@ -1993,3 +1993,37 @@ def test_78_10_a_winner_must_remove_excess_capacity_after_combat() -> None:
         stop_condition=lambda state: len(state.get_units_in_space_area_of_system(0)) == 0,
     )
     assert len(session.failure_history) == 0
+
+
+def test_combat_edge_case_with_multiple_owners() -> None:
+    units = frozenset(
+        {
+            make_unit_with_id(
+                unit_id=0,
+                owner_name="A",
+                kind=ShipKind.CARRIER,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=1,
+                owner_name="B",
+                kind=ShipKind.DREADNOUGHT,
+                system_id=0,
+            ),
+            make_unit_with_id(
+                unit_id=2,
+                owner_name="A",
+                kind=GroundForceKind.INFANTRY,
+                system_id=0,
+            ),
+        },
+    )
+    driver = GameDriver(policy=make_dumb_space_combat_agent([AssignHitInOrder(min)]))
+    session = make_roll_dice_step_state(units=units, dice_roller=FixedDiceRoller(value=5))
+    session = driver.play_until(
+        session,
+        lambda state: state.turn_context.space_combat_context is None,
+    )
+    assert session.current_state.window_context.is_window_active(
+        Window.MUST_REMOVE_UNITS_DUE_TO_CAPACITY,
+    )
