@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, cast
 
 from src.driver.game_driver import OptionalCommandPolicy, PriorityPolicy
-from src.engine.actions.space_combat import AssignHitCommand
+from src.engine.actions.space_combat import AssignHitCommand, RetreatShipCommand
 from src.engine.core.command import Command, CommandType
 
 if TYPE_CHECKING:
@@ -123,6 +123,38 @@ class DoNotRetreat(OptionalCommandPolicy):
                     command
                     for command in commands
                     if command.command_type == CommandType.PASS_ANNOUNCE_RETREAT
+                ),
+                None,
+            )
+        return None
+
+
+class AlwaysDeclareRetreat(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        commands = tuple(legal_commands)
+        if any(command.command_type == CommandType.ANNOUNCE_RETREAT for command in commands):
+            return next(
+                (
+                    command
+                    for command in commands
+                    if command.command_type == CommandType.ANNOUNCE_RETREAT
+                ),
+                None,
+            )
+        return None
+
+
+class RetreatFightersAndInfantry(OptionalCommandPolicy):
+    def select_command(self, state: GameState, legal_commands: Iterable[Command]) -> Command | None:
+        del state
+        commands = tuple(legal_commands)
+        if any(command.command_type == CommandType.TRANSPORT_UNIT for command in commands):
+            return next(
+                (
+                    cast("RetreatShipCommand", command)
+                    for command in commands
+                    if command.command_type == CommandType.TRANSPORT_UNIT
                 ),
                 None,
             )
